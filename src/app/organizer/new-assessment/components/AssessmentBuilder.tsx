@@ -1,0 +1,1080 @@
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Layers, ChevronDown, Check, Trash2, Plus, ArrowRight, CheckCircle, Clock, Shield, X, Edit3, Save, MoreVertical, GripVertical, Cloud, Sparkles, Code, FileText, CheckSquare, Type, Image as ImageIcon, ChevronUp } from 'lucide-react';
+import { AssessmentConfig, AssessmentSection, Question, SectionType, QuestionType } from '../types';
+import { ASSESSMENT_CATEGORIES, getSectionDefaults } from './utils';
+import ManualQuestionModal from './ManualQuestionModal';
+import CodingQuestionModal from './CodingQuestionModal';
+import CodingQuestionDisplay from './CodingQuestionDisplay';
+
+interface AssessmentBuilderProps {
+    config: AssessmentConfig;
+    sections: AssessmentSection[];
+    setSections: React.Dispatch<React.SetStateAction<AssessmentSection[]>>;
+    onPublish: () => void;
+    onBack: () => void;
+    isEditMode?: boolean;
+}
+
+const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({ config, sections, setSections, onPublish, onBack, isEditMode }) => {
+    const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
+    const [selectedSubCategories, setSelectedSubCategories] = useState<Record<string, string[]>>({});
+    const [lastAddedSectionId, setLastAddedSectionId] = useState<string | null>(null);
+
+    // Scroll to new section
+    React.useEffect(() => {
+        if (lastAddedSectionId) {
+            const element = document.getElementById(`section-${lastAddedSectionId}`);
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                // Reset after scroll to allow manual scrolling without interference
+                setTimeout(() => setLastAddedSectionId(null), 1000);
+            }
+        }
+    }, [lastAddedSectionId, sections]);
+
+    // Modal State
+    const [isManualModalOpen, setIsManualModalOpen] = useState(false);
+    const [isCodingModalOpen, setIsCodingModalOpen] = useState(false);
+    const [manualModalType, setManualModalType] = useState<SectionType>('aptitude');
+    const [targetSectionId, setTargetSectionId] = useState<string | null>(null);
+    const [modalDivision, setModalDivision] = useState<string | undefined>(undefined);
+    const [modalSubdivision, setModalSubdivision] = useState<string | undefined>(undefined);
+    const [isPreviewMode, setIsPreviewMode] = useState(false);
+
+    // Image modal state
+    const [imageModalOpen, setImageModalOpen] = useState(false);
+    const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
+    // Collapsed questions state
+    const [collapsedQuestions, setCollapsedQuestions] = useState<Set<string>>(new Set());
+
+    // --- ACTIONS ---
+    const toggleCategory = (id: string) => {
+        setExpandedCategories(prev => prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]);
+    };
+
+    const toggleSubCategory = (catId: string, subId: string) => {
+        setSelectedSubCategories(prev => {
+            const current = prev[catId] || [];
+            if (current.includes(subId)) {
+                return { ...prev, [catId]: current.filter(s => s !== subId) }
+            } else {
+                return { ...prev, [catId]: [...current, subId] };
+            }
+        });
+    };
+
+    const toggleQuestionCollapse = (questionId: string) => {
+        setCollapsedQuestions(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(questionId)) {
+                newSet.delete(questionId);
+            } else {
+                newSet.add(questionId);
+            }
+            return newSet;
+        });
+    };
+
+    const handleAddSection = (catId: string, type: SectionType) => {
+        const subIds = selectedSubCategories[catId] || [];
+        const defaults = getSectionDefaults(type);
+        const categoryData = ASSESSMENT_CATEGORIES.find(c => c.id === catId);
+        const categoryLabel = categoryData?.label || 'Custom';
+
+        let title = `${categoryLabel} Section`;
+        if (subIds.length > 0) {
+            if (categoryData) {
+                const labels = subIds.map(sid => categoryData.subCategories.find(s => s.id === sid)?.label).filter(Boolean);
+                if (labels.length > 0) title = labels.join(' & ');
+            }
+        }
+
+        const newSection: AssessmentSection = {
+            ...defaults,
+            id: crypto.randomUUID(),
+            type,
+            themeColor: categoryData?.color || 'gray',
+            title: title + ` (${defaults.difficulty})`,
+            enabledPatterns: defaults.enabledPatterns,
+            questions: []
+        } as AssessmentSection;
+
+        setSections([...sections, newSection]);
+        setSelectedSubCategories(prev => ({ ...prev, [catId]: [] }));
+        setLastAddedSectionId(newSection.id);
+    };
+
+    const updateSection = (id: string, updates: Partial<AssessmentSection>) => {
+        setSections(sections.map(s => s.id === id ? { ...s, ...updates } : s));
+    };
+
+    const deleteSection = (id: string) => {
+        setSections(sections.filter(s => s.id !== id));
+    };
+
+    const openAddQuestionModal = (sectionId: string, type: SectionType) => {
+        setTargetSectionId(sectionId);
+        setManualModalType(type);
+
+        // For coding sections, use the dedicated CodingQuestionModal
+        if (type === 'coding') {
+            setIsCodingModalOpen(true);
+            return;
+        }
+
+        // Extract division and subdivision from section for context
+        const section = sections.find(s => s.id === sectionId);
+        if (section) {
+            console.log('📍 Section found:', section);
+            console.log('📍 Section title:', section.title);
+            console.log('📍 Section type:', section.type);
+
+            // Map section type to division (capitalize first letter)
+            let division: string | undefined;
+            let subdivision: string | undefined;
+
+            // Map section type to proper division name
+            const sectionTypeToDivision: Record<SectionType, string> = {
+                'aptitude': 'Aptitude',
+                'technical': 'Technical',
+                'coding': 'Coding',
+                'subjective': 'Subjective'
+            };
+
+            division = sectionTypeToDivision[section.type] || section.type.charAt(0).toUpperCase() + section.type.slice(1);
+
+            // Extract subdivision from title (e.g., "Quantitative (Medium)" -> "Quantitative")
+            const titleMatch = section.title.match(/^([^(]+)/);
+            if (titleMatch) {
+                subdivision = titleMatch[1].trim();
+            }
+
+            console.log('📍 Extracted division:', division);
+            console.log('📍 Extracted subdivision:', subdivision);
+
+            setModalDivision(division);
+            setModalSubdivision(subdivision);
+        }
+
+        setIsManualModalOpen(true);
+    };
+
+    const handleSaveQuestion = (questionOrQuestions: Question | Question[]) => {
+        if (!targetSectionId) return;
+
+        const section = sections.find(s => s.id === targetSectionId);
+        if (section) {
+            const currentQuestions = section.questions || [];
+
+            // Handle both single question and array of questions
+            const questionsToAdd = Array.isArray(questionOrQuestions) ? questionOrQuestions : [questionOrQuestions];
+
+            // Filter out duplicates based on question text       
+            const existingTexts = new Set(currentQuestions.map(q => q.text.trim().toLowerCase()));
+            const uniqueQuestions = questionsToAdd.filter(q => {
+                const questionText = q.text.trim().toLowerCase();
+                if (existingTexts.has(questionText)) {
+                    console.log('⚠️ Skipping duplicate question:', q.text);
+                    return false;
+                }
+                existingTexts.add(questionText);
+                return true;
+            });
+
+            console.log(`✅ Adding ${uniqueQuestions.length} unique questions out of ${questionsToAdd.length} total`);
+
+            const updatedQuestions = [...currentQuestions, ...uniqueQuestions];
+            const newCount = Math.max(section.questionCount, updatedQuestions.length);
+
+            updateSection(targetSectionId, {
+                questions: updatedQuestions,
+                questionCount: newCount
+            });
+        }
+        setIsManualModalOpen(false);
+        setIsCodingModalOpen(false);
+    };
+
+    const deleteQuestion = (sectionId: string, questionId: string) => {
+        const section = sections.find(s => s.id === sectionId);
+        if (section) {
+            const updatedQuestions = (section.questions || []).filter(q => q.id !== questionId);
+            updateSection(sectionId, {
+                questions: updatedQuestions,
+                questionCount: Math.max(section.questionCount, updatedQuestions.length)
+            });
+            // Remove from collapsed set if it was collapsed
+            setCollapsedQuestions(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(questionId);
+                return newSet;
+            });
+        }
+    };
+
+    // --- CALCULATIONS ---
+    // Section Score = (questions added) × marksPerQuestion
+    const calculateSectionMarks = (section: AssessmentSection) => {
+        const count = section.questions?.length || 0;
+        const marks = Number(section.marksPerQuestion) || 0;
+        return count * marks;
+    };
+
+    const totalMarks = sections.reduce((acc, s) => acc + calculateSectionMarks(s), 0);
+    const totalQuestions = sections.reduce((acc, s) => acc + (s.questions?.length || 0), 0);
+    const totalTime = sections.reduce((acc, s) => acc + (Number(s.timeLimit) || 0), 0);
+
+    // --- HELPER FOR COLORS ---
+    const getColorClasses = (color: string) => {
+        switch (color) {
+            case 'green': return {
+                border: 'border-green-500/20',
+                bg: 'bg-green-500/5',
+                text: 'text-emerald-700 dark:text-emerald-400',
+                badge: 'bg-emerald-500/10 text-emerald-600',
+                input: 'focus:border-emerald-500 hover:bg-emerald-500/5'
+            };
+            case 'purple': return {
+                border: 'border-purple-500/20',
+                bg: 'bg-purple-500/5',
+                text: 'text-purple-700 dark:text-purple-400',
+                badge: 'bg-purple-500/10 text-purple-600',
+                input: 'focus:border-purple-500 hover:bg-purple-500/5'
+            };
+            case 'blue': return {
+                border: 'border-blue-500/20',
+                bg: 'bg-blue-500/5',
+                text: 'text-blue-700 dark:text-blue-400',
+                badge: 'bg-blue-500/10 text-blue-600',
+                input: 'focus:border-blue-500 hover:bg-blue-500/5'
+            };
+            case 'orange': return {
+                border: 'border-orange-500/20',
+                bg: 'bg-orange-500/5',
+                text: 'text-orange-700 dark:text-orange-400',
+                badge: 'bg-orange-500/10 text-orange-600',
+                input: 'focus:border-orange-500 hover:bg-orange-500/5'
+            };
+            default: return {
+                border: 'border-border',
+                bg: 'bg-card',
+                text: 'text-foreground',
+                badge: 'bg-muted text-muted-foreground',
+                input: 'focus:border-primary hover:bg-muted/50'
+            };
+        }
+    };
+
+    const getQuestionTypeIcon = (type: QuestionType) => {
+        switch (type) {
+            case 'coding': return <Code size={12} className="text-emerald-500" />;
+            case 'single_choice': return <CheckCircle size={12} className="text-blue-500" />;
+            case 'multiple_choice': return <CheckSquare size={12} className="text-purple-500" />;
+            case 'fill_in_the_blank': return <Type size={12} className="text-orange-500" />;
+            default: return <FileText size={12} className="text-muted-foreground" />;
+        }
+    };
+
+    // --- RENDER PREVIEW ---
+    if (isPreviewMode) {
+        return (
+            <div className="flex-1 flex flex-col h-screen overflow-hidden bg-background relative w-full">
+                {/* Background Ambient Effects */}
+                <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-primary/5 via-primary/0 to-transparent pointer-events-none" />
+
+                <div className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-10 pb-32">
+                    <div className="max-w-5xl mx-auto space-y-10">
+                        {/* HEADER SECTION */}
+                        <div className="relative text-center space-y-8 py-8">
+                            <div className="space-y-4 relative z-10">
+                                <div className="inline-block relative">
+                                    <h2 className="text-4xl md:text-5xl font-black tracking-tighter text-foreground pb-2">{config.title || "Untitled Assessment"}</h2>
+                                    <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-24 h-1.5 bg-primary rounded-full opacity-80" />
+                                </div>
+                                <p className="text-sm text-muted-foreground max-w-xl mx-auto leading-relaxed font-medium">{config.description || "No description provided for this assessment."}</p>
+                            </div>
+
+                            {/* POWER METRICS - The "Power Mark" Display */}
+                            <div className="grid grid-cols-3 gap-6 max-w-3xl mx-auto pt-4">
+                                <div className="relative p-6 rounded-3xl bg-card border border-border/50 shadow-lg shadow-primary/5 overflow-hidden group hover:-translate-y-1 transition-transform duration-300">
+                                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary to-transparent opacity-50" />
+                                    <div className="relative z-10">
+                                        <div className="text-4xl font-black text-foreground tracking-tighter group-hover:scale-110 transition-transform duration-300 origin-center">{totalMarks}</div>
+                                        <div className="text-[10px] uppercase font-bold text-primary tracking-widest mt-1">Total Marks</div>
+                                    </div>
+                                </div>
+
+                                <div className="relative p-6 rounded-3xl bg-card border border-border/50 shadow-lg shadow-blue-500/5 overflow-hidden group hover:-translate-y-1 transition-transform duration-300">
+                                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-blue-500 to-transparent opacity-50" />
+                                    <div className="relative z-10">
+                                        <div className="text-4xl font-black text-foreground tracking-tighter group-hover:scale-110 transition-transform duration-300 origin-center flex items-center justify-center gap-1">
+                                            {totalTime}<span className="text-lg opacity-40 font-bold self-end mb-1">m</span>
+                                        </div>
+                                        <div className="text-[10px] uppercase font-bold text-blue-500 tracking-widest mt-1">Duration</div>
+                                    </div>
+                                </div>
+
+                                <div className="relative p-6 rounded-3xl bg-card border border-border/50 shadow-lg shadow-purple-500/5 overflow-hidden group hover:-translate-y-1 transition-transform duration-300">
+                                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-purple-500 to-transparent opacity-50" />
+                                    <div className="relative z-10">
+                                        <div className="text-4xl font-black text-foreground tracking-tighter group-hover:scale-110 transition-transform duration-300 origin-center">{totalQuestions}</div>
+                                        <div className="text-[10px] uppercase font-bold text-purple-500 tracking-widest mt-1">Questions</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-8">
+                            {/* Structure Overview Table */}
+                            <div className="space-y-4">
+                                <h3 className="font-bold text-xs uppercase tracking-wider text-foreground/70 flex items-center gap-2 px-1">
+                                    <Layers size={14} /> Structure Breakdown
+                                </h3>
+
+                                <div className="bg-card border border-border/60 rounded-2xl overflow-hidden shadow-sm ring-1 ring-black/5">
+                                    {/* Styled Header */}
+                                    <div className="bg-muted/30 border-b border-border/60 px-5 py-3">
+                                        <div className="grid grid-cols-12 gap-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                                            <div className="col-span-1 text-center">#</div>
+                                            <div className="col-span-5">Section Details</div>
+                                            <div className="col-span-2 text-center">Config</div>
+                                            <div className="col-span-2 text-center">Marks/Q</div>
+                                            <div className="col-span-2 text-right">Total</div>
+                                        </div>
+                                    </div>
+
+                                    {/* Styled Body */}
+                                    <div className="divide-y divide-border/30">
+                                        {sections.map((s, idx) => {
+                                            const colors = getColorClasses(s.themeColor || 'gray');
+                                            return (
+                                                <div key={s.id} className="grid grid-cols-12 gap-4 px-5 py-4 hover:bg-muted/20 transition-colors items-center group">
+                                                    {/* Index */}
+                                                    <div className="col-span-1 flex justify-center">
+                                                        <div className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold ${colors.badge} opacity-70 group-hover:opacity-100 transition-opacity`}>
+                                                            {idx + 1}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Section Name */}
+                                                    <div className="col-span-5">
+                                                        <div className="font-bold text-sm text-foreground mb-1">{s.title}</div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider bg-secondary text-secondary-foreground`}>
+                                                                {s.type.replace('_', ' ')}
+                                                            </span>
+                                                            <span className={`text-[9px] font-bold ${colors.text}`}>
+                                                                {s.difficulty}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Config */}
+                                                    <div className="col-span-2 flex flex-col items-center justify-center gap-1">
+                                                        <div className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+                                                            <FileText size={12} className="text-muted-foreground" /> {s.questions?.length || 0}
+                                                        </div>
+                                                        <div className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+                                                            <Clock size={12} className="text-muted-foreground" /> {s.timeLimit}m
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Scoring Per Q */}
+                                                    <div className="col-span-2 text-center">
+                                                        <div className="text-sm font-bold text-foreground">{s.marksPerQuestion}</div>
+                                                    </div>
+
+                                                    {/* Total Section Marks */}
+                                                    <div className="col-span-2 text-right">
+                                                        <div className={`text-sm font-black ${colors.text}`}>
+                                                            {calculateSectionMarks(s)}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {/* Footer Summary */}
+                                    {sections.length > 0 && (
+                                        <div className="bg-muted/20 border-t border-border/60 px-6 py-4">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Assessment Totals</span>
+                                                <div className="flex items-center gap-8">
+                                                    <div className="flex items-baseline gap-1.5">
+                                                        <span className="text-xs font-medium text-muted-foreground">Questions:</span>
+                                                        <span className="text-sm font-bold text-foreground">{totalQuestions}</span>
+                                                    </div>
+                                                    <div className="flex items-baseline gap-1.5">
+                                                        <span className="text-xs font-medium text-muted-foreground">Time:</span>
+                                                        <span className="text-sm font-bold text-foreground">{totalTime} min</span>
+                                                    </div>
+                                                    <div className="flex items-baseline gap-1.5">
+                                                        <span className="text-xs font-medium text-muted-foreground">Marks:</span>
+                                                        <span className="text-sm font-black text-primary">{totalMarks}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Security & Settings - Moved Below */}
+                            <div className="space-y-4">
+                                <h3 className="font-bold text-xs uppercase tracking-wider text-foreground/70 flex items-center gap-2 px-1">
+                                    <Shield size={14} /> Security Configuration
+                                </h3>
+
+                                <div className="bg-card border border-border/60 rounded-2xl overflow-hidden shadow-sm ring-1 ring-black/5">
+                                    <div className={`p-5 border-b border-border/50 ${config.proctoring.enabled ? 'bg-emerald-500/5' : 'bg-destructive/5'}`}>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Proctoring Mode</span>
+                                            {config.proctoring.enabled ? (
+                                                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500 text-white text-[10px] font-black uppercase tracking-wide shadow-sm shadow-emerald-500/20">
+                                                    <Shield size={10} className="fill-current" /> Enabled
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-destructive text-white text-[10px] font-black uppercase tracking-wide shadow-sm shadow-destructive/20">
+                                                    Disabled
+                                                </div>
+                                            )}
+                                        </div>
+                                        <p className="text-[11px] text-muted-foreground leading-relaxed mt-3">
+                                            {config.proctoring.enabled
+                                                ? "Advanced AI monitoring is active. Candidates will be monitored for suspicious activity based on the rules below."
+                                                : "No active proctoring. Candidates can take the assessment without monitoring constraints."}
+                                        </p>
+                                    </div>
+
+                                    {config.proctoring.enabled && (
+                                        <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                            {[
+                                                // Monitoring
+                                                { label: 'Webcam Monitoring', val: config.proctoring.videoMonitoring },
+                                                { label: 'Image Proctoring', val: config.proctoring.imageMonitoring },
+                                                { label: 'Screen Recording', val: config.proctoring.screenRecording },
+                                                { label: 'Audio Monitoring', val: config.proctoring.audioMonitoring },
+                                                { label: 'Audio Recording', val: config.proctoring.audioRecording },
+
+                                                // AI Detection
+                                                { label: 'Person Detection', val: config.proctoring.personDetection },
+                                                { label: 'Object Detection', val: config.proctoring.objectDetection },
+                                                { label: 'Face Detection', val: config.proctoring.faceDetection },
+                                                { label: 'Eye Tracking', val: config.proctoring.eyeTracking },
+                                                { label: 'Noise Detection', val: config.proctoring.noiseDetection },
+
+                                                // Lockdown
+                                                { label: 'Force Fullscreen', val: config.proctoring.fullscreen },
+                                                { label: 'No Tab Switching', val: config.proctoring.tabSwitchLimit > 0, text: `${config.proctoring.tabSwitchLimit} allowed` },
+                                                { label: 'Block Copy/Paste', val: config.proctoring.disableCopyPaste },
+                                                { label: 'Block Ext. Monitor', val: config.proctoring.blockExternalMonitor },
+                                                { label: 'Block Right Click', val: config.proctoring.blockRightClick },
+
+                                                // Verification
+                                                { label: 'ID Verification', val: config.proctoring.verifyIDCard },
+                                                { label: 'Face Verification', val: config.proctoring.verifyFace },
+                                            ].map((item, idx) => (
+                                                <div key={idx} className={`flex items-center justify-between p-3 rounded-xl border transition-colors ${item.val ? 'bg-emerald-500/5 border-emerald-500/20 scale-[1.02] shadow-sm' : 'bg-muted/10 border-transparent opacity-60'}`}>
+                                                    <span className={`text-xs font-semibold ${item.val ? 'text-foreground' : 'text-muted-foreground'}`}>{item.label}</span>
+                                                    {item.val ? (
+                                                        <div className="flex items-center gap-1.5">
+                                                            {item.text && <span className="text-[10px] font-bold text-muted-foreground mr-1">{item.text}</span>}
+                                                            <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center text-white shadow-sm shadow-emerald-500/25">
+                                                                <Check size={10} strokeWidth={3} />
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="w-2 h-2 rounded-full bg-border" />
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Footer - Floating Style (Bottom Right) */}
+                <div className="absolute bottom-8 right-8 z-30 w-auto">
+                    <div className="bg-background/80 backdrop-blur-2xl border border-white/20 shadow-2xl rounded-2xl p-2 flex items-center gap-3 ring-1 ring-black/5 dark:ring-white/5">
+                        <button
+                            onClick={() => setIsPreviewMode(false)}
+                            className="text-muted-foreground hover:text-foreground hover:bg-muted/50 font-bold text-xs px-5 py-3 rounded-xl transition-all"
+                        >
+                            Back to Editor
+                        </button>
+                        <button
+                            onClick={onPublish}
+                            className="bg-primary text-primary-foreground px-8 py-3 rounded-xl font-bold hover:opacity-90 hover:scale-[1.02] transition-all flex items-center justify-center gap-2 shadow-xl shadow-primary/25 active:scale-[0.98]"
+                        >
+                            {isEditMode ? 'Update Assessment' : 'Publish Now'} <ArrowRight size={16} />
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // --- MAIN BUILDER VIEW ---
+    return (
+        <div className="w-full h-full flex overflow-hidden">
+            <ManualQuestionModal
+                isOpen={isManualModalOpen}
+                onClose={() => setIsManualModalOpen(false)}
+                onSave={handleSaveQuestion}
+                type={manualModalType}
+                division={modalDivision}
+                subdivision={modalSubdivision}
+            />
+
+            <CodingQuestionModal
+                isOpen={isCodingModalOpen}
+                onClose={() => setIsCodingModalOpen(false)}
+                onSave={handleSaveQuestion}
+            />
+
+            {/* Floating Categories Panel */}
+            <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.3, ease: "easeOut" }}
+                className="absolute top-6 left-6 z-30 w-[260px]"
+            >
+                <div className="relative bg-sidebar/90 backdrop-blur-2xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)] rounded-2xl overflow-hidden max-h-[calc(100vh-140px)] flex flex-col ring-1 ring-black/5 dark:ring-white/5">
+                    <div className="p-3 border-b border-border/50 flex items-center justify-between">
+                        <div>
+                            <h2 className="text-sm font-black flex items-center gap-2 text-foreground">
+                                <Layers size={16} className="text-primary" /> Builder
+                            </h2>
+                            <p className="text-[9px] text-muted-foreground font-medium">Select categories</p>
+                        </div>
+                    </div>
+
+                    {/* Quick Add Actions */}
+                    <div className="p-2">
+                        <button
+                            onClick={() => {
+                                const newId = Date.now().toString();
+                                setSections([...sections, {
+                                    id: newId,
+                                    title: "New Section",
+                                    description: "General questions section",
+                                    type: "technical",
+                                    questionCount: 5,
+                                    timeLimit: 15,
+                                    marksPerQuestion: 2,
+                                    difficulty: "Medium",
+                                    themeColor: "blue",
+                                    questions: [],
+                                    negativeMarking: 0,
+                                    enabledPatterns: []
+                                }]);
+                                setLastAddedSectionId(newId);
+                            }}
+                            className="w-full flex items-center justify-center gap-2 p-2 rounded-lg border border-dashed border-primary/30 bg-primary/5 hover:bg-primary/10 hover:border-primary/50 transition-all group active:scale-[0.98]"
+                        >
+                            <Plus size={14} className="text-primary group-hover:scale-110 transition-transform" />
+                            <span className="text-[11px] font-bold text-primary">Add New Section</span>
+                        </button>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-2 pt-0 space-y-1 custom-scrollbar">
+                        {ASSESSMENT_CATEGORIES.map(category => (
+                            <div key={category.id} className={`rounded-lg transition-all duration-300 overflow-hidden ${expandedCategories.includes(category.id) ? 'bg-muted/30 pb-2' : 'hover:bg-accent/50'} border border-transparent ${expandedCategories.includes(category.id) ? 'border-border/50' : ''}`}>
+                                <button
+                                    onClick={() => toggleCategory(category.id)}
+                                    className="w-full p-2 flex items-center justify-between text-left"
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <div className={`p-1.5 rounded-lg transition-colors ${expandedCategories.includes(category.id) ? category.badgeBg + ' ' + category.badgeText : 'bg-muted/50 text-muted-foreground'}`}>
+                                            <category.icon size={14} />
+                                        </div>
+                                        <span className={`font-bold text-[11px] ${expandedCategories.includes(category.id) ? 'text-foreground' : 'text-muted-foreground/90'}`}>{category.label}</span>
+                                    </div>
+                                    <ChevronDown size={12} className={`transition-transform duration-300 text-muted-foreground/70 ${expandedCategories.includes(category.id) ? 'rotate-180 text-foreground' : ''}`} />
+                                </button>
+
+                                <AnimatePresence>
+                                    {expandedCategories.includes(category.id) && (
+                                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                                            <div className="px-2 pb-1 space-y-1">
+                                                {category.subCategories.map(sub => {
+                                                    const isSelected = selectedSubCategories[category.id]?.includes(sub.id);
+                                                    return (
+                                                        <div key={sub.id} onClick={() => toggleSubCategory(category.id, sub.id)} className={`flex items-start gap-2 p-1.5 rounded-lg cursor-pointer transition-all group ${isSelected ? 'bg-primary/5' : 'hover:bg-background/80'}`}>
+                                                            <div className={`w-3 h-3 mt-0.5 rounded-[3px] border flex items-center justify-center transition-all ${isSelected ? 'bg-primary border-primary text-primary-foreground' : 'border-muted-foreground/30 group-hover:border-primary/50'}`}>
+                                                                {isSelected && <Check size={8} strokeWidth={4} />}
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className={`text-[10px] font-bold leading-none mb-0.5 ${isSelected ? 'text-primary' : 'text-foreground/80'}`}>{sub.label}</div>
+                                                                <div className="text-[8px] text-muted-foreground/60 leading-tight">{sub.description}</div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+
+                                                {/* Add Section Button */}
+                                                {selectedSubCategories[category.id]?.length > 0 && (
+                                                    <button
+                                                        onClick={() => handleAddSection(category.id, category.sectionType)}
+                                                        className="w-full py-2 mt-1 rounded-lg text-[9px] uppercase font-black flex items-center justify-center gap-1 text-white bg-primary hover:opacity-90 transition-all shadow-md shadow-primary/20 hover:shadow-primary/30 active:scale-[0.98] tracking-wide"
+                                                    >
+                                                        <Plus size={10} strokeWidth={3} /> Add {category.label}
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </motion.div>
+
+            {/* RIGHT: Sections Editor - Now full width with left padding for floating panel */}
+            <div className="flex-1 flex flex-col bg-background/50 w-full overflow-hidden relative pl-[280px]">
+                {sections.length === 0 ? (
+                    <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-10 text-center relative overflow-hidden">
+                        {/* Subtle Grid Pattern */}
+                        <div className="absolute inset-0 opacity-[0.02] dark:opacity-[0.05]" style={{
+                            backgroundImage: 'linear-gradient(to right, currentColor 1px, transparent 1px), linear-gradient(to bottom, currentColor 1px, transparent 1px)',
+                            backgroundSize: '40px 40px'
+                        }} />
+
+                        {/* Ambient Glow */}
+                        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                            <motion.div
+                                animate={{
+                                    opacity: [0.03, 0.06, 0.03],
+                                    scale: [1, 1.1, 1]
+                                }}
+                                transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+                                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-radial from-primary/20 via-primary/5 to-transparent blur-3xl"
+                            />
+                        </div>
+
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+                            className="relative z-10 flex flex-col items-center max-w-xl"
+                        >
+                            {/* Minimalist Icon Stack */}
+                            <div className="relative mb-12">
+                                {/* Main Container */}
+                                <motion.div
+                                    animate={{ y: [0, -6, 0] }}
+                                    transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                                    className="relative"
+                                >
+                                    {/* Stacked Cards Effect */}
+                                    <div className="relative w-32 h-32">
+                                        {/* Back Card */}
+                                        <motion.div
+                                            animate={{ rotate: [0, -3, 0] }}
+                                            transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+                                            className="absolute inset-0 bg-gradient-to-br from-muted/40 to-muted/20 rounded-2xl border border-border/40 backdrop-blur-sm translate-x-3 translate-y-3"
+                                        />
+                                        {/* Middle Card */}
+                                        <motion.div
+                                            animate={{ rotate: [0, 2, 0] }}
+                                            transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut", delay: 0.2 }}
+                                            className="absolute inset-0 bg-gradient-to-br from-muted/60 to-muted/30 rounded-2xl border border-border/50 backdrop-blur-sm translate-x-1.5 translate-y-1.5"
+                                        />
+                                        {/* Front Card */}
+                                        <motion.div
+                                            animate={{ rotate: [0, -1, 0] }}
+                                            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut", delay: 0.4 }}
+                                            className="absolute inset-0 bg-gradient-to-br from-background via-background to-muted/20 rounded-2xl border border-border shadow-2xl shadow-primary/5 backdrop-blur-xl flex items-center justify-center"
+                                        >
+                                            <Layers size={52} className="text-foreground/80" strokeWidth={1.5} />
+                                        </motion.div>
+                                    </div>
+                                </motion.div>
+
+                                {/* Floating Accent Dots */}
+                                <motion.div
+                                    animate={{
+                                        x: [0, 8, 0],
+                                        y: [0, -8, 0]
+                                    }}
+                                    transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+                                    className="absolute -top-2 -right-2 w-3 h-3 rounded-full bg-primary/40 blur-[1px]"
+                                />
+                                <motion.div
+                                    animate={{
+                                        x: [0, -6, 0],
+                                        y: [0, 6, 0]
+                                    }}
+                                    transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
+                                    className="absolute -bottom-3 -left-3 w-2 h-2 rounded-full bg-primary/30 blur-[1px]"
+                                />
+                            </div>
+
+                            {/* Text Content */}
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                transition={{ delay: 0.3, duration: 0.6 }}
+                                className="space-y-4"
+                            >
+                                <h3 className="text-2xl font-bold text-foreground tracking-tight">
+                                    No sections yet
+                                </h3>
+                                <p className="text-sm text-muted-foreground leading-relaxed max-w-sm mx-auto">
+                                    Create your first section to start building the assessment structure
+                                </p>
+                            </motion.div>
+
+                            {/* Action Hint */}
+                            <motion.div
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.5, duration: 0.6 }}
+                                className="mt-8 flex items-center gap-3 text-xs text-muted-foreground/60"
+                            >
+                                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted/30 border border-border/40">
+                                    <Plus size={12} strokeWidth={2.5} />
+                                    <span className="font-medium">Add Section</span>
+                                </div>
+                                <span>or select from sidebar</span>
+                            </motion.div>
+                        </motion.div>
+                    </div>
+                ) : (
+                    <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6 pb-32 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-muted-foreground/20 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-transparent hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/30">
+                        {sections.map((section, idx) => {
+                            const colors = getColorClasses(section.themeColor || 'gray');
+                            return (
+                                <motion.div
+                                    id={`section-${section.id}`}
+                                    initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.98, transition: { duration: 0.2 } }}
+                                    transition={{ duration: 0.3, ease: "easeOut" }}
+                                    key={section.id}
+                                    onClick={() => {
+                                        const el = document.getElementById(`section-${section.id}`);
+                                        el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                    }}
+                                    className={`border rounded-xl p-6 transition-all group relative bg-card ${colors.border}`}
+                                >
+                                    <div className="flex flex-col md:flex-row gap-6 items-start">
+                                        {/* Section Index */}
+                                        <div className="hidden md:flex flex-col items-center gap-2 pt-1">
+                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${colors.badge}`}>
+                                                {idx + 1}
+                                            </div>
+                                            <GripVertical size={16} className="text-muted-foreground/30 cursor-move hover:text-muted-foreground transition-colors" />
+                                        </div>
+
+                                        {/* Section Content */}
+                                        <div className="flex-1 w-full space-y-6">
+                                            {/* Header & Controls */}
+                                            <div className="flex justify-between items-start gap-4">
+                                                <div>
+                                                    <h4 className={`font-bold text-xl leading-tight ${colors.text} flex items-center gap-2`}>
+                                                        {section.title}
+                                                        {section.type === 'coding' && <Code size={16} className="text-muted-foreground/50" />}
+                                                    </h4>
+                                                    <p className="text-xs text-muted-foreground mt-1 font-medium bg-muted/30 px-2 py-1 rounded-md inline-block border border-border/50">
+                                                        {section.description} • {section.difficulty} Difficulty
+                                                    </p>
+                                                </div>
+                                                <button onClick={() => deleteSection(section.id)} className="p-2.5 hover:bg-red-500/10 text-red-500 rounded-xl transition-colors opacity-0 group-hover:opacity-100">
+                                                    <Trash2 size={18} />
+                                                </button>
+                                            </div>
+
+                                            {/* Inline Edit Grid */}
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                                <div className="space-y-1.5">
+                                                    <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider ml-1">Questions Added</label>
+                                                    <div className="relative group/input">
+                                                        <div className="w-full bg-muted/20 border border-border/60 rounded-xl py-3 px-4 text-sm font-bold flex items-center justify-center">
+                                                            <span className={`text-lg ${colors.text}`}>{section.questions?.length || 0}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider ml-1">Time (min)</label>
+                                                    <div className="relative group/input">
+                                                        <Clock size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                                        <input
+                                                            type="number"
+                                                            min="1"
+                                                            className={`w-full bg-muted/20 border border-transparent rounded-xl py-3 pl-10 pr-4 text-sm font-bold outline-none transition-all ${colors.input}`}
+                                                            value={section.timeLimit}
+                                                            onChange={(e) => updateSection(section.id, { timeLimit: parseInt(e.target.value) || 0 })}
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider ml-1">Marks / Q</label>
+                                                    <div className="relative group/input">
+                                                        <input
+                                                            type="number"
+                                                            min="1"
+                                                            className={`w-full bg-muted/20 border border-transparent rounded-xl py-3 px-4 text-sm font-bold outline-none transition-all ${colors.input}`}
+                                                            value={section.marksPerQuestion}
+                                                            onChange={(e) => updateSection(section.id, { marksPerQuestion: parseInt(e.target.value) || 0 })}
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div className={`p-2 rounded-xl flex flex-col justify-center items-center bg-card border border-border shadow-sm`}>
+                                                    <span className={`text-2xl font-black ${colors.text}`}>{(section.questions?.length || 0) * section.marksPerQuestion}</span>
+                                                    <span className="text-[10px] font-extrabold text-muted-foreground/70 uppercase tracking-widest">Section Score</span>
+                                                </div>
+                                            </div>
+
+                                            {/* Questions List & Add Action */}
+                                            <div className="bg-muted/10 rounded-2xl p-5 border border-border/50 space-y-4">
+                                                <div className="flex items-center justify-between">
+                                                    <h5 className="text-xs font-bold uppercase text-muted-foreground flex items-center gap-2 tracking-wider">
+                                                        <Layers size={14} /> Specific Questions <span className="bg-muted px-2 py-0.5 rounded-md text-foreground">{section.questions?.length || 0}</span>
+                                                    </h5>
+                                                    <button
+                                                        onClick={() => openAddQuestionModal(section.id, section.type)}
+                                                        className={`text-xs font-bold ${colors.text} hover:opacity-100 opacity-90 flex items-center gap-2 bg-background px-3 py-2 rounded-lg transition-all border border-border hover:border-current shadow-sm`}
+                                                    >
+                                                        <Plus size={14} /> Add {section.type === 'coding' ? 'Coding Problem' : 'Question'}
+                                                    </button>
+                                                </div>
+
+                                                {(section.questions || []).length > 0 ? (
+                                                    <div className="space-y-2.5">
+                                                        {section.questions.map((q, qIdx) => {
+                                                            const isCollapsed = collapsedQuestions.has(q.id);
+                                                            return (
+                                                                <div key={q.id} className="bg-card border border-border rounded-xl overflow-hidden text-sm group/q hover:border-muted-foreground/30 transition-all cursor-default relative">
+                                                                    {/* Question Header - Always Visible */}
+                                                                    <div className="flex items-start gap-4 p-4">
+                                                                        {/* Question Number */}
+                                                                        <div className="w-7 h-7 rounded-md bg-muted flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5 border border-border">
+                                                                            {qIdx + 1}
+                                                                        </div>
+
+                                                                        {/* Question Preview */}
+                                                                        <div className="flex-1 min-w-0">
+                                                                            <div className="font-medium text-foreground/90 line-clamp-2">
+                                                                                {q.text || <span className="text-muted-foreground italic">No question text</span>}
+                                                                            </div>
+                                                                            <div className="flex items-center gap-2 mt-1">
+                                                                                <div className="text-xs font-bold px-2 py-0.5 bg-muted/50 border border-border/50 rounded-md uppercase tracking-wider text-[10px] text-muted-foreground flex items-center gap-1">
+                                                                                    {getQuestionTypeIcon(q.type)} {q.type.replace(/_/g, ' ')}
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+
+                                                                        {/* Action Buttons */}
+                                                                        <div className="flex items-center gap-1">
+                                                                            {/* Delete Button */}
+                                                                            <button
+                                                                                onClick={() => deleteQuestion(section.id, q.id)}
+                                                                                className="p-1.5 hover:bg-red-500/10 text-red-500 rounded-lg transition-colors"
+                                                                                title="Delete Question"
+                                                                            >
+                                                                                <Trash2 size={16} />
+                                                                            </button>
+
+                                                                            {/* Collapse Toggle Button */}
+                                                                            <button
+                                                                                onClick={() => toggleQuestionCollapse(q.id)}
+                                                                                className="p-1.5 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground"
+                                                                                title={isCollapsed ? "Expand" : "Collapse"}
+                                                                            >
+                                                                                {isCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Question Details - Collapsible */}
+                                                                    {!isCollapsed && (
+                                                                        <div className="px-4 pb-4 pt-0 border-t border-border/50 mt-2">
+                                                                            <div className="pt-3">
+
+                                                                                {/* CODING QUESTION - Use modular display component */}
+                                                                                {q.type === 'coding' && q.problemData && (
+                                                                                    <CodingQuestionDisplay
+                                                                                        problem={q.problemData}
+                                                                                        questionNumber={qIdx + 1}
+                                                                                        marks={q.marks || section.marksPerQuestion}
+                                                                                        compact={false}
+                                                                                    />
+                                                                                )}
+
+                                                                                {/* CODING QUESTION - Fallback (no problemData, just codeStub) */}
+                                                                                {q.type === 'coding' && !q.problemData && q.codeStub && (
+                                                                                    <div className="bg-zinc-950 rounded-lg overflow-hidden border border-border/50">
+                                                                                        <div className="flex items-center px-3 py-1.5 bg-zinc-800/50 border-b border-border/30">
+                                                                                            <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Starter Code</span>
+                                                                                        </div>
+                                                                                        <pre className="p-3 text-xs font-mono text-emerald-400 overflow-x-auto">
+                                                                                            <code>{q.codeStub}</code>
+                                                                                        </pre>
+                                                                                    </div>
+                                                                                )}
+
+                                                                                {/* MCQ / Other types - existing logic */}
+                                                                                {q.type !== 'coding' && (
+                                                                                    <div className="flex items-start gap-4">
+
+                                                                                        {/* Question Image - Only show if exists */}
+                                                                                        {q.image && q.image.trim() !== '' && q.image !== 'null' && q.image !== 'undefined' && (
+                                                                                            <div className="mb-3">
+                                                                                                <img
+                                                                                                    src={q.image}
+                                                                                                    alt="Question Image"
+                                                                                                    className="max-w-md rounded-lg object-contain border border-border bg-muted cursor-pointer hover:opacity-80 transition-opacity"
+                                                                                                    onClick={() => {
+                                                                                                        setSelectedImage(q.image!);
+                                                                                                        setImageModalOpen(true);
+                                                                                                    }}
+                                                                                                    onError={(e) => {
+                                                                                                        // Hide image if it fails to load
+                                                                                                        (e.target as HTMLImageElement).style.display = 'none';
+                                                                                                    }}
+                                                                                                />
+                                                                                            </div>
+                                                                                        )}
+
+                                                                                        {/* Options (for MCQ types) */}
+                                                                                        {(q.type === 'single_choice' || q.type === 'multiple_choice') && q.options && q.options.length > 0 && (
+                                                                                            <div className="space-y-1.5">
+                                                                                                {q.options.map((option, optIdx) => {
+                                                                                                    const isCorrect = q.type === 'single_choice'
+                                                                                                        ? String(q.correctAnswer) === String(optIdx)
+                                                                                                        : Array.isArray(q.correctAnswer) && q.correctAnswer.map(String).includes(String(optIdx));
+
+                                                                                                    return (
+                                                                                                        <div
+                                                                                                            key={optIdx}
+                                                                                                            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors ${isCorrect
+                                                                                                                ? 'bg-green-500/10 border border-green-500/30 text-green-700 dark:text-green-400'
+                                                                                                                : 'bg-muted/30 border border-transparent text-muted-foreground'
+                                                                                                                }`}
+                                                                                                        >
+                                                                                                            <div className={`w-5 h-5 rounded border flex items-center justify-center text-[10px] font-bold shrink-0 ${isCorrect
+                                                                                                                ? 'bg-green-500 border-green-500 text-white'
+                                                                                                                : 'border-muted-foreground/30'
+                                                                                                                }`}>
+                                                                                                                {String.fromCharCode(65 + optIdx)}
+                                                                                                            </div>
+                                                                                                            <span className={isCorrect ? 'font-semibold' : ''}>{option}</span>
+                                                                                                            {isCorrect && (
+                                                                                                                <CheckCircle size={14} className="ml-auto text-green-500" />
+                                                                                                            )}
+                                                                                                        </div>
+                                                                                                    );
+                                                                                                })}
+                                                                                            </div>
+                                                                                        )}
+
+                                                                                        {/* Fill in the blank answer */}
+                                                                                        {q.type === 'fill_in_the_blank' && q.correctAnswer && (
+                                                                                            <div>
+                                                                                                <div className="text-xs text-muted-foreground mb-1">Correct Answer:</div>
+                                                                                                <div className="px-3 py-2 bg-green-500/10 border border-green-500/30 rounded-lg text-xs font-semibold text-green-700 dark:text-green-400 inline-block">
+                                                                                                    {String(q.correctAnswer)}
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        )}
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-center py-6 border-2 border-dashed border-border/40 rounded-xl text-xs text-muted-foreground/60 italic bg-muted/5">
+                                                        No manual questions added yet. <br />Default content will be auto-generated based on selected tags.
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            );
+                        })}
+                    </div >
+                )}
+
+                {/* Main Footer */}
+                {/* Main Footer - Floating Style */}
+                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 w-full max-w-2xl px-4">
+                    <div className="bg-background/80 backdrop-blur-xl border border-border/50 shadow-2xl rounded-2xl p-2 flex items-center justify-between gap-4 ring-1 ring-black/5 dark:ring-white/5">
+                        <button
+                            onClick={onBack}
+                            className="text-muted-foreground hover:text-foreground font-bold text-xs px-5 py-3 hover:bg-muted/50 rounded-xl transition-all"
+                        >
+                            Back to Setup
+                        </button>
+
+                        <div className="flex items-center gap-4 px-4 text-xs font-medium text-muted-foreground border-x border-border/20">
+                            <span className="flex items-center gap-1.5"><Layers size={14} /> {sections.length} Sections</span>
+                            <span className="flex items-center gap-1.5"><Clock size={14} /> {totalTime}m</span>
+                            <span className="flex items-center gap-1.5"><span className="text-primary">★</span> {totalMarks} pts</span>
+                        </div>
+
+                        <button
+                            onClick={() => setIsPreviewMode(true)}
+                            disabled={sections.length === 0}
+                            className={`bg-primary text-primary-foreground px-6 py-3 rounded-xl font-bold hover:opacity-90 transition-all flex items-center gap-2 shadow-lg shadow-primary/25 disabled:opacity-50 disabled:shadow-none ${sections.length === 0 ? 'cursor-not-allowed' : 'active:scale-95'}`}
+                        >
+                            Review <ArrowRight size={16} />
+                        </button>
+                    </div>
+                </div>
+            </div >
+
+            {/* Image Full View Modal */}
+            <AnimatePresence>
+                {
+                    imageModalOpen && selectedImage && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+                            onClick={() => setImageModalOpen(false)}
+                        >
+                            <motion.div
+                                initial={{ scale: 0.9, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                exit={{ scale: 0.9, opacity: 0 }}
+                                className="relative max-w-5xl max-h-[90vh] bg-background rounded-2xl overflow-hidden shadow-2xl"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                {/* Close Button */}
+                                <button
+                                    onClick={() => setImageModalOpen(false)}
+                                    className="absolute top-4 right-4 z-10 p-2 bg-black/50 hover:bg-black/70 text-white rounded-full transition-colors"
+                                >
+                                    <X size={24} />
+                                </button>
+
+                                {/* Image */}
+                                <img
+                                    src={selectedImage || ''}
+                                    alt="Question Full View"
+                                    className="w-full h-full object-contain"
+                                />
+                            </motion.div>
+                        </motion.div>
+                    )
+                }
+            </AnimatePresence >
+        </div >
+    );
+};
+
+export default AssessmentBuilder;
