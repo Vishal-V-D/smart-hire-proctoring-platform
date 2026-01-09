@@ -4,6 +4,7 @@ import React, { use, useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { AssessmentProvider, useAssessment } from '@/context/AssessmentContext';
 import ProctoringOverlay from '@/components/contestant/ProctoringOverlay';
+import NetworkMonitor from '@/components/contestant/NetworkMonitor';
 
 function AssessmentLayoutContent({ children }: { children: React.ReactNode }) {
     const { assessment, isLoading } = useAssessment();
@@ -29,6 +30,7 @@ function AssessmentLayoutContent({ children }: { children: React.ReactNode }) {
 
     return (
         <div className="flex flex-col h-screen overflow-hidden">
+            <NetworkMonitor />
             {/* 
                 Persistent Proctoring Overlay 
                 - Only active on /take (MCQ) and /coding (Coding) pages
