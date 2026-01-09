@@ -3,35 +3,6 @@ import { AssessmentCategory, AssessmentSection, Difficulty, SectionType } from "
 
 export const ASSESSMENT_CATEGORIES: AssessmentCategory[] = [
     {
-        id: 'dsa',
-        label: 'DSA (Coding)',
-        icon: Code,
-        color: 'green',
-        gradient: 'from-emerald-500 to-green-600',
-        sectionType: 'coding',
-        expandedBorder: 'border-green-500/50',
-        expandedBg: 'bg-gradient-to-br from-green-500/5 via-transparent to-transparent',
-        expandedShadow: 'shadow-lg shadow-green-500/10',
-        selectedBorder: 'border-green-500/50',
-        selectedBg: 'bg-green-500/10',
-        checkboxBorder: 'border-green-500',
-        checkboxBg: 'bg-green-500',
-        badgeBg: 'bg-green-500/20',
-        badgeText: 'text-green-600 dark:text-green-400',
-        subCategories: [
-            { id: 'arrays', label: 'Arrays', icon: Grid, description: 'Array manipulation, Two pointers' },
-            { id: 'linked_list', label: 'Linked Lists', icon: GitBranch, description: 'Singly, Doubly, Circular' },
-            { id: 'trees', label: 'Trees & BST', icon: Network, description: 'Binary Trees, BST, Heaps' },
-            { id: 'graphs', label: 'Graphs', icon: Network, description: 'BFS, DFS, Shortest Path' },
-            { id: 'dp', label: 'Dynamic Programming', icon: Box, description: 'Memoization, Tabulation' },
-            { id: 'sorting', label: 'Sorting & Searching', icon: BarChart3, description: 'Quick, Merge, Binary Search' },
-            { id: 'strings', label: 'Strings', icon: Type, description: 'Pattern matching, Manipulation' },
-            { id: 'stacks', label: 'Stacks & Queues', icon: Layers, description: 'LIFO, FIFO, Priority Queue' },
-            { id: 'recursion', label: 'Recursion', icon: Binary, description: 'Backtracking, Divide & Conquer' },
-            { id: 'general', label: 'General / Mixed', icon: Sparkles, description: 'Mixed DSA problems' },
-        ]
-    },
-    {
         id: 'mcq_apt',
         label: 'MCQ Aptitude',
         icon: Calculator,
@@ -98,6 +69,55 @@ export const ASSESSMENT_CATEGORIES: AssessmentCategory[] = [
             { id: 'os', label: 'Operating Systems', icon: Server, description: 'Processes, Memory, Scheduling' },
             { id: 'networks', label: 'Computer Networks', icon: Network, description: 'OSI, TCP/IP, Protocols' },
             { id: 'system_design', label: 'System Design', icon: Layers, description: 'Scalability, Architecture' },
+        ]
+    },
+    {
+        id: 'dsa',
+        label: 'DSA (Coding)',
+        icon: Code,
+        color: 'green',
+        gradient: 'from-emerald-500 to-green-600',
+        sectionType: 'coding',
+        expandedBorder: 'border-green-500/50',
+        expandedBg: 'bg-gradient-to-br from-green-500/5 via-transparent to-transparent',
+        expandedShadow: 'shadow-lg shadow-green-500/10',
+        selectedBorder: 'border-green-500/50',
+        selectedBg: 'bg-green-500/10',
+        checkboxBorder: 'border-green-500',
+        checkboxBg: 'bg-green-500',
+        badgeBg: 'bg-green-500/20',
+        badgeText: 'text-green-600 dark:text-green-400',
+        subCategories: [
+            { id: 'arrays', label: 'Arrays', icon: Grid, description: 'Array manipulation, Two pointers' },
+            { id: 'linked_list', label: 'Linked Lists', icon: GitBranch, description: 'Singly, Doubly, Circular' },
+            { id: 'trees', label: 'Trees & BST', icon: Network, description: 'Binary Trees, BST, Heaps' },
+            { id: 'graphs', label: 'Graphs', icon: Network, description: 'BFS, DFS, Shortest Path' },
+            { id: 'dp', label: 'Dynamic Programming', icon: Box, description: 'Memoization, Tabulation' },
+            { id: 'sorting', label: 'Sorting & Searching', icon: BarChart3, description: 'Quick, Merge, Binary Search' },
+            { id: 'strings', label: 'Strings', icon: Type, description: 'Pattern matching, Manipulation' },
+            { id: 'stacks', label: 'Stacks & Queues', icon: Layers, description: 'LIFO, FIFO, Priority Queue' },
+            { id: 'recursion', label: 'Recursion', icon: Binary, description: 'Backtracking, Divide & Conquer' },
+            { id: 'general', label: 'General / Mixed', icon: Sparkles, description: 'Mixed DSA problems' },
+        ]
+    },
+    {
+        id: 'sql_questions',
+        label: 'SQL Questions',
+        icon: Database,
+        color: 'blue',
+        gradient: 'from-blue-500 to-cyan-500',
+        sectionType: 'technical',
+        expandedBorder: 'border-blue-500/50',
+        expandedBg: 'bg-gradient-to-br from-blue-500/5 via-transparent to-transparent',
+        expandedShadow: 'shadow-lg shadow-blue-500/10',
+        selectedBorder: 'border-blue-500/50',
+        selectedBg: 'bg-blue-500/10',
+        checkboxBorder: 'border-blue-500',
+        checkboxBg: 'bg-blue-500',
+        badgeBg: 'bg-blue-500/20',
+        badgeText: 'text-blue-600 dark:text-blue-400',
+        subCategories: [
+            { id: 'sql_basic', label: 'SQL', icon: Database, description: 'Queries, Joins, Procedures' }
         ]
     }
 ];

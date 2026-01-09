@@ -73,6 +73,23 @@ export const invitationService = {
         axiosContestClient.post<BulkInviteResponse>("/invitations/bulk", data),
 
     /**
+     * Upload CSV for bulk invites
+     */
+    uploadCsvInvites: (contestId: string, file: File) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        return axiosContestClient.post<{
+            message: string;
+            invitations?: any[];
+            errors?: any[];
+        }>(`/contest-invite/${contestId}/invite/csv`, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+    },
+
+    /**
      * List invitations with filters
      */
     listInvitations: (params?: InvitationListParams) => {

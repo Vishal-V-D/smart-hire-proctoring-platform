@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Layers, ChevronDown, Check, Trash2, Plus, ArrowRight, CheckCircle, Clock, Shield, X, Edit3, Save, MoreVertical, GripVertical, Cloud, Sparkles, Code, FileText, CheckSquare, Type, Image as ImageIcon, ChevronUp } from 'lucide-react';
+import { Layers, ChevronDown, Check, Trash2, Plus, ArrowRight, CheckCircle, Clock, Shield, X, Edit3, Save, MoreVertical, GripVertical, Cloud, Sparkles, Code, FileText, CheckSquare, Type, Image as ImageIcon, ChevronUp, Settings } from 'lucide-react';
 import { AssessmentConfig, AssessmentSection, Question, SectionType, QuestionType } from '../types';
 import { ASSESSMENT_CATEGORIES, getSectionDefaults } from './utils';
 import ManualQuestionModal from './ManualQuestionModal';
 import CodingQuestionModal from './CodingQuestionModal';
 import CodingQuestionDisplay from './CodingQuestionDisplay';
+import TestCaseConfigModal from './TestCaseConfigModal';
+import PseudoCodeDisplay from '@/components/contestant/PseudoCodeDisplay';
 
 interface AssessmentBuilderProps {
     config: AssessmentConfig;
@@ -46,8 +48,12 @@ const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({ config, sections,
     const [imageModalOpen, setImageModalOpen] = useState(false);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
-    // Collapsed questions state
-    const [collapsedQuestions, setCollapsedQuestions] = useState<Set<string>>(new Set());
+    // Expanded questions state (default empty = all collapsed)
+    const [expandedQuestions, setExpandedQuestions] = useState<Set<string>>(new Set());
+
+    // Test case config modal state
+    const [isTestCaseConfigOpen, setIsTestCaseConfigOpen] = useState(false);
+    const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
 
     // --- ACTIONS ---
     const toggleCategory = (id: string) => {
@@ -66,7 +72,7 @@ const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({ config, sections,
     };
 
     const toggleQuestionCollapse = (questionId: string) => {
-        setCollapsedQuestions(prev => {
+        setExpandedQuestions(prev => {
             const newSet = new Set(prev);
             if (newSet.has(questionId)) {
                 newSet.delete(questionId);
@@ -83,11 +89,17 @@ const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({ config, sections,
         const categoryData = ASSESSMENT_CATEGORIES.find(c => c.id === catId);
         const categoryLabel = categoryData?.label || 'Custom';
 
-        let title = `${categoryLabel} Section`;
-        if (subIds.length > 0) {
-            if (categoryData) {
-                const labels = subIds.map(sid => categoryData.subCategories.find(s => s.id === sid)?.label).filter(Boolean);
-                if (labels.length > 0) title = labels.join(' & ');
+        // Set Main Title (e.g. "MCQ Technical")
+        let title = categoryLabel;
+
+        // Set Subtype as Description
+        let description = defaults.description;
+        if (subIds.length > 0 && categoryData) {
+            const labels = subIds.map(sid => categoryData.subCategories.find(s => s.id === sid)?.label).filter(Boolean);
+            if (labels.length > 0) {
+                // description = `${labels.join(', ')} - ${defaults.difficulty}`;
+                // Keep description simple as requested ("subtype as small one below")
+                description = labels.join(', ');
             }
         }
 
@@ -96,7 +108,8 @@ const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({ config, sections,
             id: crypto.randomUUID(),
             type,
             themeColor: categoryData?.color || 'gray',
-            title: title + ` (${defaults.difficulty})`,
+            title: title,
+            description: description,
             enabledPatterns: defaults.enabledPatterns,
             questions: []
         } as AssessmentSection;
@@ -145,10 +158,24 @@ const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({ config, sections,
 
             division = sectionTypeToDivision[section.type] || section.type.charAt(0).toUpperCase() + section.type.slice(1);
 
-            // Extract subdivision from title (e.g., "Quantitative (Medium)" -> "Quantitative")
-            const titleMatch = section.title.match(/^([^(]+)/);
-            if (titleMatch) {
-                subdivision = titleMatch[1].trim();
+            // Override for Pseudo Code and SQL based on Title
+            if (section.title.includes('Pseudo Code')) {
+                division = 'Pseudo Code';
+            } else if (section.title.includes('SQL')) {
+                division = 'SQL';
+            }
+
+            // Extract subdivision from Description first (new way), fall back to title (old way)
+            // We assume the description contains the comma-separated subtypes
+            if (section.description && section.description !== 'CS Fundamentals' && section.description !== 'Logical & Quant' && section.description !== 'DSA Problems') {
+                // Take the first subtype if multiple
+                subdivision = section.description.split(',')[0].trim();
+            } else {
+                // Fallback to title extraction
+                const titleMatch = section.title.match(/^([^(]+)/);
+                if (titleMatch) {
+                    subdivision = titleMatch[1].trim();
+                }
             }
 
             console.log('📍 Extracted division:', division);
@@ -206,13 +233,39 @@ const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({ config, sections,
                 questionCount: Math.max(section.questionCount, updatedQuestions.length)
             });
             // Remove from collapsed set if it was collapsed
-            setCollapsedQuestions(prev => {
+            // Remove from expanded set if it was expanded
+            setExpandedQuestions(prev => {
                 const newSet = new Set(prev);
                 newSet.delete(questionId);
                 return newSet;
             });
         }
     };
+
+    const handleTestCaseConfigSave = (config: {
+        method: 'all' | 'range' | 'indices';
+        exampleRange?: { start: number; end: number } | null;
+        hiddenRange?: { start: number; end: number } | null;
+        exampleIndices?: number[] | null;
+        hiddenIndices?: number[] | null;
+    } | null) => {
+        if (!selectedQuestion) return;
+
+        // Find the section containing this question
+        for (const section of sections) {
+            const questionIndex = section.questions?.findIndex(q => q.id === selectedQuestion.id);
+            if (questionIndex !== undefined && questionIndex !== -1) {
+                const updatedQuestions = [...(section.questions || [])];
+                updatedQuestions[questionIndex] = {
+                    ...updatedQuestions[questionIndex],
+                    testCaseConfig: config
+                };
+                updateSection(section.id, { questions: updatedQuestions });
+                break;
+            }
+        }
+    };
+
 
     // --- CALCULATIONS ---
     // Section Score = (questions added) × marksPerQuestion
@@ -538,6 +591,20 @@ const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({ config, sections,
                 onSave={handleSaveQuestion}
             />
 
+            <TestCaseConfigModal
+                isOpen={isTestCaseConfigOpen}
+                onClose={() => {
+                    setIsTestCaseConfigOpen(false);
+                    setSelectedQuestion(null);
+                }}
+                sectionProblemId={selectedQuestion?.sectionProblemId || null}
+                problemTitle={selectedQuestion?.text || 'Coding Problem'}
+                totalTestCases={selectedQuestion?.problemData?.testCases?.length || 0}
+                problemData={selectedQuestion?.problemData}
+                initialConfig={selectedQuestion?.testCaseConfig}
+                onSaveLocal={handleTestCaseConfigSave}
+            />
+
             {/* Floating Categories Panel */}
             <motion.div
                 initial={{ opacity: 0, x: -20 }}
@@ -850,7 +917,7 @@ const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({ config, sections,
                                                 {(section.questions || []).length > 0 ? (
                                                     <div className="space-y-2.5">
                                                         {section.questions.map((q, qIdx) => {
-                                                            const isCollapsed = collapsedQuestions.has(q.id);
+                                                            const isExpanded = expandedQuestions.has(q.id);
                                                             return (
                                                                 <div key={q.id} className="bg-card border border-border rounded-xl overflow-hidden text-sm group/q hover:border-muted-foreground/30 transition-all cursor-default relative">
                                                                     {/* Question Header - Always Visible */}
@@ -862,9 +929,11 @@ const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({ config, sections,
 
                                                                         {/* Question Preview */}
                                                                         <div className="flex-1 min-w-0">
-                                                                            <div className="font-medium text-foreground/90 line-clamp-2">
-                                                                                {q.text || <span className="text-muted-foreground italic">No question text</span>}
-                                                                            </div>
+                                                                            {!isExpanded && (
+                                                                                <div className="font-medium text-foreground/90 line-clamp-2">
+                                                                                    {q.text || <span className="text-muted-foreground italic">No question text</span>}
+                                                                                </div>
+                                                                            )}
                                                                             <div className="flex items-center gap-2 mt-1">
                                                                                 <div className="text-xs font-bold px-2 py-0.5 bg-muted/50 border border-border/50 rounded-md uppercase tracking-wider text-[10px] text-muted-foreground flex items-center gap-1">
                                                                                     {getQuestionTypeIcon(q.type)} {q.type.replace(/_/g, ' ')}
@@ -874,6 +943,20 @@ const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({ config, sections,
 
                                                                         {/* Action Buttons */}
                                                                         <div className="flex items-center gap-1">
+                                                                            {/* Configure Button - For All Coding Questions */}
+                                                                            {q.type === 'coding' && (
+                                                                                <button
+                                                                                    onClick={() => {
+                                                                                        setSelectedQuestion(q);
+                                                                                        setIsTestCaseConfigOpen(true);
+                                                                                    }}
+                                                                                    className="p-1.5 hover:bg-primary/10 text-primary rounded-lg transition-colors"
+                                                                                    title="Configure Test Cases"
+                                                                                >
+                                                                                    <Settings size={16} />
+                                                                                </button>
+                                                                            )}
+
                                                                             {/* Delete Button */}
                                                                             <button
                                                                                 onClick={() => deleteQuestion(section.id, q.id)}
@@ -887,17 +970,86 @@ const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({ config, sections,
                                                                             <button
                                                                                 onClick={() => toggleQuestionCollapse(q.id)}
                                                                                 className="p-1.5 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground"
-                                                                                title={isCollapsed ? "Expand" : "Collapse"}
+                                                                                title={isExpanded ? "Collapse" : "Expand"}
                                                                             >
-                                                                                {isCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+                                                                                {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                                                                             </button>
                                                                         </div>
                                                                     </div>
 
                                                                     {/* Question Details - Collapsible */}
-                                                                    {!isCollapsed && (
+                                                                    {isExpanded && (
                                                                         <div className="px-4 pb-4 pt-0 border-t border-border/50 mt-2">
                                                                             <div className="pt-3">
+                                                                                {/* Full Text Display for Non-Coding Questions */}
+                                                                                {q.type !== 'coding' && (
+                                                                                    <div className="mb-4">
+                                                                                        <div className="text-sm text-foreground leading-relaxed space-y-4">
+                                                                                            {(() => {
+                                                                                                // Check for explicit pseudocode field (e.g. from backend)
+                                                                                                if (q.pseudocode) {
+                                                                                                    return (
+                                                                                                        <>
+                                                                                                            <div className="mb-3 whitespace-pre-wrap font-medium">{q.text}</div>
+                                                                                                            <PseudoCodeDisplay code={q.pseudocode} />
+                                                                                                        </>
+                                                                                                    );
+                                                                                                }
+
+                                                                                                const isPseudoSection = section.title.toLowerCase().includes('pseudo');
+                                                                                                const hasCodeBlock = q.text.includes('```');
+
+                                                                                                // Fallback: If in pseudo section but no backticks, treat entire text as code (legacy behavior)
+                                                                                                if (isPseudoSection && !hasCodeBlock) {
+                                                                                                    return <PseudoCodeDisplay code={q.text} />;
+                                                                                                }
+
+                                                                                                // Standard markdown-like parsing
+                                                                                                return q.text.split(/(```[\s\S]*?```)/g).map((part, pIdx) => {
+                                                                                                    if (part.startsWith('```')) {
+                                                                                                        const codeContent = part.replace(/^```\w*\n?|```$/g, '');
+                                                                                                        return <PseudoCodeDisplay key={pIdx} code={codeContent} />;
+                                                                                                    }
+                                                                                                    return <span key={pIdx} className="whitespace-pre-wrap">{part}</span>;
+                                                                                                });
+                                                                                            })()}
+                                                                                        </div>
+                                                                                        {q.image && (
+                                                                                            <div className="mt-3">
+                                                                                                <img src={q.image} alt="Question" className="max-w-full rounded-lg border border-border" />
+                                                                                            </div>
+                                                                                        )}
+                                                                                        {/* Options Display */}
+                                                                                        {q.options && q.options.length > 0 && (
+                                                                                            <div className="mt-4 space-y-2">
+                                                                                                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Options</p>
+                                                                                                {q.options.map((opt, oIdx) => (
+                                                                                                    <div key={oIdx} className={`flex items-center gap-3 p-2 rounded-lg text-sm ${String(q.correctAnswer) === String(oIdx) || q.correctAnswer === opt ? 'bg-green-500/10 border border-green-500/20' : 'bg-muted/30 border border-transparent'}`}>
+                                                                                                        <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold border ${String(q.correctAnswer) === String(oIdx) || q.correctAnswer === opt ? 'bg-green-500 text-white border-green-500' : 'bg-muted border-muted-foreground/30 text-muted-foreground'}`}>
+                                                                                                            {String.fromCharCode(65 + oIdx)}
+                                                                                                        </div>
+                                                                                                        <span className={`${String(q.correctAnswer) === String(oIdx) || q.correctAnswer === opt ? 'font-bold text-green-700 dark:text-green-400' : 'text-foreground'}`}>
+                                                                                                            {opt}
+                                                                                                        </span>
+                                                                                                        {(String(q.correctAnswer) === String(oIdx) || q.correctAnswer === opt) && (
+                                                                                                            <CheckCircle size={12} className="text-green-500 ml-auto" />
+                                                                                                        )}
+                                                                                                    </div>
+                                                                                                ))}
+                                                                                            </div>
+                                                                                        )}
+
+                                                                                        {/* Fill in the blank answer */}
+                                                                                        {q.type === 'fill_in_the_blank' && q.correctAnswer && (
+                                                                                            <div className="mt-4">
+                                                                                                <div className="text-xs text-muted-foreground mb-1">Correct Answer:</div>
+                                                                                                <div className="px-3 py-2 bg-green-500/10 border border-green-500/30 rounded-lg text-xs font-semibold text-green-700 dark:text-green-400 inline-block">
+                                                                                                    {String(q.correctAnswer)}
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        )}
+                                                                                    </div>
+                                                                                )}
 
                                                                                 {/* CODING QUESTION - Use modular display component */}
                                                                                 {q.type === 'coding' && q.problemData && (
@@ -921,72 +1073,8 @@ const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({ config, sections,
                                                                                     </div>
                                                                                 )}
 
-                                                                                {/* MCQ / Other types - existing logic */}
-                                                                                {q.type !== 'coding' && (
-                                                                                    <div className="flex items-start gap-4">
 
-                                                                                        {/* Question Image - Only show if exists */}
-                                                                                        {q.image && q.image.trim() !== '' && q.image !== 'null' && q.image !== 'undefined' && (
-                                                                                            <div className="mb-3">
-                                                                                                <img
-                                                                                                    src={q.image}
-                                                                                                    alt="Question Image"
-                                                                                                    className="max-w-md rounded-lg object-contain border border-border bg-muted cursor-pointer hover:opacity-80 transition-opacity"
-                                                                                                    onClick={() => {
-                                                                                                        setSelectedImage(q.image!);
-                                                                                                        setImageModalOpen(true);
-                                                                                                    }}
-                                                                                                    onError={(e) => {
-                                                                                                        // Hide image if it fails to load
-                                                                                                        (e.target as HTMLImageElement).style.display = 'none';
-                                                                                                    }}
-                                                                                                />
-                                                                                            </div>
-                                                                                        )}
 
-                                                                                        {/* Options (for MCQ types) */}
-                                                                                        {(q.type === 'single_choice' || q.type === 'multiple_choice') && q.options && q.options.length > 0 && (
-                                                                                            <div className="space-y-1.5">
-                                                                                                {q.options.map((option, optIdx) => {
-                                                                                                    const isCorrect = q.type === 'single_choice'
-                                                                                                        ? String(q.correctAnswer) === String(optIdx)
-                                                                                                        : Array.isArray(q.correctAnswer) && q.correctAnswer.map(String).includes(String(optIdx));
-
-                                                                                                    return (
-                                                                                                        <div
-                                                                                                            key={optIdx}
-                                                                                                            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors ${isCorrect
-                                                                                                                ? 'bg-green-500/10 border border-green-500/30 text-green-700 dark:text-green-400'
-                                                                                                                : 'bg-muted/30 border border-transparent text-muted-foreground'
-                                                                                                                }`}
-                                                                                                        >
-                                                                                                            <div className={`w-5 h-5 rounded border flex items-center justify-center text-[10px] font-bold shrink-0 ${isCorrect
-                                                                                                                ? 'bg-green-500 border-green-500 text-white'
-                                                                                                                : 'border-muted-foreground/30'
-                                                                                                                }`}>
-                                                                                                                {String.fromCharCode(65 + optIdx)}
-                                                                                                            </div>
-                                                                                                            <span className={isCorrect ? 'font-semibold' : ''}>{option}</span>
-                                                                                                            {isCorrect && (
-                                                                                                                <CheckCircle size={14} className="ml-auto text-green-500" />
-                                                                                                            )}
-                                                                                                        </div>
-                                                                                                    );
-                                                                                                })}
-                                                                                            </div>
-                                                                                        )}
-
-                                                                                        {/* Fill in the blank answer */}
-                                                                                        {q.type === 'fill_in_the_blank' && q.correctAnswer && (
-                                                                                            <div>
-                                                                                                <div className="text-xs text-muted-foreground mb-1">Correct Answer:</div>
-                                                                                                <div className="px-3 py-2 bg-green-500/10 border border-green-500/30 rounded-lg text-xs font-semibold text-green-700 dark:text-green-400 inline-block">
-                                                                                                    {String(q.correctAnswer)}
-                                                                                                </div>
-                                                                                            </div>
-                                                                                        )}
-                                                                                    </div>
-                                                                                )}
                                                                             </div>
                                                                         </div>
                                                                     )}

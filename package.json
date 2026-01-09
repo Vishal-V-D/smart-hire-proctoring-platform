@@ -30,6 +30,7 @@
     "lucide-react": "^0.562.0",
     "motion": "^12.23.26",
     "next": "16.1.0",
+    "rc-slider": "^11.1.9",
     "react": "19.2.3",
     "react-calendar": "^6.0.0",
     "react-dom": "19.2.3",

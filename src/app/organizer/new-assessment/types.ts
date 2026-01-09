@@ -86,6 +86,15 @@ export interface Question {
     // For coding problems linked from problem bank
     problemId?: string;
     problemData?: any; // Full CodingProblem data
+    sectionProblemId?: string; // For test case configuration (after publishing)
+    testCaseConfig?: { // For test case configuration (before publishing)
+        method: 'all' | 'range' | 'indices';
+        exampleRange?: { start: number; end: number } | null;
+        hiddenRange?: { start: number; end: number } | null;
+        exampleIndices?: number[] | null;
+        hiddenIndices?: number[] | null;
+    } | null;
+    pseudocode?: string; // For adding pseudocode snippets
 }
 
 export interface AssessmentSection {

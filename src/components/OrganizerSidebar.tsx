@@ -187,22 +187,7 @@ export default function OrganizerSidebar() {
                             isCollapsed={isCollapsed}
                             onHover={handleHover}
                         />
-                        <NavItem
-                            icon={<Users />}
-                            text="Submissions"
-                            href="/organizer/submissions"
-                            active={pathname?.startsWith('/organizer/submissions')}
-                            isCollapsed={isCollapsed}
-                            onHover={handleHover}
-                        />
-                        <NavItem
-                            icon={<FileBarChart />}
-                            text="Reports & Analytics"
-                            href="/organizer/reports"
-                            active={pathname?.startsWith('/organizer/reports')}
-                            isCollapsed={isCollapsed}
-                            onHover={handleHover}
-                        />
+
 
                         {/* Divider */}
                         <div className={`my-4 h-px bg-sidebar-border ${isCollapsed ? 'mx-2' : 'mx-0'}`}></div>

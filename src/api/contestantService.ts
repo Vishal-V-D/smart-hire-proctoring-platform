@@ -418,7 +418,8 @@ export type ViolationType =
     | 'mic_muted'
     | 'prohibited_object'
     | 'right_click'
-    | 'copy_paste';
+    | 'copy_paste'
+    | 'excessive_noise';
 
 export interface ProctoringSettings {
     enabled: boolean;
@@ -454,6 +455,7 @@ export interface AssessmentSubmission {
     totalMarks?: number;
     percentage?: number;
     timeTaken?: number; // in seconds
+    currentSectionId?: string;
 }
 
 export interface SaveAnswerRequest {

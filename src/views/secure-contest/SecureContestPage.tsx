@@ -495,24 +495,46 @@ export default function SecureContestPage({
     }, [contestId, setViolationCount]);
 
     // Fullscreen monitoring - ONLY if enabled
+    // Fullscreen & Focus monitoring - STRICT MODE
     useEffect(() => {
-        // Skip if fullscreen mode is disabled
-        if (!proctoringSettings.enableFullscreenMode) {
-            console.log('🔓 [PROCTORING] Fullscreen mode is disabled in SecureContestPage');
+        // Skip only if strictly disabled (default is enabled for secure contest)
+        if (proctoringSettings.enableFullscreenMode === false) {
+            console.log('🔓 [PROCTORING] Fullscreen mode is disabled');
             return;
         }
 
         const handleFsChange = () => {
             const nowFs = !!document.fullscreenElement;
-            if (!nowFs && isFullscreen) {
-                setShowFullscreenViolation(true);
-                handleViolation("⚠️ Exited fullscreen!", 'FULLSCREEN_EXIT');
-            }
             setIsFullscreen(nowFs);
+            if (!nowFs) {
+                setShowFullscreenViolation(true);
+                handleViolation("⚠️ Exited secure fullscreen environment!", 'FULLSCREEN_EXIT');
+            }
         };
+
+        const handleVisibilityChange = () => {
+            if (document.hidden) {
+                setShowFullscreenViolation(true);
+                handleViolation("⚠️ Tab switch/hidden detected!", 'TAB_SWITCH');
+            }
+        };
+
+        // Also block when window loses focus (alt-tab)
+        const handleBlur = () => {
+            if (document.fullscreenElement) {
+                // only trigger if we expect to be in fullscreen
+                // might be redundant with visibilitychange but ensures strictness
+            }
+        };
+
         document.addEventListener('fullscreenchange', handleFsChange);
-        return () => document.removeEventListener('fullscreenchange', handleFsChange);
-    }, [isFullscreen, handleViolation, proctoringSettings.enableFullscreenMode]);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            document.removeEventListener('fullscreenchange', handleFsChange);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [proctoringSettings.enableFullscreenMode, handleViolation]);
 
     // Security event blocking - conditional based on proctoring settings
     useEffect(() => {
@@ -1564,6 +1586,61 @@ export default function SecureContestPage({
             )}
 
             {/* 4. Login Required Modal */}
+            {/* 5. STRICT Blocking Modal for Violations */}
+            {showFullscreenViolation && (
+                <div className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center p-8 text-center animate-in fade-in duration-200">
+                    <div className="max-w-xl w-full bg-[#1a1d2d] border-2 border-red-500 rounded-3xl p-8 shadow-2xl shadow-red-900/50 relative overflow-hidden">
+                        {/* Pulse Effect */}
+                        <div className="absolute inset-0 bg-red-500/10 animate-pulse pointer-events-none" />
+
+                        <div className="relative z-10 space-y-6">
+                            <div className="w-24 h-24 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4 animate-[bounce_1s_infinite]">
+                                <AlertTriangle className="w-12 h-12 text-red-500" />
+                            </div>
+
+                            <div>
+                                <h2 className="text-3xl font-black text-white mb-2 uppercase tracking-wider">
+                                    Access Locked
+                                </h2>
+                                <p className="text-gray-400 text-lg">
+                                    You have exited the secure assessment environment.
+                                    <br />
+                                    <span className="text-red-400 font-bold">This is a recorded violation.</span>
+                                </p>
+                            </div>
+
+                            <div className="bg-red-900/20 border border-red-500/30 rounded-xl p-4 text-left">
+                                <h4 className="text-red-400 font-bold text-sm uppercase mb-2 flex items-center gap-2">
+                                    <AlertCircle className="w-4 h-4" /> Violation Protocol
+                                </h4>
+                                <ul className="text-gray-400 text-sm space-y-2 list-disc pl-4">
+                                    <li>Assessment timer continues running in background.</li>
+                                    <li>Your screen is being monitored.</li>
+                                    <li>Leaving this window again may result in <span className="text-white font-bold">immediate disqualification</span>.</li>
+                                </ul>
+                            </div>
+
+                            <button
+                                onClick={() => {
+                                    // Try to request fullscreen again
+                                    const elem = document.documentElement;
+                                    if (elem.requestFullscreen) {
+                                        elem.requestFullscreen().catch(err => {
+                                            console.error("Error attempting to enable full-screen mode:", err);
+                                        });
+                                    }
+                                    setIsFullscreen(true);
+                                    setShowFullscreenViolation(false);
+                                }}
+                                className="w-full py-4 text-lg font-bold bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white rounded-xl shadow-lg hover:shadow-red-500/30 transition-all uppercase tracking-widest active:scale-95"
+                            >
+                                Return to Assessment
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {showLoginRequired && (
                 <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
                     <div className={`${bgSec} rounded-2xl p-8 max-w-md w-full border border-red-500/30 shadow-2xl text-center space-y-6`}>

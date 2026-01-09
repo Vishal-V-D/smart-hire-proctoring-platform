@@ -147,20 +147,24 @@ export const questionBankService = {
         axiosContestClient.delete<BulkDeleteResponse>(`${API_BASE}/bulk`, { data: { filter } }),
 
     // Bulk upload questions from CSV (no images)
-    uploadCSV: (file: File, division: string) => {
+    uploadCSV: (file: File, division?: string, subdivision?: string, topic?: string) => {
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('division', division);
+        if (division) formData.append('division', division);
+        if (subdivision) formData.append('subdivision', subdivision);
+        if (topic) formData.append('topic', topic);
         return axiosContestClient.post(`${API_BASE}/upload/csv`, formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
         });
     },
 
     // Bulk upload questions from ZIP (with images)
-    uploadZIP: (file: File, division: string) => {
+    uploadZIP: (file: File, division?: string, subdivision?: string, topic?: string) => {
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('division', division);
+        if (division) formData.append('division', division);
+        if (subdivision) formData.append('subdivision', subdivision);
+        if (topic) formData.append('topic', topic);
         return axiosContestClient.post(`${API_BASE}/upload/zip`, formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
         });

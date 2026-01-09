@@ -13,6 +13,7 @@ import {
 import AssessmentTimer from '@/components/contestant/AssessmentTimer';
 import { contestantService, type AssessmentSection, type AssessmentQuestion } from '@/api/contestantService';
 import { useAssessment } from '@/context/AssessmentContext';
+import PseudoCodeDisplay from '@/components/contestant/PseudoCodeDisplay';
 
 type QuestionStatus = 'unanswered' | 'answered' | 'flagged' | 'current';
 
@@ -65,6 +66,7 @@ export default function TakeAssessmentPage() {
     const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
     const [submissionId, setSubmissionId] = useState<string | null>(null);
     const [isStateLoaded, setIsStateLoaded] = useState(false);
+    const [isNavigatingToNextSection, setIsNavigatingToNextSection] = useState(false);
 
     // Sync currentSectionIndex with URL when it changes
     useEffect(() => {
@@ -230,17 +232,37 @@ export default function TakeAssessmentPage() {
         console.log("✅ [TakePage] Staying on MCQ page for section:", sec.title);
     }, [currentSectionIndex, sections, sectionsLoading, assessmentId, router, startSectionTimer, isStateLoaded, lockedSectionIndices]);
 
-    // Create Submission ID (Side Effect)
+    // Create Submission ID (Side Effect) & Handle 403 Forbidden (Already Completed)
     useEffect(() => {
         if (assessmentId) {
             const { sessionToken } = contestantService.getSession();
-            contestantService.getOrCreateSubmission(assessmentId, sessionToken || '').then(subRes => {
-                if (subRes.data?.success && subRes.data?.submission) {
-                    setSubmissionId(subRes.data.submission.id);
-                }
-            });
+            contestantService.getOrCreateSubmission(assessmentId, sessionToken || '')
+                .then(subRes => {
+                    if (subRes.data?.success && subRes.data?.submission) {
+                        setSubmissionId(subRes.data.submission.id);
+
+                        // Auto-Resume Logic: If IN_PROGRESS, ensure we are on the right section
+                        const submission = subRes.data.submission;
+                        if (submission.status === 'in_progress' && submission.currentSectionId) {
+                            // Find index of this section
+                            const sectionIndex = sections.findIndex(s => s.id === submission.currentSectionId);
+                            if (sectionIndex !== -1 && sectionIndex !== currentSectionIndex) {
+                                console.log("🔄 [TakePage] Auto-Resuming to active section:", sectionIndex);
+                                setCurrentSectionIndex(sectionIndex);
+                            }
+                        }
+                    }
+                })
+                .catch((err: any) => {
+                    console.error("❌ [TakePage] Submission Check Failed:", err);
+                    if (err.response && err.response.status === 403) {
+                        // 🚀 Redirect user immediately if already completed
+                        console.warn("🚫 Assessment already completed. Redirecting...");
+                        router.push('/contestant/assessment/terminated?reason=completed');
+                    }
+                });
         }
-    }, [assessmentId]);
+    }, [assessmentId, sections, currentSectionIndex]); // Added dependencies to allowing resume logic to work if sections loaded
 
 
     // Preload Section Images
@@ -280,6 +302,7 @@ export default function TakeAssessmentPage() {
             setCurrentQuestionIndex(currentQuestionIndex + 1);
         } else if (currentSectionIndex < sections.length - 1) {
             // End of section, show warning
+            setIsNavigatingToNextSection(false); // Reset before showing modal
             setShowSectionWarning(true);
         }
     };
@@ -293,6 +316,10 @@ export default function TakeAssessmentPage() {
         const newLocked = new Set(lockedSectionIndices).add(currentSectionIndex);
         setLockedSectionIndices(newLocked);
         setShowSectionWarning(false);
+
+        // CRITICAL: Reset question index to 0 for the next section
+        setCurrentQuestionIndex(0);
+        setIsNavigatingToNextSection(true);
 
         // Check bounds
         if (nextIndex < sections.length) {
@@ -309,15 +336,16 @@ export default function TakeAssessmentPage() {
 
             if (nextSection.type === 'coding') {
                 // Navigate to Coding Page with section parameter
+                setIsNavigating(true);
                 localStorage.setItem(`navigation_intent_${assessmentId}`, 'navigated_to_coding');
                 console.log("➡️ [TakePage] Navigating to Coding Page:", nextSection.title);
                 router.push(`/contestant/assessment/${assessmentId}/coding?section=${nextIndex}`);
                 return;
             } else {
                 // Stay on MCQ Page, navigate to next section using URL
+                setIsNavigating(true);
                 console.log("📄 [TakePage] Moving to next MCQ section via URL:", nextSection.title);
                 router.push(`/contestant/assessment/${assessmentId}/take?section=${nextIndex}`);
-                setCurrentQuestionIndex(0);
             }
         } else {
             // Finished Assessment check
@@ -406,6 +434,7 @@ export default function TakeAssessmentPage() {
     // Count only answers for current section's questions
     const currentSectionQuestionIds = new Set(questions.map(q => q.id));
     const answeredCount = Object.keys(answers).filter(id => currentSectionQuestionIds.has(id)).length;
+    const answeredCountInSection = answeredCount; // Alias for modal display
     const flaggedCount = Array.from(flaggedQuestions).filter(id => currentSectionQuestionIds.has(id)).length;
     const totalQuestions = questions.length;
     const unansweredCount = totalQuestions - answeredCount;
@@ -413,6 +442,10 @@ export default function TakeAssessmentPage() {
     const sectionDuration = currentSection?.duration || 60;
 
     useEffect(() => {
+        // Reset navigation loaders when section index changes
+        setIsNavigating(false);
+        setIsNavigatingToNextSection(false); // Reset this too!
+
         // Redirection handled in handleConfirmSectionFinish or initial load
         // But if we load into a coding section from storage, we should redirect.
         if (!loading && sections.length > 0 && currentSectionIndex < sections.length) {
@@ -423,6 +456,8 @@ export default function TakeAssessmentPage() {
         }
     }, [currentSectionIndex, sections, loading, assessmentId]);
 
+    const [isNavigating, setIsNavigating] = useState(false); // Helper for section transition loader
+
     if (loading || !currentSection) {
         return (
             <div className={`h-screen flex items-center justify-center ${bg}`}>
@@ -432,7 +467,22 @@ export default function TakeAssessmentPage() {
     }
 
     return (
-        <div className={`h-screen flex flex-col overflow-hidden ${bg} ${textPrimary}`}>
+        <div className={`h-screen flex flex-col overflow-hidden ${bg} ${textPrimary} relative`}>
+            {/* Navigation Loader Overlay */}
+            <AnimatePresence>
+                {isNavigating && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[99999] bg-black/20 backdrop-blur-[2px] flex flex-col items-center justify-center gap-3"
+                    >
+                        <div className="w-12 h-12 border-4 border-[#0f62fe] border-t-transparent rounded-full animate-spin shadow-lg" />
+                        <span className="text-white font-bold text-sm bg-black/50 px-3 py-1 rounded-full backdrop-blur-md">Loading Section...</span>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
             {/* Standard Proctoring Overlay */}
 
             {/* Modern Header */}
@@ -468,7 +518,8 @@ export default function TakeAssessmentPage() {
                                 assessmentId={assessmentId}
                                 sectionId={currentSection.id}
                                 onExpire={() => setShowSubmitConfirm(true)}
-                                className="text-sm"
+                                variant="pill"
+                                className="transform scale-105"
                             />
                         )}
                     </div>
@@ -482,86 +533,114 @@ export default function TakeAssessmentPage() {
             {/* Main Content - KEEP ALIVE OPTIMIZATION */}
             <div className="flex-1 flex min-h-0 relative">
                 {/* Modern Navigator */}
-                <aside className={`w-80 shrink-0 flex flex-col border-r ${theme === 'dark' ? 'bg-[#262626]/80 border-[#393939]' : 'bg-white/80 border-[#e0e0e0]'} z-20`}>
-                    {/* Sections List */}
-                    <div className="p-4 border-b border-inherit max-h-[30vh] overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#525252 transparent' }}>
-                        <h3 className={`text-xs font-bold uppercase tracking-wider mb-3 ${textSecondary}`}>Sections</h3>
-                        <div className="space-y-2">
-                            {sections.map((sec, idx) => {
-                                const isCurrent = idx === currentSectionIndex;
-                                const isLocked = lockedSectionIndices.has(idx);
+                <aside className={`w-80 shrink-0 flex flex-col h-full border-r ${theme === 'dark' ? 'bg-[#262626]/80 border-[#393939]' : 'bg-white/80 border-[#e0e0e0]'} z-20 transition-colors duration-300 overflow-hidden`}>
 
-                                return (
-                                    <div key={sec.id} className={`
-                                        flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium border transition-all
-                                        ${isCurrent
-                                            ? 'bg-[#0f62fe] text-white border-[#0f62fe] shadow-sm'
-                                            : isLocked
-                                                ? 'bg-[#42be65]/10 text-[#42be65] border-[#42be65]/20'
-                                                : `${theme === 'dark' ? 'bg-[#393939]/30 text-gray-400 border-transparent hover:bg-[#393939]' : 'bg-gray-50 text-gray-500 border-transparent hover:bg-gray-100'}`
-                                        }
-                                    `}>
-                                        <div className="flex items-center gap-2.5 min-w-0">
+                    {/* Combined List (Sections + Current Palette) */}
+                    <div className="flex-1 overflow-y-auto p-4 space-y-3" style={{ scrollbarWidth: 'thin', scrollbarColor: theme === 'dark' ? '#393939 transparent' : '#e0e0e0 transparent' }}>
+                        <h3 className={`text-xs font-bold uppercase tracking-wider mb-2 ${textSecondary}`}>Assessment Sections</h3>
+
+                        {sections.map((sec, idx) => {
+                            const isCurrent = idx === currentSectionIndex;
+                            const isLocked = lockedSectionIndices.has(idx);
+
+                            return (
+                                <div key={sec.id} className={`rounded-xl border transition-all duration-300 overflow-hidden ${isCurrent
+                                    ? `${theme === 'dark' ? 'bg-[#262626] border-[#0f62fe]' : 'bg-white border-[#0f62fe]'} shadow-lg ring-1 ring-[#0f62fe]/20`
+                                    : `${theme === 'dark' ? 'border-[#393939] hover:bg-[#393939]/50' : 'border-[#e0e0e0] hover:bg-[#f4f4f4]'}`
+                                    }`}>
+                                    {/* Section Header */}
+                                    <div
+                                        className={`flex items-center justify-between px-4 py-3.5 select-none ${isCurrent ? 'bg-gradient-to-r from-[#0f62fe]/5 to-transparent' : ''}`}
+                                    >
+                                        <div className="flex items-center gap-3 min-w-0">
                                             {isLocked ? (
-                                                <Lock className="w-3.5 h-3.5 shrink-0" />
+                                                <div className="w-7 h-7 rounded-lg bg-[#42be65]/10 flex items-center justify-center">
+                                                    <Lock className="w-3.5 h-3.5 text-[#42be65]" />
+                                                </div>
                                             ) : (
-                                                <div className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold ${isCurrent ? 'bg-white/20' : 'bg-current/10'}`}>
+                                                <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold transition-colors ${isCurrent
+                                                    ? 'bg-[#0f62fe] text-white'
+                                                    : `${theme === 'dark' ? 'bg-[#393939] text-[#a8a8a8]' : 'bg-[#e0e0e0] text-[#6f6f6f]'}`
+                                                    }`}>
                                                     {idx + 1}
                                                 </div>
                                             )}
-                                            <span className="truncate">{sec.title}</span>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center justify-between gap-2 w-full">
+                                                    <span className={`text-sm font-bold truncate ${isCurrent ? (theme === 'dark' ? 'text-white' : 'text-[#161616]') : textSecondary
+                                                        }`}>
+                                                        {sec.title}
+                                                    </span>
+                                                    {isCurrent && (
+                                                        <AssessmentTimer
+                                                            assessmentId={assessmentId}
+                                                            sectionId={sec.id}
+                                                            variant="minimal"
+                                                            className="text-xs shrink-0 bg-[#0f62fe]/10 px-1.5 py-0.5 rounded text-[#0f62fe]"
+                                                        />
+                                                    )}
+                                                </div>
+                                            </div>
                                         </div>
-                                        {isCurrent && <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse shadow-xl shadow-white" />}
                                     </div>
-                                );
-                            })}
-                        </div>
-                    </div>
 
-                    {/* Navigator Header */}
-                    <div className="p-4 border-b border-inherit bg-inherit z-10">
-                        <div className="flex items-center justify-between mb-3">
-                            <h3 className="text-sm font-bold">Question Palette</h3>
-                            <span className={`text-xs font-medium ${textSecondary}`}>{currentQuestionIndex + 1} of {totalQuestions}</span>
-                        </div>
-                        <div className={`h-1.5 rounded-full overflow-hidden ${theme === 'dark' ? 'bg-[#393939]' : 'bg-[#e0e0e0]'}`}>
-                            <motion.div animate={{ width: `${progressPercent}%` }} className="h-full bg-[#0f62fe] rounded-full" />
-                        </div>
-                    </div>
+                                    {/* Expanded Question Palette (Only for Current Section) */}
+                                    {isCurrent && !questionsLoading && (
+                                        <div className={`px-3 pb-4 pt-1 animate-in slide-in-from-top-2`}>
+                                            <div className={`h-px w-full mb-4 ${theme === 'dark' ? 'bg-[#393939]' : 'bg-[#e0e0e0]'}`} />
 
-                    {/* Questions Grid */}
-                    <div className="flex-1 p-4 overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#525252 transparent' }}>
-                        <div className="grid grid-cols-5 gap-2">
-                            {questions.map((q, qIndex) => {
-                                const status = getQuestionStatus(q.id, qIndex);
-                                const isDisabled = !navigationSettings.allowPreviousNavigation && qIndex < currentQuestionIndex;
-                                return (
-                                    <motion.button
-                                        key={q.id}
-                                        whileHover={{ scale: isDisabled ? 1 : 1.1 }}
-                                        whileTap={{ scale: isDisabled ? 1 : 0.95 }}
-                                        onClick={() => goToQuestion(qIndex)}
-                                        disabled={isDisabled}
-                                        className={`aspect-square rounded-lg text-xs font-bold transition-all ${status === 'current' ? 'bg-gradient-to-br from-[#8a3ffc] to-[#6929c4] text-white shadow-lg shadow-[#8a3ffc]/40 ring-2 ring-[#8a3ffc]/50 ring-offset-1 ring-offset-[#262626]' :
-                                            status === 'answered' ? 'bg-[#42be65]/20 text-[#42be65] border-2 border-[#42be65]/40' :
-                                                status === 'flagged' ? 'bg-[#f1c21b]/20 text-[#f1c21b] border-2 border-[#f1c21b]/40' :
-                                                    `${theme === 'dark' ? 'bg-[#393939] hover:bg-[#4c4c4c]' : 'bg-[#e0e0e0] hover:bg-[#c6c6c6]'} ${textSecondary}`
-                                            } ${isDisabled ? 'opacity-40 cursor-not-allowed' : ''}`}
-                                    >
-                                        {qIndex + 1}
-                                    </motion.button>
-                                );
-                            })}
-                        </div>
+                                            {/* Progress Bar (Integrated) */}
+                                            <div className="flex items-center justify-between mb-2 px-1">
+                                                <span className={`text-[10px] font-bold ${textSecondary}`}>Section Progress</span>
+                                                <span className={`text-[10px] font-mono ${textSecondary}`}>{answeredCount}/{totalQuestions}</span>
+                                            </div>
+                                            <div className={`h-1.5 rounded-full overflow-hidden mb-4 ${theme === 'dark' ? 'bg-[#393939]' : 'bg-[#f4f4f4]'}`}>
+                                                <motion.div
+                                                    initial={{ width: 0 }}
+                                                    animate={{ width: `${progressPercent}%` }}
+                                                    transition={{ duration: 0.5, ease: "easeOut" }}
+                                                    className="h-full bg-[#0f62fe]"
+                                                />
+                                            </div>
+
+                                            {/* Grid */}
+                                            <div className="grid grid-cols-5 gap-2">
+                                                {questions.map((q, qIndex) => {
+                                                    const status = getQuestionStatus(q.id, qIndex);
+                                                    const isDisabled = !navigationSettings.allowPreviousNavigation && qIndex < currentQuestionIndex;
+
+                                                    return (
+                                                        <motion.button
+                                                            key={q.id}
+                                                            whileHover={{ scale: isDisabled ? 1 : 1.05 }}
+                                                            whileTap={{ scale: isDisabled ? 1 : 0.95 }}
+                                                            onClick={() => goToQuestion(qIndex)}
+                                                            disabled={isDisabled}
+                                                            className={`aspect-square rounded-lg text-xs font-bold flex items-center justify-center transition-all ${status === 'current' ? 'bg-[#0f62fe] text-white shadow-md shadow-blue-500/20 ring-1 ring-blue-400' :
+                                                                status === 'answered' ? 'bg-[#42be65]/10 text-[#42be65] border border-[#42be65]/30' :
+                                                                    status === 'flagged' ? 'bg-[#f1c21b]/10 text-[#f1c21b] border border-[#f1c21b]/30' :
+                                                                        `${theme === 'dark' ? 'bg-[#393939] hover:bg-[#4c4c4c] text-[#a8a8a8]' : 'bg-[#f4f4f4] hover:bg-[#e0e0e0] text-[#6f6f6f]'}`
+                                                                } ${isDisabled ? 'opacity-30 cursor-not-allowed' : ''}`}
+                                                        >
+                                                            {qIndex + 1}
+                                                        </motion.button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
                     </div>
 
                     {/* Legend */}
-                    <div className={`p-4 border-t border-inherit shrink-0 bg-inherit z-10`}>
-                        <div className="grid grid-cols-2 gap-2 text-[10px]">
-                            <div className="flex items-center gap-2"><div className="w-4 h-4 rounded-md bg-gradient-to-br from-[#8a3ffc] to-[#6929c4]" /><span className={textSecondary}>Current</span></div>
-                            <div className="flex items-center gap-2"><div className="w-4 h-4 rounded-md bg-[#42be65]/20 border border-[#42be65]/40" /><span className={textSecondary}>Answered</span></div>
-                            <div className="flex items-center gap-2"><div className="w-4 h-4 rounded-md bg-[#f1c21b]/20 border border-[#f1c21b]/40" /><span className={textSecondary}>Marked</span></div>
-                            <div className="flex items-center gap-2"><div className={`w-4 h-4 rounded-md ${theme === 'dark' ? 'bg-[#393939]' : 'bg-[#e0e0e0]'}`} /><span className={textSecondary}>Unseen</span></div>
+                    <div className={`p-4 border-t ${theme === 'dark' ? 'border-[#393939]' : 'border-[#e0e0e0]'} shrink-0 bg-inherit z-10`}>
+                        <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-[10px]">
+                            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded bg-[#0f62fe]" /><span className={textSecondary}>Current</span></div>
+                            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded bg-[#42be65]/20 border border-[#42be65]/40" /><span className={textSecondary}>Answered</span></div>
+                            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded bg-[#f1c21b]/20 border border-[#f1c21b]/40" /><span className={textSecondary}>Marked</span></div>
+                            <div className="flex items-center gap-2"><div className={`w-3 h-3 rounded ${theme === 'dark' ? 'bg-[#393939]' : 'bg-[#e0e0e0]'}`} /><span className={textSecondary}>Not Visited</span></div>
                         </div>
                     </div>
                 </aside>
@@ -602,7 +681,112 @@ export default function TakeAssessmentPage() {
 
                                     {/* Question Body */}
                                     <div className="flex-1 overflow-y-auto p-5 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-[#525252] hover:scrollbar-thumb-[#6f6f6f]" style={{ scrollbarWidth: 'thin', scrollbarColor: '#525252 transparent' }}>
-                                        <h2 className="text-base font-medium mb-5 leading-relaxed">{question.text}</h2>
+                                        <div className="text-base font-medium mb-5 leading-relaxed space-y-4">
+                                            {(() => {
+                                                const qAny = question as any;
+
+                                                // DEBUG: Print raw question object from backend
+                                                console.log('🔍 QUESTION FROM BACKEND:', question);
+
+                                                // 1. Explicit Pseudocode field (New standard) - HIGHEST PRIORITY
+                                                if (qAny.pseudocode) {
+                                                    return (
+                                                        <>
+                                                            <div className="mb-3 whitespace-pre-wrap font-medium">{question.text}</div>
+                                                            <PseudoCodeDisplay code={qAny.pseudocode} className="max-w-2xl max-h-[400px] overflow-auto border-opacity-50 shadow-sm" />
+                                                        </>
+                                                    );
+                                                }
+
+                                                // 2. Check if question type is pseudo_code
+                                                if (question.type === 'pseudo_code') {
+                                                    // Try to intelligently split prompt from code
+                                                    const lines = question.text.split('\n');
+                                                    let promptText = '';
+                                                    let codeText = '';
+                                                    let foundCodeStart = false;
+
+                                                    // Look for code indicators
+                                                    for (let i = 0; i < lines.length; i++) {
+                                                        const line = lines[i];
+                                                        // Check if this line starts code (contains assignment, keywords, etc)
+                                                        if (!foundCodeStart && (
+                                                            line.match(/^\s*(int|float|string|var|let|const|def|function|for|while|if|x\s*=|y\s*=|z\s*=)/i) ||
+                                                            line.match(/^\s*\w+\s*=/) ||
+                                                            line.trim().match(/^(BEGIN|START|ALGORITHM)/i)
+                                                        )) {
+                                                            foundCodeStart = true;
+                                                            codeText = lines.slice(i).join('\n');
+                                                            break;
+                                                        } else if (!foundCodeStart) {
+                                                            promptText += (promptText ? '\n' : '') + line;
+                                                        }
+                                                    }
+
+                                                    // If we found a split, render separately
+                                                    if (foundCodeStart && promptText && codeText) {
+                                                        return (
+                                                            <>
+                                                                <div className="mb-4 whitespace-pre-wrap font-medium">{promptText.trim()}</div>
+                                                                <PseudoCodeDisplay code={codeText.trim()} className="max-w-4xl max-h-[500px] overflow-auto border-opacity-50 shadow-sm" />
+                                                            </>
+                                                        );
+                                                    }
+
+                                                    // If no backticks and no split found, treat entire text as code
+                                                    if (!question.text.includes('```')) {
+                                                        return <PseudoCodeDisplay code={question.text} className="max-w-4xl max-h-[500px] overflow-auto border-opacity-50 shadow-sm" />;
+                                                    }
+                                                }
+
+                                                // 3. Check if section title suggests pseudo code
+                                                const isPseudoSection = currentSection?.title?.toLowerCase().includes('pseudo');
+                                                const hasCodeBlock = question.text.includes('```');
+
+                                                // If in pseudo section but no backticks, try to split prompt from code
+                                                if (isPseudoSection && !hasCodeBlock) {
+                                                    const lines = question.text.split('\n');
+                                                    let promptText = '';
+                                                    let codeText = '';
+                                                    let foundCodeStart = false;
+
+                                                    for (let i = 0; i < lines.length; i++) {
+                                                        const line = lines[i];
+                                                        if (!foundCodeStart && (
+                                                            line.match(/^\s*(int|float|string|var|let|const|def|function|for|while|if|x\s*=|y\s*=|z\s*=)/i) ||
+                                                            line.match(/^\s*\w+\s*=/) ||
+                                                            line.trim().match(/^(BEGIN|START|ALGORITHM)/i)
+                                                        )) {
+                                                            foundCodeStart = true;
+                                                            codeText = lines.slice(i).join('\n');
+                                                            break;
+                                                        } else if (!foundCodeStart) {
+                                                            promptText += (promptText ? '\n' : '') + line;
+                                                        }
+                                                    }
+
+                                                    if (foundCodeStart && promptText && codeText) {
+                                                        return (
+                                                            <>
+                                                                <div className="mb-4 whitespace-pre-wrap font-medium">{promptText.trim()}</div>
+                                                                <PseudoCodeDisplay code={codeText.trim()} className="max-w-4xl max-h-[500px] overflow-auto border-opacity-50 shadow-sm" />
+                                                            </>
+                                                        );
+                                                    }
+
+                                                    return <PseudoCodeDisplay code={question.text} className="max-w-4xl max-h-[500px] overflow-auto border-opacity-50 shadow-sm" />;
+                                                }
+
+                                                // 4. Fallback: Parse Markdown Backticks (Standard)
+                                                return question.text.split(/(```[\s\S]*?```)/g).map((part, pIdx) => {
+                                                    if (part.startsWith('```')) {
+                                                        const codeContent = part.replace(/^```\w*\n?|```$/g, '');
+                                                        return <PseudoCodeDisplay key={pIdx} code={codeContent} className="max-w-4xl max-h-[500px] overflow-auto border-opacity-50 shadow-sm" />;
+                                                    }
+                                                    return <span key={pIdx} className="whitespace-pre-wrap">{part}</span>;
+                                                });
+                                            })()}
+                                        </div>
 
                                         {question.image &&
                                             question.image.trim() !== '' &&
@@ -701,11 +885,13 @@ export default function TakeAssessmentPage() {
                                             </button>
                                         )}
 
-                                        {/* Next */}
-                                        <button onClick={handleNext} disabled={currentSectionIndex === sections.length - 1 && qIndex === questions.length - 1}
-                                            className="px-5 py-2.5 bg-gradient-to-r from-[#0f62fe] to-[#6929c4] hover:opacity-90 text-white rounded-xl text-sm font-medium flex items-center gap-2 shadow-lg shadow-[#0f62fe]/25 disabled:opacity-40 transition-all">
-                                            Next<ChevronRight className="w-4 h-4" />
-                                        </button>
+                                        {/* Next - Hide if last question in section */}
+                                        {qIndex < questions.length - 1 ? (
+                                            <button onClick={handleNext}
+                                                className="px-5 py-2.5 bg-gradient-to-r from-[#0f62fe] to-[#6929c4] hover:opacity-90 text-white rounded-xl text-sm font-medium flex items-center gap-2 shadow-lg shadow-[#0f62fe]/25 transition-all">
+                                                Next<ChevronRight className="w-4 h-4" />
+                                            </button>
+                                        ) : <div />}
                                     </div>
                                 </div>
                             );
@@ -716,7 +902,10 @@ export default function TakeAssessmentPage() {
                     <footer className={`shrink-0 px-6 py-4 border-t ${cardBorder} flex items-center justify-end z-20 ${cardBg}`}>
                         {currentSectionIndex < sections.length - 1 ? (
                             <button
-                                onClick={handleConfirmSectionFinish}
+                                onClick={() => {
+                                    setIsNavigatingToNextSection(false); // Reset before showing modal
+                                    setShowSectionWarning(true);
+                                }}
                                 className="px-6 py-2.5 bg-gradient-to-r from-[#0f62fe] to-[#4589ff] hover:opacity-90 text-white text-sm font-bold rounded-xl flex items-center gap-2 shadow-lg shadow-[#0f62fe]/25 transition-all"
                             >
                                 Next Section <ChevronRight className="w-4 h-4" />
@@ -736,9 +925,17 @@ export default function TakeAssessmentPage() {
             {/* Submit Modal */}
             <AnimatePresence>
                 {showSubmitConfirm && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.15 }}
                         className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[101] flex items-center justify-center p-4">
-                        <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }}
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.95, opacity: 0 }}
+                            transition={{ duration: 0.15 }}
                             className={`max-w-sm w-full rounded-2xl p-6 ${cardBg} border ${cardBorder}`}>
                             <div className="text-center mb-5">
                                 <AlertTriangle className="w-12 h-12 text-[#f1c21b] mx-auto mb-3" />
@@ -765,16 +962,25 @@ export default function TakeAssessmentPage() {
             {/* Section Warning Modal */}
             <AnimatePresence>
                 {showSectionWarning && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.15 }}
                         className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[101] flex items-center justify-center p-4">
-                        <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }}
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.95, opacity: 0 }}
+                            transition={{ duration: 0.15 }}
                             className={`max-w-sm w-full rounded-2xl p-6 ${cardBg} border ${cardBorder}`}>
                             <div className="text-center mb-5">
                                 <AlertTriangle className="w-12 h-12 text-[#f1c21b] mx-auto mb-3" />
                                 <h2 className="text-lg font-bold mb-2">Finish Section?</h2>
+                                <p className={`text-sm ${textSecondary} mb-2`}>
+                                    You have completed <b className="text-[#0f62fe]">{answeredCountInSection}</b> of <b>{questions.length}</b> questions in this section.
+                                </p>
                                 <p className={`text-sm ${textSecondary} mb-4`}>
-                                    You are about to move to the next section.
-                                    <br /><br />
                                     <span className="text-red-500 font-bold">Warning:</span> You CANNOT return to this section once you proceed.
                                 </p>
                                 <div className="text-xs bg-[#f1c21b]/10 text-[#f1c21b] p-3 rounded-lg border border-[#f1c21b]/20">
@@ -786,8 +992,8 @@ export default function TakeAssessmentPage() {
                                     className={`flex-1 py-2.5 rounded-lg font-medium text-sm ${theme === 'dark' ? 'bg-[#393939] hover:bg-[#4c4c4c]' : 'bg-[#e0e0e0] hover:bg-[#c6c6c6]'}`}>
                                     Cancel
                                 </button>
-                                <button onClick={handleConfirmSectionFinish} className="flex-1 py-2.5 bg-[#0f62fe] hover:bg-[#0353e9] text-white rounded-lg font-medium text-sm">
-                                    Confirm & Proceed
+                                <button onClick={handleConfirmSectionFinish} disabled={isNavigatingToNextSection} className="flex-1 py-2.5 bg-[#0f62fe] hover:bg-[#0353e9] text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2">
+                                    {isNavigatingToNextSection ? <><Loader2 className="w-4 h-4 animate-spin" /> Loading...</> : 'Yes, Proceed'}
                                 </button>
                             </div>
                         </motion.div>

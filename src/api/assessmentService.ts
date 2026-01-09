@@ -96,7 +96,8 @@ export type ViolationType =
     | 'LOOKING_AWAY'        // Not looking at screen
     | 'PROCTOR_FEED'        // Proctor feed sent to user
     | 'ROOM_SCAN'           // Room scan request
-    | 'RESTRICTED_OBJECT';  // Prohibited object detected
+    | 'RESTRICTED_OBJECT'   // Prohibited object detected
+    | 'EXCESSIVE_NOISE';    // Excessive background noise detected
 
 export interface Violation {
     id: string;

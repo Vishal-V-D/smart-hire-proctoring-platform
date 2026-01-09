@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Camera, AlertTriangle, Eye, EyeOff, Monitor,
-    Copy, MousePointer2, Maximize2, X, Volume2, Brain, Scan
+    Copy, MousePointer2, Maximize2, X, Volume2, ScanFace, Scan, Mic
 } from 'lucide-react';
 import { contestantService, type ViolationType } from '@/api/contestantService';
 import { useAIProctoring } from '@/hooks/useAIProctoring';
@@ -22,6 +22,7 @@ interface ProctoringSettings {
     tabSwitchLimit: number;
     disableCopyPaste: boolean;
     blockRightClick: boolean;
+    noiseDetection?: boolean;
 }
 
 interface Violation {
@@ -42,6 +43,7 @@ interface ProctoringOverlayProps {
 }
 
 // ... imports
+import { useRouter } from 'next/navigation';
 
 const ProctoringOverlay: React.FC<ProctoringOverlayProps> = ({
     settings,
@@ -52,11 +54,13 @@ const ProctoringOverlay: React.FC<ProctoringOverlayProps> = ({
     enableAIProctoring = true
 }) => {
     // State Definitions
+    const router = useRouter();
     const [isFullScreen, setIsFullScreen] = useState(true);
     const [stream, setStream] = useState<MediaStream | null>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
     const streamRef = useRef<MediaStream | null>(null); // Added missing ref
     const aiCanvasRef = useRef<HTMLCanvasElement>(null);
+    const [effectivePhotoUrl, setEffectivePhotoUrl] = useState(storedPhotoUrl);
 
     // UI State
     const [showCamera, setShowCamera] = useState(true); // Added missing state
@@ -67,68 +71,40 @@ const ProctoringOverlay: React.FC<ProctoringOverlayProps> = ({
     const [toast, setToast] = useState<{ message: string; type: 'warning' | 'error' } | null>(null); // Added missing state
     const [showAIStatus, setShowAIStatus] = useState(false);
 
-    // AI Proctoring Hook
-    const [effectivePhotoUrl, setEffectivePhotoUrl] = useState(storedPhotoUrl);
-
+    // Debug: Log proctoring settings on mount
     useEffect(() => {
-        if (!effectivePhotoUrl) {
-            const stored = localStorage.getItem('storedPhotoUrl');
-            if (stored) {
-                console.log('🔄 ProctoringOverlay: Loaded stored photo for verification:', stored);
-                setEffectivePhotoUrl(stored);
-            }
-        }
-    }, [effectivePhotoUrl]);
+        console.log('%c🔧 PROCTORING SETTINGS:', 'background: #0f62fe; color: white; font-size: 12px; padding: 4px;', {
+            audioMonitoring: settings?.audioMonitoring,
+            noiseDetection: settings?.noiseDetection,
+            audioOrNoise: settings?.audioMonitoring || settings?.noiseDetection,
+            faceDetection: settings?.faceDetection,
+            objectDetection: settings?.objectDetection,
+            enabled: settings?.enabled
+        });
+    }, [settings]);
 
-    const {
-        status: aiStatus,
-        violations: aiViolations,
-        isInitialized: aiInitialized,
-        startProctoring,
-        stopProctoring,
-        loadStoredPhoto
-    } = useAIProctoring({
-        storedPhotoUrl: effectivePhotoUrl,
-        faceVerificationEnabled: settings?.faceDetection && !!effectivePhotoUrl,
-        faceDetectionEnabled: settings?.faceDetection,
-        gazeTrackingEnabled: settings?.faceDetection,
-        objectDetectionEnabled: settings?.objectDetection,
-        verificationThreshold: 0.5,
-        gazeDeviationThreshold: 0.4,
-        onViolation: (aiViolation) => {
-            // Map AI violation to proctoring violation
-            const violationMap: Record<string, ViolationType> = {
-                'no_face': 'no_face',
-                'multiple_faces': 'multiple_people',
-                'face_mismatch': 'no_face',
-                'looking_away': 'looking_away',
-                'looking_down': 'looking_away',
-                'looking_up': 'looking_away',
-                'prohibited_object': 'prohibited_object',
-                'face_covered': 'camera_blocked'
-            };
-            const mappedType = violationMap[aiViolation.type] || aiViolation.type as ViolationType;
-            recordViolation(mappedType, aiViolation.metadata);
-        }
-    });
+    // Track face count in ref to access inside callbacks without triggering re-renders
+    const faceCountRef = useRef(0);
 
-    // Callback ref to attach stream immediately when video element is created
-    const setVideoRef = useCallback((node: HTMLVideoElement | null) => {
-        (videoRef as React.MutableRefObject<HTMLVideoElement | null>).current = node;
-        if (node && streamRef.current) {
-            node.srcObject = streamRef.current;
-            node.play().catch((err) => {
-                console.log('Video play failed in setVideoRef:', err);
-            });
-        }
-    }, []);
-
-    // Violations
+    // Violations State & Logic (Defined BEFORE useAIProctoring to avoid TDZ issues)
     const [violations, setViolations] = useState<StoredViolation[]>([]);
-    const violationQueueRef = useRef<StoredViolation[]>([]); // Renamed to match usage
+    const violationQueueRef = useRef<StoredViolation[]>([]);
     const sendIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
     const recordViolation = useCallback((type: ViolationType, metadata?: any) => {
+        // STRICT CHECK: Completely ignore 'no_face' violations if the authoritative face count is > 0
+        if (type === 'no_face' && faceCountRef.current > 0) {
+            console.log('🛡️ Blocked false positive no_face violation (Face count is > 0)');
+            return;
+        }
+
+        console.log(`📝 Recording Violation: ${type}`, metadata);
+
+        // Special logging for noise violations
+        if (type === 'excessive_noise') {
+            console.log('%c🔊 EXCESSIVE NOISE VIOLATION - SHOWING TOAST!', 'background: #ff6b00; color: white; font-size: 14px; padding: 4px;');
+        }
+
         const violation: StoredViolation = {
             type,
             timestamp: new Date().toISOString(),
@@ -150,12 +126,83 @@ const ProctoringOverlay: React.FC<ProctoringOverlayProps> = ({
             'mic_muted': '⚠️ Microphone muted',
             'prohibited_object': '⚠️ Prohibited object detected',
             'right_click': '⚠️ Right-click blocked',
-            'copy_paste': '⚠️ Copy/Paste blocked'
+            'copy_paste': '⚠️ Copy/Paste blocked',
+            'excessive_noise': '🔊 Excessive background noise detected'
         };
 
-        setToast({ message: messages[type] || `⚠️ ${type}`, type: 'warning' });
+        const toastMessage = messages[type] || `⚠️ ${type}`;
+        console.log('🍞 Setting toast:', toastMessage);
+        setToast({ message: toastMessage, type: 'warning' });
         setTimeout(() => setToast(null), 3000);
     }, [onViolation]);
+
+    // Load stored photo if needed
+    useEffect(() => {
+        if (!effectivePhotoUrl) {
+            const stored = localStorage.getItem('storedPhotoUrl');
+            if (stored) {
+                console.log('🔄 ProctoringOverlay: Loaded stored photo for verification:', stored);
+                setEffectivePhotoUrl(stored);
+            }
+        }
+    }, [effectivePhotoUrl]);
+
+    // AI Proctoring Hook
+    const {
+        status: aiStatus,
+        violations: aiViolations,
+        isInitialized: aiInitialized,
+        startProctoring,
+        stopProctoring,
+        loadStoredPhoto
+    } = useAIProctoring({
+        storedPhotoUrl: effectivePhotoUrl,
+        faceVerificationEnabled: settings?.faceDetection && !!effectivePhotoUrl,
+        faceDetectionEnabled: settings?.faceDetection,
+        gazeTrackingEnabled: settings?.faceDetection,
+        objectDetectionEnabled: settings?.objectDetection,
+        audioMonitoringEnabled: settings?.audioMonitoring || settings?.noiseDetection,
+        noiseThreshold: 0.15, // 15% threshold - triggers when audio level exceeds this
+        verificationThreshold: 0.5,
+        gazeDeviationThreshold: 0.4,
+        onViolation: (aiViolation) => {
+            console.log('%c🤖 AI VIOLATION RECEIVED IN OVERLAY!', 'background: #6929c4; color: white; font-size: 14px; padding: 4px;', {
+                type: aiViolation.type,
+                metadata: aiViolation.metadata
+            });
+            // Map AI violation to proctoring violation
+            const violationMap: Record<string, ViolationType> = {
+                'no_face': 'no_face',
+                'multiple_faces': 'multiple_people',
+                'face_mismatch': 'no_face',
+                'looking_away': 'looking_away',
+                'looking_down': 'looking_away',
+                'looking_up': 'looking_away',
+                'prohibited_object': 'prohibited_object',
+                'face_covered': 'camera_blocked',
+                'excessive_noise': 'excessive_noise'
+            };
+            const mappedType = violationMap[aiViolation.type] || aiViolation.type as ViolationType;
+            console.log('📝 Mapped violation type:', mappedType, '→ Calling recordViolation...');
+            recordViolation(mappedType, aiViolation.metadata);
+        }
+    });
+
+    // Callback ref to attach stream immediately when video element is created
+    const setVideoRef = useCallback((node: HTMLVideoElement | null) => {
+        (videoRef as React.MutableRefObject<HTMLVideoElement | null>).current = node;
+        if (node && streamRef.current) {
+            node.srcObject = streamRef.current;
+            node.play().catch((err) => {
+                console.log('Video play failed in setVideoRef:', err);
+            });
+        }
+    }, []);
+
+    // Sync face count ref with AI status
+    useEffect(() => {
+        faceCountRef.current = aiStatus.faceCount;
+    }, [aiStatus.faceCount]);
 
     // Send violations to backend
     const sendViolations = useCallback(async () => {
@@ -178,42 +225,39 @@ const ProctoringOverlay: React.FC<ProctoringOverlayProps> = ({
     }, []);
 
     // Initialize camera
-    useEffect(() => {
-        if (!settings?.videoMonitoring || !settings?.enabled) {
-            console.log('Camera disabled: videoMonitoring=', settings?.videoMonitoring, 'enabled=', settings?.enabled);
-            return;
-        }
+    // Initialize camera function
+    const startCamera = useCallback(async () => {
+        if (!settings?.videoMonitoring || !settings?.enabled) return;
 
         console.log('Starting camera...');
+        try {
+            const mediaStream = await navigator.mediaDevices.getUserMedia({
+                video: { width: 320, height: 240, facingMode: 'user' },
+                audio: settings.audioMonitoring || false
+            });
+            console.log('Camera stream obtained:', mediaStream);
+            streamRef.current = mediaStream;
+            setStream(mediaStream);
 
-        const startCamera = async () => {
-            try {
-                const mediaStream = await navigator.mediaDevices.getUserMedia({
-                    video: { width: 320, height: 240, facingMode: 'user' },
-                    audio: settings.audioMonitoring || false
-                });
-                console.log('Camera stream obtained:', mediaStream);
-                streamRef.current = mediaStream;
-                setStream(mediaStream);
-
-                // Attach to video element if available
-                if (videoRef.current) {
-                    videoRef.current.srcObject = mediaStream;
-                    videoRef.current.play().catch(e => console.log('Video play failed:', e));
-                }
-            } catch (err) {
-                console.error('Camera access denied:', err);
-                recordViolation('camera_blocked', { reason: 'access_denied' });
+            // Attach to video element if available
+            if (videoRef.current) {
+                videoRef.current.srcObject = mediaStream;
+                videoRef.current.play().catch(e => console.log('Video play failed:', e));
             }
-        };
+        } catch (err) {
+            console.error('Camera access denied:', err);
+            recordViolation('camera_blocked', { reason: 'access_denied' });
+        }
+    }, [settings?.videoMonitoring, settings?.enabled, settings?.audioMonitoring, recordViolation]);
 
+    // Initial Camera Setup
+    useEffect(() => {
         startCamera();
-
         return () => {
             console.log('Stopping camera tracks...');
             streamRef.current?.getTracks().forEach((t: MediaStreamTrack) => t.stop());
         };
-    }, [settings?.videoMonitoring, settings?.enabled, settings?.audioMonitoring, recordViolation]);
+    }, [startCamera]);
 
     // Ensure video element always has the stream attached when visibility changes
     useEffect(() => {
@@ -373,6 +417,36 @@ const ProctoringOverlay: React.FC<ProctoringOverlayProps> = ({
         };
     }, [settings?.fullscreen, settings?.enabled, recordViolation]);
 
+    // Log Tab Switch Settings when loaded
+    useEffect(() => {
+        if (settings?.enabled && settings?.tabSwitchLimit !== undefined) {
+            console.log(
+                '%c╔══════════════════════════════════════════════════════════╗',
+                'color: #0f62fe; font-weight: bold;'
+            );
+            console.log(
+                '%c║  🔒 TAB SWITCH SETTINGS (Admin Configuration)          ║',
+                'color: #0f62fe; font-weight: bold;'
+            );
+            console.log(
+                '%c╠══════════════════════════════════════════════════════════╣',
+                'color: #0f62fe; font-weight: bold;'
+            );
+            console.log(
+                `%c║  Tab Switch Limit: ${String(settings.tabSwitchLimit).padEnd(37)} ║`,
+                'color: #42be65; font-weight: bold;'
+            );
+            console.log(
+                `%c║  Enabled: ${String(settings.enabled).padEnd(45)} ║`,
+                'color: #42be65; font-weight: bold;'
+            );
+            console.log(
+                '%c╚══════════════════════════════════════════════════════════╝',
+                'color: #0f62fe; font-weight: bold;'
+            );
+        }
+    }, [settings?.enabled, settings?.tabSwitchLimit]);
+
     // Tab switch detection
     useEffect(() => {
         if (!settings?.enabled) return;
@@ -381,9 +455,78 @@ const ProctoringOverlay: React.FC<ProctoringOverlayProps> = ({
             if (document.hidden) {
                 setTabSwitchCount(prev => {
                     const newCount = prev + 1;
-                    recordViolation('tab_switch', { count: newCount });
+                    const limit = settings.tabSwitchLimit || 0;
+                    const limitExceeded = limit > 0 && newCount >= limit;
+
+                    // Formatted console log for tab switch detection
+                    console.log(
+                        '%c┌─────────────────────────────────────────────┐',
+                        'color: #f1c21b; font-weight: bold;'
+                    );
+                    console.log(
+                        '%c│ ⚠️  TAB SWITCH DETECTED (Contestant Side)  │',
+                        'color: #f1c21b; font-weight: bold;'
+                    );
+                    console.log(
+                        '%c├─────────────────────────────────────────────┤',
+                        'color: #f1c21b; font-weight: bold;'
+                    );
+                    console.log(
+                        `%c│ Current Count: ${String(newCount).padEnd(27)} │`,
+                        limitExceeded ? 'color: #fa4d56; font-weight: bold;' : 'color: #f1c21b; font-weight: bold;'
+                    );
+                    console.log(
+                        `%c│ Admin Limit: ${String(limit).padEnd(29)} │`,
+                        'color: #0f62fe; font-weight: bold;'
+                    );
+                    console.log(
+                        `%c│ Status: ${(limitExceeded ? 'LIMIT EXCEEDED ❌' : 'Within Limit ✅').padEnd(33)} │`,
+                        limitExceeded ? 'color: #fa4d56; font-weight: bold;' : 'color: #42be65; font-weight: bold;'
+                    );
+                    console.log(
+                        '%c└─────────────────────────────────────────────┘',
+                        'color: #f1c21b; font-weight: bold;'
+                    );
+
+                    recordViolation('tab_switch', {
+                        count: newCount,
+                        limit: limit,
+                        limitExceeded: limitExceeded
+                    });
+
+                    // Terminate if limit exceeded
+                    if (limitExceeded) {
+                        console.error('🚫 Tab switch limit exceeded! Terminating assessment...');
+                        stopProctoring();
+
+                        // Force submit warnings/violations immediately
+                        sendViolations().then(async () => {
+                            try {
+                                // Attempt to submit the assessment to ensure status is updated
+                                console.log('🔒 Auto-submitting due to violation limit...');
+                                await contestantService.submitAssessment(assessmentId, {
+                                    answers: [], // Send empty answers as partial/forced submission
+                                    isAutoSubmit: true
+                                });
+                            } catch (err) {
+                                console.error('Failed to auto-submit on violation:', err);
+                            } finally {
+                                router.push('/contestant/assessment/terminated');
+                            }
+                        });
+                    }
+
                     return newCount;
                 });
+            } else {
+                // Returns to tab: Check if stream is dead (browser background throttle)
+                if (settings?.videoMonitoring) {
+                    const isStreamActive = streamRef.current && streamRef.current.active && streamRef.current.getVideoTracks().some(t => t.readyState === 'live');
+                    if (!isStreamActive) {
+                        console.warn('⚠️ Camera stream passed away in background. Improving resurrection...');
+                        startCamera();
+                    }
+                }
             }
         };
 
@@ -398,7 +541,7 @@ const ProctoringOverlay: React.FC<ProctoringOverlayProps> = ({
             document.removeEventListener('visibilitychange', handleVisibilityChange);
             window.removeEventListener('blur', handleBlur);
         };
-    }, [settings?.enabled, recordViolation]);
+    }, [settings?.enabled, recordViolation, startCamera, settings?.videoMonitoring, settings?.tabSwitchLimit, stopProctoring, sendViolations, router]);
 
     // Copy/Paste blocking
     useEffect(() => {
@@ -573,7 +716,7 @@ const ProctoringOverlay: React.FC<ProctoringOverlayProps> = ({
                                 <div className="absolute bottom-2 left-2 right-2 flex flex-col gap-1">
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-1.5">
-                                            <Brain className={`w-3 h-3 ${aiStatus.faceDetected ? 'text-green-400' : 'text-red-400'}`} />
+                                            <ScanFace className={`w-3 h-3 ${aiStatus.faceDetected ? 'text-green-400' : 'text-red-400'}`} />
                                             <span className={`text-[9px] font-bold px-1 py-0.5 rounded ${aiStatus.faceCount > 1
                                                 ? 'text-white bg-red-600 animate-pulse'
                                                 : 'text-white bg-black/60'
@@ -584,14 +727,31 @@ const ProctoringOverlay: React.FC<ProctoringOverlayProps> = ({
                                             </span>
                                         </div>
                                         {aiStatus.isVerified && (
-                                            <span className="text-[9px] font-bold text-green-400 bg-black/60 px-1 py-0.5 rounded">
+                                            <span className={`text-[9px] font-bold text-green-400 bg-black/60 px-1 py-0.5 rounded`}>
                                                 ID ✓
                                             </span>
                                         )}
                                     </div>
+
+                                    {/* Multiple Faces Warning */}
                                     {aiStatus.faceCount > 1 && (
                                         <div className="text-[8px] text-center text-white bg-red-600/90 px-1 rounded animate-pulse">
                                             Multiple Faces Detected!
+                                        </div>
+                                    )}
+
+                                    {/* Audio Level Indicator */}
+                                    {settings.audioMonitoring && (
+                                        <div className="flex items-center gap-1.5 px-1 py-0.5 bg-black/40 rounded">
+                                            <Mic className={`w-3 h-3 ${((aiStatus.audioLevel || 0) > 15) ? 'text-red-400' : 'text-gray-400'}`} />
+                                            <div className="flex-1 h-1 bg-gray-700/50 rounded-full overflow-hidden">
+                                                <div
+                                                    className={`h-full transition-all duration-300 ${(aiStatus.audioLevel || 0) > 15 ? 'bg-red-500' :
+                                                        (aiStatus.audioLevel || 0) > 5 ? 'bg-yellow-500' : 'bg-green-500'
+                                                        }`}
+                                                    style={{ width: `${Math.min(100, (aiStatus.audioLevel || 0) * 2)}%` }} // Visual boost
+                                                />
+                                            </div>
                                         </div>
                                     )}
                                 </div>

@@ -9,6 +9,7 @@ export interface RunCodeRequest {
     problemId: string;
     code: string;
     language: string;
+    sectionProblemId?: string;
 }
 
 export interface SubmitCodeRequest {
@@ -17,6 +18,7 @@ export interface SubmitCodeRequest {
     language: string;
     assessmentId?: string;
     sectionId?: string;
+    sectionProblemId?: string;
 }
 
 export interface TestCaseResult {

@@ -140,6 +140,10 @@ const NewAssessmentPage = () => {
                         codeStub: q.codeStub || undefined,
                         marks: q.marks || 1,
                         orderIndex: q.orderIndex || 0,
+                        problemId: q.problemId || undefined,
+                        problemData: q.problemData || undefined,
+                        sectionProblemId: q.sectionProblemId || undefined, // For test case configuration
+                        testCaseConfig: q.testCaseConfig || undefined, // For test case configuration
                     }))
                 }));
                 setSections(loadedSections);
@@ -246,17 +250,18 @@ const NewAssessmentPage = () => {
                     // IMPORTANT: When adding problems, do NOT copy problem's original marks
                     const marks = q.marks ?? section.marksPerQuestion;
 
-                    // For coding questions, send only problemId
+                    // For coding questions, send only problemId and testCaseConfig
                     if (q.type === 'coding' && q.problemId) {
                         return {
                             id: q.id,
                             type: 'coding' as const,
                             problemId: q.problemId,
                             marks: marks,
-                            orderIndex: qIndex
+                            orderIndex: qIndex,
+                            testCaseConfig: q.testCaseConfig || undefined
                         };
                     }
-                    // For MCQ and other types, send full data
+                    // For MCQ and other types, send full data with ALL fields
                     return {
                         id: q.id,
                         text: q.text,
@@ -264,6 +269,13 @@ const NewAssessmentPage = () => {
                         type: q.type,
                         options: q.options || undefined,
                         correctAnswer: q.correctAnswer || undefined,
+                        explanation: (q as any).explanation || undefined,
+                        pseudocode: (q as any).pseudocode || undefined,  // ✅ CRITICAL: Include pseudocode
+                        division: (q as any).division || undefined,
+                        subdivision: (q as any).subdivision || undefined,
+                        topic: (q as any).topic || undefined,
+                        difficulty: (q as any).difficulty || undefined,
+                        tags: (q as any).tags || undefined,
                         codeStub: q.codeStub || undefined,
                         marks: marks,
                         orderIndex: qIndex

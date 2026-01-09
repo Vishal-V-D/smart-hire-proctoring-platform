@@ -32,17 +32,43 @@ export default function AddQuestionPage() {
 
     // Bulk Upload State
     const [uploadDivision, setUploadDivision] = useState('');
+    const [uploadSubdivision, setUploadSubdivision] = useState('');
+    const [uploadTopic, setUploadTopic] = useState('');
     const [isUploading, setIsUploading] = useState(false);
     const [filterOptions, setFilterOptions] = useState<FilterOptions | null>(null);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const bulkUploadRef = useRef<HTMLInputElement>(null);
 
+    // Dynamic filtering for subdivisions based on selected division
+    const [dynamicSubdivisions, setDynamicSubdivisions] = useState<string[]>([]);
+
     const availableTypes: QuestionType[] = ['single_choice', 'multiple_choice', 'fill_in_the_blank', 'coding'];
 
     useEffect(() => {
         fetchFilterOptions();
     }, []);
+
+    // Update dynamic subdivisions when uploadDivision changes
+    useEffect(() => {
+        const updateSubdivisions = async () => {
+            if (uploadDivision && filterOptions?.divisions.includes(uploadDivision)) {
+                try {
+                    // Fetch subdivisions specific to this division
+                    const res = await questionBankService.getFilterOptions(uploadDivision);
+                    setDynamicSubdivisions(res.data.subdivisions);
+                } catch (error) {
+                    console.error('Failed to update subdivisions:', error);
+                }
+            } else if (filterOptions) {
+                // Reset to all subdivisions if no division selected or unknown division
+                setDynamicSubdivisions(filterOptions.subdivisions);
+            }
+        };
+
+        const timeoutId = setTimeout(updateSubdivisions, 300);
+        return () => clearTimeout(timeoutId);
+    }, [uploadDivision, filterOptions]);
 
     const fetchFilterOptions = async () => {
         try {
@@ -66,8 +92,8 @@ export default function AddQuestionPage() {
 
     const handleBulkUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
-        if (!file || !uploadDivision) {
-            alert('Please select a division and file');
+        if (!file) {
+            alert('Please select a file');
             return;
         }
 
@@ -76,11 +102,13 @@ export default function AddQuestionPage() {
             const fileExtension = file.name.split('.').pop()?.toLowerCase();
 
             if (fileExtension === 'csv') {
-                await questionBankService.uploadCSV(file, uploadDivision);
-                alert('CSV uploaded successfully! Questions added to the bank.');
+                const response = await questionBankService.uploadCSV(file, uploadDivision, uploadSubdivision, uploadTopic);
+                console.log('✅ CSV Upload Success:', response.data);
+                alert('CSV uploaded successfully! check console for details.');
             } else if (fileExtension === 'zip') {
-                await questionBankService.uploadZIP(file, uploadDivision);
-                alert('ZIP uploaded successfully! Questions added to the bank.');
+                const response = await questionBankService.uploadZIP(file, uploadDivision, uploadSubdivision, uploadTopic);
+                console.log('✅ ZIP Upload Success:', response.data);
+                alert('ZIP uploaded successfully! check console for details.');
             } else {
                 alert('Please upload a CSV or ZIP file');
                 return;
@@ -211,13 +239,15 @@ export default function AddQuestionPage() {
 
                                 {/* Division Selection */}
                                 <div>
-                                    <label className="text-sm font-bold text-foreground mb-2 block">Target Division *</label>
+                                    <label className="text-sm font-bold text-foreground mb-2 block">
+                                        Main Division (Section) <span className="text-muted-foreground font-normal">(Optional if 'Division' column exists)</span>
+                                    </label>
                                     <input
                                         type="text"
                                         list="divisions-list-bulk"
                                         value={uploadDivision}
                                         onChange={(e) => setUploadDivision(e.target.value)}
-                                        placeholder="e.g. Technical, Aptitude, Coding..."
+                                        placeholder="e.g. Technical, Aptitude, Pseudo Code..."
                                         className="w-full bg-background border border-border rounded-lg py-3 px-4 text-sm focus:border-primary outline-none"
                                     />
                                     <datalist id="divisions-list-bulk">
@@ -225,7 +255,51 @@ export default function AddQuestionPage() {
                                             <option key={idx} value={div} />
                                         ))}
                                     </datalist>
-                                    <p className="text-xs text-muted-foreground mt-1">Type a division name or select from suggestions</p>
+                                    <p className="text-xs text-muted-foreground mt-1">Select the main section (Aptitude, Technical, etc.)</p>
+                                </div>
+
+                                {/* Subdivision Selection */}
+                                <div>
+                                    <label className="text-sm font-bold text-foreground mb-2 block">
+                                        Subdivision (Topic) <span className="text-muted-foreground font-normal">(Optional if 'Subtopic' column exists)</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        list="subdivisions-list-bulk"
+                                        value={uploadSubdivision}
+                                        onChange={(e) => setUploadSubdivision(e.target.value)}
+                                        placeholder="e.g. OS, Select Division first to see options..."
+                                        className="w-full bg-background border border-border rounded-lg py-3 px-4 text-sm focus:border-primary outline-none"
+                                    />
+                                    <datalist id="subdivisions-list-bulk">
+                                        {dynamicSubdivisions.map((sub, idx) => (
+                                            <option key={idx} value={sub} />
+                                        ))}
+                                    </datalist>
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                        {uploadDivision ? `Available topics for ${uploadDivision}` : 'Select a division to filter topics'}
+                                    </p>
+                                </div>
+
+                                {/* Topic Selection */}
+                                <div>
+                                    <label className="text-sm font-bold text-foreground mb-2 block">
+                                        Specific Topic <span className="text-muted-foreground font-normal">(Optional if 'Topic' column exists)</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        list="topics-list-bulk"
+                                        value={uploadTopic}
+                                        onChange={(e) => setUploadTopic(e.target.value)}
+                                        placeholder="e.g. Arrays, Pointers, Profit & Loss..."
+                                        className="w-full bg-background border border-border rounded-lg py-3 px-4 text-sm focus:border-primary outline-none"
+                                    />
+                                    <datalist id="topics-list-bulk">
+                                        {filterOptions?.topics.map((top, idx) => (
+                                            <option key={idx} value={top} />
+                                        ))}
+                                    </datalist>
+                                    <p className="text-xs text-muted-foreground mt-1">Type a specific topic</p>
                                 </div>
 
                                 {/* Two Column Layout */}
@@ -240,13 +314,18 @@ export default function AddQuestionPage() {
                                         <div className="bg-background/80 rounded-lg p-4 space-y-2">
                                             <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Required Columns:</p>
                                             <div className="text-sm text-foreground font-mono space-y-1">
-                                                <div>• <span className="text-emerald-600">Topic</span> - Question topic</div>
-                                                <div>• <span className="text-emerald-600">Subtopic</span> - Sub-category</div>
+                                                <div>• <span className="text-emerald-600">Division</span> - Optional (overrides selection)</div>
+                                                <div>• <span className="text-emerald-600">Subtopic</span> - Optional (overrides selection)</div>
+                                                <div>• <span className="text-emerald-600">Topic</span> - Optional (overrides selection)</div>
                                                 <div>• <span className="text-emerald-600">Level</span> - easy/medium/hard</div>
                                                 <div>• <span className="text-emerald-600">Question</span> - Question text</div>
                                                 <div>• <span className="text-emerald-600">Options (JSON)</span> - {"'{\"1\":\"...\",\"2\":\"...\"...}'"}</div>
                                                 <div>• <span className="text-emerald-600">Solution</span> - Correct option (1-4)</div>
                                             </div>
+                                        </div>
+
+                                        <div className="bg-amber-500/10 text-amber-600 text-xs p-3 rounded-lg flex gap-2 items-start">
+                                            <span className="font-bold">Note:</span> Columns in CSV take priority over the dropdown selections above.
                                         </div>
 
                                         <a
@@ -296,7 +375,7 @@ export default function AddQuestionPage() {
                                     />
                                     <button
                                         onClick={() => bulkUploadRef.current?.click()}
-                                        disabled={!uploadDivision || isUploading}
+                                        disabled={isUploading}
                                         className="w-full py-4 px-6 bg-primary text-primary-foreground rounded-xl font-bold text-base hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                     >
                                         {isUploading ? (
@@ -311,9 +390,9 @@ export default function AddQuestionPage() {
                                             </>
                                         )}
                                     </button>
-                                    {!uploadDivision && (
-                                        <p className="text-sm text-amber-600 mt-3 text-center">
-                                            ⚠️ Select a division first to upload
+                                    {!uploadDivision && !uploadSubdivision && !uploadTopic && (
+                                        <p className="text-xs text-muted-foreground mt-3 text-center">
+                                            ℹ️ If no global filters are selected here, your CSV <strong>must</strong> have 'Division', 'Subtopic', and 'Topic' columns.
                                         </p>
                                     )}
                                 </div>

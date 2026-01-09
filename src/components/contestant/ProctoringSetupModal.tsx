@@ -12,7 +12,7 @@ interface ProctoringSetupModalProps {
 }
 
 // Step type definition
-type SetupStep = 'browser' | 'camera' | 'screen' | 'photo' | 'consent';
+type SetupStep = 'browser' | 'camera' | 'screen' | 'consent';
 
 export default function ProctoringSetupModal({ isOpen, onClose, onComplete, assessmentId, settings }: ProctoringSetupModalProps) {
     const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -41,7 +41,7 @@ export default function ProctoringSetupModal({ isOpen, onClose, onComplete, asse
     const [error, setError] = useState('');
 
     // Define steps in order
-    const steps: SetupStep[] = ['browser', 'camera', 'screen', 'photo', 'consent'];
+    const steps: SetupStep[] = ['browser', 'camera', 'screen', 'consent'];
     const currentStepIndex = steps.indexOf(currentStep);
 
     const setVideoRef = React.useCallback((node: HTMLVideoElement | null) => {
@@ -123,11 +123,9 @@ export default function ProctoringSetupModal({ isOpen, onClose, onComplete, asse
             case 'browser':
                 return checks.browser;
             case 'camera':
-                return checks.camera && (isMicRequired ? checks.mic : true);
+                return checks.camera && (isMicRequired ? checks.mic : true) && photoVerified;
             case 'screen':
                 return checks.screenShare;
-            case 'photo':
-                return photoVerified;
             case 'consent':
                 return consent;
             default:
@@ -232,7 +230,7 @@ export default function ProctoringSetupModal({ isOpen, onClose, onComplete, asse
                 });
                 setPhotoVerified(true);
                 setShowPhotoCapture(false);
-                setCapturedPhoto(null); // Return to live video view
+                // setCapturedPhoto(null); // REMOVED: Keep captured photo visible
                 console.log('✅ Photo verification complete:', response.data.data);
             }
         } catch (err: any) {
@@ -269,6 +267,20 @@ export default function ProctoringSetupModal({ isOpen, onClose, onComplete, asse
                 surfaceSwitching: 'exclude', // Don't allow switching during share
                 systemAudio: 'exclude' // Don't capture system audio
             });
+
+            // Check if the user shared the entire screen
+            const videoTrack = displayStream.getVideoTracks()[0];
+            const settings = videoTrack.getSettings();
+
+            // @ts-ignore - displaySurface is not in the standard Type definition yet for all browsers
+            const displaySurface = settings.displaySurface;
+
+            if (displaySurface && displaySurface !== 'monitor') {
+                // If they shared a window or tab, stop the stream and show error
+                displayStream.getTracks().forEach(track => track.stop());
+                setError('You must select "Entire Screen" to continue. Sharing a Window or Tab is not allowed.');
+                return;
+            }
 
             // We just verify access, then stop the stream
             // Actual screen recording happens in ProctoringOverlay
@@ -398,8 +410,8 @@ export default function ProctoringSetupModal({ isOpen, onClose, onComplete, asse
             color: 'from-blue-500 to-cyan-500'
         },
         camera: {
-            title: 'Camera & Microphone',
-            subtitle: 'Enable your camera and microphone',
+            title: 'Camera Check & Identity',
+            subtitle: 'Enable camera and verify identity',
             icon: <Camera className="w-6 h-6" />,
             color: 'from-purple-500 to-pink-500'
         },
@@ -409,12 +421,7 @@ export default function ProctoringSetupModal({ isOpen, onClose, onComplete, asse
             icon: <Monitor className="w-6 h-6" />,
             color: 'from-green-500 to-emerald-500'
         },
-        photo: {
-            title: 'Identity Verification',
-            subtitle: 'Take a verification photo',
-            icon: <Eye className="w-6 h-6" />,
-            color: 'from-orange-500 to-amber-500'
-        },
+
         consent: {
             title: 'Terms & Consent',
             subtitle: 'Review and accept the terms',
@@ -481,9 +488,8 @@ export default function ProctoringSetupModal({ isOpen, onClose, onComplete, asse
                         {steps.map((step, index) => {
                             const isCompleted = index < currentStepIndex ||
                                 (step === 'browser' && checks.browser) ||
-                                (step === 'camera' && checks.camera) ||
+                                (step === 'camera' && checks.camera && photoVerified) ||
                                 (step === 'screen' && checks.screenShare) ||
-                                (step === 'photo' && photoVerified) ||
                                 (step === 'consent' && consent);
                             const isCurrent = index === currentStepIndex;
 
@@ -567,32 +573,9 @@ export default function ProctoringSetupModal({ isOpen, onClose, onComplete, asse
 
                             {currentStep === 'camera' && (
                                 <div className="space-y-4">
-                                    <div className={`relative rounded-2xl overflow-hidden border-2 transition-colors ${checks.camera ? 'border-green-500' : 'border-gray-200'
+                                    <div className={`relative rounded-2xl overflow-hidden border-2 transition-colors ${photoVerified ? 'border-green-500' : 'border-gray-200'
                                         }`}>
-                                        {stream ? (
-                                            <div className="relative">
-                                                <video
-                                                    ref={setVideoRef}
-                                                    autoPlay
-                                                    muted
-                                                    playsInline
-                                                    className="w-full aspect-video object-cover bg-black"
-                                                    style={{ transform: 'scaleX(-1)' }}
-                                                />
-                                                <div className="absolute top-3 right-3 flex gap-2">
-                                                    <span className="px-3 py-1.5 bg-green-500 text-white text-xs font-bold rounded-full flex items-center gap-1.5">
-                                                        <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                                                        Camera Active
-                                                    </span>
-                                                    {checks.mic && (
-                                                        <span className="px-3 py-1.5 bg-green-500 text-white text-xs font-bold rounded-full flex items-center gap-1.5">
-                                                            <Mic className="w-3 h-3" />
-                                                            Mic Active
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ) : (
+                                        {!checks.camera ? (
                                             <div className="w-full aspect-video bg-gray-100 flex flex-col items-center justify-center p-6">
                                                 <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center mb-4">
                                                     <Camera className="w-10 h-10 text-gray-400" />
@@ -621,74 +604,14 @@ export default function ProctoringSetupModal({ isOpen, onClose, onComplete, asse
                                                     )}
                                                 </motion.button>
                                             </div>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-
-                            {currentStep === 'screen' && (
-                                <div className="space-y-4">
-                                    <div className={`p-6 rounded-2xl border-2 transition-all ${checks.screenShare ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-gray-50'
-                                        }`}>
-                                        <div className="flex items-center gap-4 mb-4">
-                                            <div className={`w-16 h-16 rounded-xl flex items-center justify-center ${checks.screenShare ? 'bg-green-500' : 'bg-gradient-to-br from-green-500 to-emerald-500'
-                                                }`}>
-                                                <Monitor className="w-8 h-8 text-white" />
-                                            </div>
-                                            <div className="flex-1">
-                                                <p className={`font-bold text-lg ${checks.screenShare ? 'text-green-700' : 'text-gray-900'}`}>
-                                                    {checks.screenShare ? 'Screen Sharing Enabled!' : 'Share Your Screen'}
-                                                </p>
-                                                <p className="text-sm text-gray-600 mt-1">
-                                                    {checks.screenShare
-                                                        ? 'Your screen will be monitored during the assessment.'
-                                                        : 'Select your entire screen when prompted to continue.'}
-                                                </p>
-                                            </div>
-                                            {checks.screenShare && <CheckCircle2 className="w-8 h-8 text-green-500" />}
-                                        </div>
-                                        {!checks.screenShare && (
-                                            <motion.button
-                                                whileHover={{ scale: 1.02 }}
-                                                whileTap={{ scale: 0.98 }}
-                                                onClick={requestScreenAccess}
-                                                disabled={testingScreen}
-                                                className="w-full px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                                            >
-                                                {testingScreen ? (
-                                                    <>
-                                                        <Loader2 className="w-5 h-5 animate-spin" />
-                                                        Requesting Access...
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <Monitor className="w-5 h-5" />
-                                                        Enable Screen Sharing
-                                                    </>
-                                                )}
-                                            </motion.button>
-                                        )}
-                                    </div>
-                                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                                        <p className="text-sm text-amber-800">
-                                            <strong>Important:</strong> Select "Entire Screen" for proper monitoring. Window sharing is not allowed.
-                                        </p>
-                                    </div>
-                                </div>
-                            )}
-
-                            {currentStep === 'photo' && (
-                                <div className="space-y-4">
-                                    <div className={`relative rounded-2xl overflow-hidden border-2 transition-colors ${photoVerified ? 'border-green-500' : 'border-gray-200'
-                                        }`}>
-                                        {capturedPhoto ? (
+                                        ) : capturedPhoto ? (
                                             <div className="relative">
                                                 <img
                                                     src={capturedPhoto}
                                                     alt="Captured"
                                                     className="w-full aspect-video object-cover"
                                                 />
-                                                <div className="absolute inset-0 bg-black/20 flex items-center justify-center gap-3">
+                                                <div className={`absolute inset-0 flex items-center justify-center gap-3 ${!photoVerified ? 'bg-black/40' : ''}`}>
                                                     {!photoVerified ? (
                                                         <>
                                                             <button
@@ -724,7 +647,7 @@ export default function ProctoringSetupModal({ isOpen, onClose, onComplete, asse
                                                     )}
                                                 </div>
                                             </div>
-                                        ) : stream ? (
+                                        ) : (
                                             <div className="relative">
                                                 <video
                                                     ref={setVideoRef}
@@ -734,6 +657,18 @@ export default function ProctoringSetupModal({ isOpen, onClose, onComplete, asse
                                                     className="w-full aspect-video object-cover bg-black"
                                                     style={{ transform: 'scaleX(-1)' }}
                                                 />
+                                                <div className="absolute top-3 right-3 flex gap-2 z-10">
+                                                    <span className="px-3 py-1.5 bg-green-500 text-white text-xs font-bold rounded-full flex items-center gap-1.5">
+                                                        <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                                                        Camera Active
+                                                    </span>
+                                                    {checks.mic && (
+                                                        <span className="px-3 py-1.5 bg-green-500 text-white text-xs font-bold rounded-full flex items-center gap-1.5">
+                                                            <Mic className="w-3 h-3" />
+                                                            Mic Active
+                                                        </span>
+                                                    )}
+                                                </div>
                                                 {/* Corner brackets guide overlay - full square view */}
                                                 <div className="absolute inset-4 pointer-events-none">
                                                     {/* Top-left corner */}
@@ -758,21 +693,75 @@ export default function ProctoringSetupModal({ isOpen, onClose, onComplete, asse
                                                     </button>
                                                 </div>
                                             </div>
-                                        ) : (
-                                            <div className="w-full aspect-video bg-gray-100 flex flex-col items-center justify-center p-6">
-                                                <div className="w-20 h-20 rounded-full bg-amber-100 flex items-center justify-center mb-4">
-                                                    <AlertTriangle className="w-10 h-10 text-amber-500" />
-                                                </div>
-                                                <p className="text-gray-600 font-medium mb-2">Camera not available</p>
-                                                <p className="text-gray-400 text-sm text-center">
-                                                    Please go back and enable your camera first
-                                                </p>
-                                            </div>
                                         )}
                                     </div>
                                     <canvas ref={canvasRef} className="hidden" />
                                 </div>
                             )}
+
+                            {currentStep === 'screen' && (
+                                <div className="space-y-3">
+                                    {/* Instructional Image - Moved to Top */}
+                                    <div className="rounded-xl overflow-hidden border border-gray-200 shadow-sm flex justify-center bg-white/50">
+                                        <img
+                                            src="/image.png"
+                                            alt="How to share screen"
+                                            className="max-w-full max-h-[25vh] w-auto object-contain"
+                                        />
+                                    </div>
+
+                                    <div className={`p-3 rounded-xl border-2 transition-all ${checks.screenShare ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-gray-50'
+                                        }`}>
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${checks.screenShare ? 'bg-green-500' : 'bg-gradient-to-br from-green-500 to-emerald-500'
+                                                }`}>
+                                                <Monitor className="w-5 h-5 text-white" />
+                                            </div>
+                                            <div className="flex-1">
+                                                <p className={`font-bold text-base ${checks.screenShare ? 'text-green-700' : 'text-gray-900'}`}>
+                                                    {checks.screenShare ? 'Screen Sharing Enabled!' : 'Share Your Screen'}
+                                                </p>
+                                                <p className="text-xs text-gray-600 mt-0.5">
+                                                    {checks.screenShare
+                                                        ? 'Your screen is being monitored.'
+                                                        : 'Select "Entire Screen" to continue.'}
+                                                </p>
+                                            </div>
+                                            {checks.screenShare && <CheckCircle2 className="w-5 h-5 text-green-500" />}
+                                        </div>
+                                        {!checks.screenShare && (
+                                            <div className="flex justify-center mt-1">
+                                                <motion.button
+                                                    whileHover={{ scale: 1.02 }}
+                                                    whileTap={{ scale: 0.98 }}
+                                                    onClick={requestScreenAccess}
+                                                    disabled={testingScreen}
+                                                    className="px-4 py-1.5 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg font-semibold shadow hover:shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50 text-xs"
+                                                >
+                                                    {testingScreen ? (
+                                                        <>
+                                                            <Loader2 className="w-3 h-3 animate-spin" />
+                                                            Requesting...
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <Monitor className="w-3 h-3" />
+                                                            Enable Screen Sharing
+                                                        </>
+                                                    )}
+                                                </motion.button>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5">
+                                        <p className="text-[11px] text-amber-800 leading-tight">
+                                            <strong>Important:</strong> You must select the "Entire Screen" tab in the popup window.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
+
 
                             {currentStep === 'consent' && (
                                 <div className="space-y-4">
@@ -808,14 +797,14 @@ export default function ProctoringSetupModal({ isOpen, onClose, onComplete, asse
                                     <div
                                         onClick={() => setConsent(!consent)}
                                         className={`relative flex items-center gap-4 p-5 rounded-2xl border-2 cursor-pointer transition-all duration-300 ${consent
-                                                ? 'border-purple-500 bg-purple-50 shadow-lg shadow-purple-100'
-                                                : 'border-gray-200 bg-white hover:border-purple-200 hover:bg-gray-50'
+                                            ? 'border-purple-500 bg-purple-50 shadow-lg shadow-purple-100'
+                                            : 'border-gray-200 bg-white hover:border-purple-200 hover:bg-gray-50'
                                             }`}
                                     >
                                         <motion.div
                                             className={`w-7 h-7 rounded-lg border-2 flex items-center justify-center transition-colors duration-300 ${consent
-                                                    ? 'border-purple-600 bg-gradient-to-r from-purple-600 to-indigo-600'
-                                                    : 'border-gray-300 bg-white'
+                                                ? 'border-purple-600 bg-gradient-to-r from-purple-600 to-indigo-600'
+                                                : 'border-gray-300 bg-white'
                                                 }`}
                                         >
                                             <AnimatePresence>
@@ -862,8 +851,8 @@ export default function ProctoringSetupModal({ isOpen, onClose, onComplete, asse
                             onClick={goToPrevStep}
                             disabled={currentStepIndex === 0}
                             className={`px-5 py-3 rounded-xl font-semibold transition-all flex items-center gap-2 ${currentStepIndex === 0
-                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                                 }`}
                         >
                             <ChevronLeft className="w-5 h-5" />
@@ -884,8 +873,8 @@ export default function ProctoringSetupModal({ isOpen, onClose, onComplete, asse
                                 onClick={goToNextStep}
                                 disabled={!canProceedToNext()}
                                 className={`px-6 py-3 rounded-xl font-semibold shadow-lg transition-all flex items-center gap-2 ${canProceedToNext()
-                                        ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:shadow-xl'
-                                        : 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'
+                                    ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:shadow-xl'
+                                    : 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'
                                     }`}
                             >
                                 Continue
@@ -898,8 +887,8 @@ export default function ProctoringSetupModal({ isOpen, onClose, onComplete, asse
                                 onClick={handleContinue}
                                 disabled={loading || !allRequirementsMet}
                                 className={`px-8 py-3 rounded-xl font-semibold shadow-lg transition-all flex items-center gap-2 ${allRequirementsMet
-                                        ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:shadow-xl'
-                                        : 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'
+                                    ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:shadow-xl'
+                                    : 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'
                                     }`}
                             >
                                 {loading ? (

@@ -43,7 +43,10 @@ const ManualQuestionModal: React.FC<ManualQuestionModalProps> = ({ isOpen, onClo
 
     // Bulk Upload State
     const [uploadDivision, setUploadDivision] = useState('');
+    const [uploadSubdivision, setUploadSubdivision] = useState('');
+    const [uploadTopic, setUploadTopic] = useState('');
     const [isUploading, setIsUploading] = useState(false);
+    const [dynamicSubdivisions, setDynamicSubdivisions] = useState<string[]>([]);
 
     // Determine available types based on Section Type
     const availableTypes: QuestionType[] = type === 'coding'
@@ -89,8 +92,29 @@ const ManualQuestionModal: React.FC<ManualQuestionModalProps> = ({ isOpen, onClo
 
             // Set upload division based on section context
             setUploadDivision(division || '');
+            setUploadSubdivision(subdivision || '');
+
+            // If division is present, fetch its subdivisions immediately
+            if (division) {
+                fetchSubdivisionsForDivision(division);
+            }
+
+            // Update filters with subdivision if present
+            setFilters(prev => ({
+                ...prev,
+                subdivision: subdivision || undefined
+            }));
         }
     }, [isOpen, type, division, subdivision]);
+
+    const fetchSubdivisionsForDivision = async (div: string) => {
+        try {
+            const res = await questionBankService.getFilterOptions(div);
+            setDynamicSubdivisions(res.data.subdivisions);
+        } catch (error) {
+            console.error('Failed to fetch subdivisions:', error);
+        }
+    };
 
     // Fetch questions when filters change
     useEffect(() => {
@@ -199,7 +223,8 @@ const ManualQuestionModal: React.FC<ManualQuestionModalProps> = ({ isOpen, onClo
                     correctAnswer: bankQ.correctAnswer || undefined,
                     marks: bankQ.marks || 1,
                     codeStub: (bankQ as any).codeStub || undefined,
-                    problemData: (bankQ as any).problemData || (bankQ as any).data || undefined
+                    problemData: (bankQ as any).problemData || (bankQ as any).data || undefined,
+                    pseudocode: (bankQ as any).pseudocode || undefined
                 };
 
                 console.log('📥 Imported question:', importedQuestion);
@@ -248,10 +273,10 @@ const ManualQuestionModal: React.FC<ManualQuestionModalProps> = ({ isOpen, onClo
             const fileExtension = file.name.split('.').pop()?.toLowerCase();
 
             if (fileExtension === 'csv') {
-                await questionBankService.uploadCSV(file, uploadDivision);
+                await questionBankService.uploadCSV(file, uploadDivision, uploadSubdivision, uploadTopic);
                 alert('CSV uploaded successfully!');
             } else if (fileExtension === 'zip') {
-                await questionBankService.uploadZIP(file, uploadDivision);
+                await questionBankService.uploadZIP(file, uploadDivision, uploadSubdivision, uploadTopic);
                 alert('ZIP uploaded successfully!');
             } else {
                 alert('Please upload a CSV or ZIP file');
@@ -285,7 +310,7 @@ const ManualQuestionModal: React.FC<ManualQuestionModalProps> = ({ isOpen, onClo
                 <div className="p-6 border-b border-border flex items-center justify-between bg-muted/20">
                     <div>
                         <h3 className="text-lg font-bold flex items-center gap-2">
-                            Add Question <span className="text-muted-foreground text-sm font-normal">to {type} section</span>
+                            Add Question <span className="text-muted-foreground text-sm font-normal">to {division || type} section</span>
                         </h3>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-muted rounded-full transition-colors text-muted-foreground hover:text-foreground">
@@ -454,25 +479,65 @@ const ManualQuestionModal: React.FC<ManualQuestionModalProps> = ({ isOpen, onClo
 
                             {/* Division Selection */}
                             <div>
-                                <label className="text-sm font-bold text-foreground mb-2 block">Target Division *</label>
-                                <select
+                                <label className="text-sm font-bold text-foreground mb-2 block">
+                                    Main Division (Section) <span className="text-xs text-muted-foreground font-normal">(Auto-Locked)</span>
+                                </label>
+                                <input
+                                    type="text"
                                     value={uploadDivision}
-                                    onChange={(e) => setUploadDivision(e.target.value)}
+                                    disabled
+                                    className="w-full bg-muted border border-border rounded-lg py-2.5 px-3 text-sm text-muted-foreground cursor-not-allowed"
+                                />
+                                <p className="text-xs text-muted-foreground mt-1">Questions will be added to the <strong>{uploadDivision}</strong> section.</p>
+                            </div>
+
+                            {/* Subdivision Selection */}
+                            <div>
+                                <label className="text-sm font-bold text-foreground mb-2 block">
+                                    Subdivision (Topic) <span className="text-muted-foreground font-normal">(Optional if 'Subtopic' column exists)</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    list="subdivisions-list-modal"
+                                    value={uploadSubdivision}
+                                    onChange={(e) => setUploadSubdivision(e.target.value)}
+                                    placeholder={`e.g. OS, Select for ${uploadDivision}...`}
                                     className="w-full bg-background border border-border rounded-lg py-2.5 px-3 text-sm focus:border-primary outline-none"
-                                >
-                                    <option value="">Choose division...</option>
-                                    {subdivision && !filterOptions?.divisions.includes(subdivision) && (
-                                        <option value={subdivision}>{subdivision} (Current Section)</option>
-                                    )}
-                                    {division && division !== subdivision && !filterOptions?.divisions.includes(division) && (
-                                        <option value={division}>{division} (Current Section)</option>
-                                    )}
-                                    {filterOptions?.divisions.map((div, idx) => (
-                                        <option key={idx} value={div}>
-                                            {div}{(div === subdivision || div === division) ? ' (Current Section)' : ''}
-                                        </option>
+                                />
+                                <datalist id="subdivisions-list-modal">
+                                    {dynamicSubdivisions.map((sub, idx) => (
+                                        <option key={idx} value={sub} />
                                     ))}
-                                </select>
+                                </datalist>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                    {subdivision ? `Auto-selected based on current section: ${subdivision}` : 'Select or type a main topic/subtype'}
+                                </p>
+                            </div>
+
+                            {/* Topic Selection */}
+                            <div>
+                                <label className="text-sm font-bold text-foreground mb-2 block">
+                                    Specific Topic <span className="text-muted-foreground font-normal">(Optional if 'Topic' column exists)</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    list="topics-list-modal"
+                                    value={uploadTopic}
+                                    onChange={(e) => setUploadTopic(e.target.value)}
+                                    placeholder="e.g. Arrays, Pointers, Profit & Loss..."
+                                    className="w-full bg-background border border-border rounded-lg py-2.5 px-3 text-sm focus:border-primary outline-none"
+                                />
+                                <datalist id="topics-list-modal">
+                                    {/* Show subdivisions as topics suggestions too, as requested */}
+                                    {dynamicSubdivisions.map((sub, idx) => (
+                                        <option key={`sub-${idx}`} value={sub} />
+                                    ))}
+                                    {/* Also include specific topics if available */}
+                                    {filterOptions?.topics?.map((top, idx) => (
+                                        <option key={`top-${idx}`} value={top} />
+                                    ))}
+                                </datalist>
+                                <p className="text-xs text-muted-foreground mt-1">Select or type a specific topic</p>
                             </div>
 
                             {/* Two Column Layout */}
@@ -591,17 +656,33 @@ const ManualQuestionModal: React.FC<ManualQuestionModalProps> = ({ isOpen, onClo
                                         </div>
                                     </div>
 
-                                    {/* Subdivision Filter (Topic/Category) */}
+                                    {/* Subdivision Filter */}
                                     <div>
-                                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 block">Topic / Subdivision</label>
+                                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 block">Subdivision</label>
                                         <select
                                             value={filters.subdivision || ''}
                                             onChange={(e) => setFilters({ ...filters, subdivision: e.target.value || undefined, page: 1 })}
                                             className="w-full bg-background border border-border rounded-lg py-2 px-3 text-sm focus:border-primary outline-none"
+                                            disabled={!!subdivision} // Lock if passed from props
                                         >
-                                            <option value="">All Topics</option>
+                                            <option value="">All Subdivisions</option>
                                             {filterOptions?.subdivisions.map((sub, idx) => (
                                                 <option key={idx} value={sub}>{sub}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {/* Topic Filter */}
+                                    <div>
+                                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 block">Topic</label>
+                                        <select
+                                            value={filters.topic || ''}
+                                            onChange={(e) => setFilters({ ...filters, topic: e.target.value || undefined, page: 1 })}
+                                            className="w-full bg-background border border-border rounded-lg py-2 px-3 text-sm focus:border-primary outline-none"
+                                        >
+                                            <option value="">All Topics</option>
+                                            {filterOptions?.topics?.map((topic, idx) => (
+                                                <option key={idx} value={topic}>{topic}</option>
                                             ))}
                                         </select>
                                     </div>

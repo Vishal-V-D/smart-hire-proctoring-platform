@@ -78,6 +78,7 @@ export interface ProctoringStatus {
     gazeDirection: GazeDirection;
     lastViolation?: ProctoringViolation;
     fps: number;
+    audioLevel: number; // 0 to 100
 }
 
 export interface GazeDirection {
@@ -117,7 +118,7 @@ export class AIProctoringService {
     private isRunning: boolean = false;
     private videoElement: HTMLVideoElement | null = null;
     private canvasElement: HTMLCanvasElement | null = null;
-    private animationFrameId: number | null = null;
+    private loopTimeoutId: NodeJS.Timeout | number | null = null;
     private lastFrameTime: number = 0;
     private fps: number = 0;
 
@@ -147,16 +148,21 @@ export class AIProctoringService {
         faceCount: 0,
         isVerified: false,
         gazeDirection: { yaw: 0, pitch: 0, roll: 0 },
-        fps: 0
+        fps: 0,
+        audioLevel: 0
     };
 
     // Grace period counters - prevent false violations from momentary detection issues
     private noFaceCounter: number = 0;
-    private readonly NO_FACE_GRACE_FRAMES = 10; // Must miss 10 consecutive frames before violation (~0.5 sec at 20 FPS)
+    private readonly NO_FACE_GRACE_FRAMES = 10; // ~0.5 seconds at 20fps (Strict Mode)
+
+    // Eye tracking grace period - prevent false "looking away" from natural eye movements
+    private lookingAwayCounter: number = 0;
+    private readonly LOOKING_AWAY_GRACE_FRAMES = 5; // ~0.25 seconds (Strict Mode)
 
     // Violation cooldowns to prevent spam
     private violationCooldowns: Map<ViolationType, number> = new Map();
-    private readonly VIOLATION_COOLDOWN_MS = 5000; // 5 seconds between same violation type (increased for better UX)
+    private readonly VIOLATION_COOLDOWN_MS = 3000; // 3 seconds between same violation type (Reduced for strictness)
 
     constructor(config: Partial<ProctoringConfig> = {}) {
         this.config = {
@@ -165,10 +171,10 @@ export class AIProctoringService {
             gazeTrackingEnabled: true,
             objectDetectionEnabled: false,
             audioMonitoringEnabled: false,
-            verificationThreshold: 0.5,
+            verificationThreshold: 0.4, // Stricter verification (was 0.5)
             multipleFaceThreshold: 1,
-            gazeDeviationThreshold: 0.55,  // More lenient - allows natural head movement while viewing screen
-            noiseThreshold: 0.3, // 30% of max amplitude triggers noise warning
+            gazeDeviationThreshold: 0.35,  // Stricter - limits head movement (was 0.55)
+            noiseThreshold: 0.1, // 10% of max amplitude (was 0.15)
             prohibitedObjects: ['cell phone', 'mobile phone', 'book', 'laptop', 'tv', 'bottle', 'cup', 'headphones', 'earbuds', 'airpods', 'earphones', 'remote'],
             ...config
         };
@@ -220,7 +226,7 @@ export class AIProctoringService {
                         delegate: "CPU"
                     },
                     runningMode: "VIDEO",
-                    minDetectionConfidence: 0.5  // 50% confidence for better accuracy
+                    minDetectionConfidence: 0.75  // 75% confidence to strictly avoid ghost faces
                 });
                 console.log('✅ MediaPipe Face Detector loaded');
             };
@@ -311,8 +317,15 @@ export class AIProctoringService {
         this.updateStatus({ isRunning: true });
 
         // Initialize audio monitoring if enabled
+        console.log('🎤 Audio Monitoring Config:', {
+            audioMonitoringEnabled: this.config.audioMonitoringEnabled,
+            noiseThreshold: this.config.noiseThreshold
+        });
         if (this.config.audioMonitoringEnabled) {
+            console.log('✅ Audio monitoring is ENABLED, initializing...');
             await this.initializeAudioMonitoring();
+        } else {
+            console.log('❌ Audio monitoring is DISABLED');
         }
 
         console.log('🚀 Starting real-time proctoring detection loop...');
@@ -354,9 +367,9 @@ export class AIProctoringService {
      */
     stop(): void {
         this.isRunning = false;
-        if (this.animationFrameId) {
-            cancelAnimationFrame(this.animationFrameId);
-            this.animationFrameId = null;
+        if (this.loopTimeoutId) {
+            clearTimeout(this.loopTimeoutId);
+            this.loopTimeoutId = null;
         }
 
         // Clean up audio monitoring
@@ -405,7 +418,7 @@ export class AIProctoringService {
         }
 
 
-        this.animationFrameId = requestAnimationFrame(() => this.runDetectionLoop());
+        this.loopTimeoutId = setTimeout(() => this.runDetectionLoop(), 50);
     }
 
     /**
@@ -455,7 +468,7 @@ export class AIProctoringService {
                 detections = await faceapi
                     .detectAllFaces(this.videoElement, new faceapi.TinyFaceDetectorOptions({
                         inputSize: 416,        // Balanced size for accuracy
-                        scoreThreshold: 0.35   // Higher threshold to avoid false positives (was 0.1)
+                        scoreThreshold: 0.75   // Strict threshold (75%) to ignore background noise
                     }))
                     .withFaceLandmarks()
                     .withFaceDescriptors()
@@ -532,10 +545,21 @@ export class AIProctoringService {
         this.updateStatus({
             faceDetected: faceCount > 0,
             faceCount,
-            fps: this.fps
+            fps: this.fps,
+            audioLevel: Math.round(this.audioNoiseLevel * 100)
         });
 
         // 3. Check audio levels for noise detection
+        // Log audio check status every 5 seconds
+        if (this.lastFrameTime % 5000 < 100) {
+            console.log('🔍 Audio Check Status:', {
+                audioMonitoringEnabled: this.config.audioMonitoringEnabled,
+                hasAnalyser: !!this.audioAnalyser,
+                hasDataArray: !!this.audioDataArray,
+                noiseThreshold: this.config.noiseThreshold
+            });
+        }
+
         if (this.config.audioMonitoringEnabled && this.audioAnalyser && this.audioDataArray) {
             const now = Date.now();
             if (now - this.lastAudioCheckTime > 500) { // Check every 500ms
@@ -552,22 +576,36 @@ export class AIProctoringService {
                 const avgLevel = sum / this.audioDataArray.length;
                 this.audioNoiseLevel = avgLevel / 255; // Normalize to 0-1
 
-                // Log audio level occasionally
-                if (this.lastFrameTime % 3000 < 100) {
-                    console.log('🎤 Audio Level:', {
+                // Log audio level more frequently (every 2 seconds) for debugging
+                if (this.lastFrameTime % 2000 < 100) {
+                    console.log('🎤 [AUDIO] Current Level:', {
                         level: (this.audioNoiseLevel * 100).toFixed(1) + '%',
-                        threshold: (this.config.noiseThreshold * 100) + '%'
+                        threshold: (this.config.noiseThreshold * 100) + '%',
+                        exceedsThreshold: this.audioNoiseLevel > this.config.noiseThreshold,
+                        willTrigger: this.audioNoiseLevel > this.config.noiseThreshold
                     });
                 }
 
                 // Check for excessive noise
                 if (this.audioNoiseLevel > this.config.noiseThreshold) {
+                    console.log('%c🔊 NOISE THRESHOLD EXCEEDED!', 'background: #ff0000; color: white; font-size: 14px; padding: 4px;', {
+                        level: (this.audioNoiseLevel * 100).toFixed(1) + '%',
+                        threshold: (this.config.noiseThreshold * 100) + '%'
+                    });
                     this.triggerViolation('excessive_noise', this.audioNoiseLevel, {
                         level: this.audioNoiseLevel,
                         threshold: this.config.noiseThreshold,
                         message: `Noise level ${(this.audioNoiseLevel * 100).toFixed(0)}% exceeds threshold`
                     });
                 }
+            }
+        } else if (this.config.audioMonitoringEnabled) {
+            // Log why audio monitoring isn't working
+            if (this.lastFrameTime % 5000 < 100) {
+                console.warn('⚠️ Audio monitoring enabled but not working:', {
+                    hasAnalyser: !!this.audioAnalyser,
+                    hasDataArray: !!this.audioDataArray
+                });
             }
         }
 
@@ -577,7 +615,7 @@ export class AIProctoringService {
         }
 
         // Check for violations
-        await this.checkViolations(detections, objectDetections);
+        await this.checkViolations(detections, objectDetections, faceCount);
     }
 
     // ========== VIOLATION DETECTION ==========
@@ -587,9 +625,11 @@ export class AIProctoringService {
      */
     private async checkViolations(
         faceDetections: faceapi.WithFaceExpressions<faceapi.WithFaceDescriptor<faceapi.WithFaceLandmarks<{ detection: faceapi.FaceDetection }>>>[],
-        objectDetections: Detection[]
+        objectDetections: Detection[],
+        authoritativeFaceCount: number
     ): Promise<void> {
-        const faceCount = faceDetections.length;
+        // Use the authoritative count derived from the best detector (MediaPipe)
+        const faceCount = authoritativeFaceCount;
 
         // --- FACE CHECKS ---
 
@@ -609,7 +649,7 @@ export class AIProctoringService {
         }
 
         // Multiple faces detected
-        if (faceCount > this.config.multipleFaceThreshold && this.config.faceDetectionEnabled) {
+        if (faceCount >= 2 && this.config.faceDetectionEnabled) {
             this.triggerViolation('multiple_faces', 1.0, {
                 faceCount,
                 message: `${faceCount} faces detected`
@@ -617,7 +657,8 @@ export class AIProctoringService {
         }
 
         // Single face - check verification and gaze
-        if (faceCount === 1) {
+        // Only run these advanced checks if face-api actually successfully detected the face details
+        if (faceCount === 1 && faceDetections.length > 0) {
             const detection = faceDetections[0];
 
             // Face verification
@@ -636,29 +677,46 @@ export class AIProctoringService {
                 }
             }
 
-            // Gaze tracking using landmarks
+            // Gaze tracking using landmarks with enhanced eye tracking
             if (this.config.gazeTrackingEnabled && detection.landmarks) {
                 const gaze = this.calculateGazeDirection(detection.landmarks);
                 this.updateStatus({ gazeDirection: gaze });
 
-                // Check if looking away
-                if (Math.abs(gaze.yaw) > this.config.gazeDeviationThreshold) {
-                    this.triggerViolation('looking_away', Math.abs(gaze.yaw), {
-                        direction: gaze.yaw > 0 ? 'right' : 'left',
-                        deviation: gaze.yaw
-                    });
-                }
+                // Check if looking away (horizontal) - with grace period
+                const isLookingAway = Math.abs(gaze.yaw) > this.config.gazeDeviationThreshold;
+                const isLookingDown = gaze.pitch < -this.config.gazeDeviationThreshold;
+                const isLookingUp = gaze.pitch > this.config.gazeDeviationThreshold;
 
-                if (gaze.pitch < -this.config.gazeDeviationThreshold) {
-                    this.triggerViolation('looking_down', Math.abs(gaze.pitch), {
-                        deviation: gaze.pitch
-                    });
-                }
+                if (isLookingAway || isLookingDown || isLookingUp) {
+                    this.lookingAwayCounter++;
 
-                if (gaze.pitch > this.config.gazeDeviationThreshold) {
-                    this.triggerViolation('looking_up', gaze.pitch, {
-                        deviation: gaze.pitch
-                    });
+                    // Only trigger violation after consistent deviation for multiple frames
+                    if (this.lookingAwayCounter >= this.LOOKING_AWAY_GRACE_FRAMES) {
+                        if (isLookingAway) {
+                            this.triggerViolation('looking_away', Math.abs(gaze.yaw), {
+                                direction: gaze.yaw > 0 ? 'right' : 'left',
+                                deviation: gaze.yaw,
+                                frames: this.lookingAwayCounter
+                            });
+                        }
+
+                        if (isLookingDown) {
+                            this.triggerViolation('looking_down', Math.abs(gaze.pitch), {
+                                deviation: gaze.pitch,
+                                frames: this.lookingAwayCounter
+                            });
+                        }
+
+                        if (isLookingUp) {
+                            this.triggerViolation('looking_up', gaze.pitch, {
+                                deviation: gaze.pitch,
+                                frames: this.lookingAwayCounter
+                            });
+                        }
+                    }
+                } else {
+                    // Reset counter when looking at screen
+                    this.lookingAwayCounter = 0;
                 }
             }
         }
@@ -691,39 +749,147 @@ export class AIProctoringService {
     }
 
     /**
-     * Calculate gaze direction from face landmarks
+     * Calculate gaze direction from face landmarks using proper eye/pupil tracking
+     * Uses 68-point face landmarks for detailed eye analysis
      */
     private calculateGazeDirection(landmarks: faceapi.FaceLandmarks68): GazeDirection {
         const positions = landmarks.positions;
 
-        // Get key facial points
+        // ========== HEAD POSE ESTIMATION ==========
+        // Get key facial points for head orientation
         const nose = positions[30];           // Nose tip
-        const leftEye = positions[36];        // Left eye corner
-        const rightEye = positions[45];       // Right eye corner
+        const leftEyeOuter = positions[36];   // Left eye outer corner
+        const leftEyeInner = positions[39];   // Left eye inner corner
+        const rightEyeInner = positions[42];  // Right eye inner corner
+        const rightEyeOuter = positions[45];  // Right eye outer corner
         const leftMouth = positions[48];      // Left mouth corner
         const rightMouth = positions[54];     // Right mouth corner
 
-        // Calculate face center
-        const faceCenterX = (leftEye.x + rightEye.x) / 2;
-        const faceCenterY = (leftEye.y + leftMouth.y) / 2;
+        // Calculate head yaw (left/right rotation)
+        const eyeCenterX = (leftEyeOuter.x + rightEyeOuter.x) / 2;
+        const eyeWidth = rightEyeOuter.x - leftEyeOuter.x;
+        const headYaw = ((nose.x - eyeCenterX) / eyeWidth) * 2;
 
-        // Calculate yaw (left/right rotation) based on nose position relative to eye center
-        const eyeCenter = (leftEye.x + rightEye.x) / 2;
-        const eyeWidth = rightEye.x - leftEye.x;
-        const yaw = ((nose.x - eyeCenter) / eyeWidth) * 2; // Normalized to -1 to 1
+        // Calculate head pitch (up/down)
+        const eyeCenterY = (leftEyeOuter.y + rightEyeOuter.y) / 2;
+        const eyeToMouthDist = ((leftMouth.y + rightMouth.y) / 2) - eyeCenterY;
+        const noseToEyeDist = nose.y - eyeCenterY;
+        const headPitch = ((noseToEyeDist / eyeToMouthDist) - 0.5) * 2;
 
-        // Calculate pitch (up/down) based on nose position
-        const eyeToMouthDist = ((leftMouth.y + rightMouth.y) / 2) - ((leftEye.y + rightEye.y) / 2);
-        const noseToEyeDist = nose.y - ((leftEye.y + rightEye.y) / 2);
-        const pitch = ((noseToEyeDist / eyeToMouthDist) - 0.5) * 2; // Normalized
+        // Calculate head roll (tilt)
+        const headRoll = Math.atan2(rightEyeOuter.y - leftEyeOuter.y, rightEyeOuter.x - leftEyeOuter.x);
 
-        // Calculate roll (head tilt)
-        const roll = Math.atan2(rightEye.y - leftEye.y, rightEye.x - leftEye.x);
+        // ========== EYE/PUPIL TRACKING ==========
+        // Left eye points: 36-41 (outer to inner, then bottom)
+        // Right eye points: 42-47 (inner to outer, then bottom)
+
+        // Left eye landmarks
+        const leftEyePoints = {
+            outer: positions[36],
+            upperOuter: positions[37],
+            upperInner: positions[38],
+            inner: positions[39],
+            lowerInner: positions[40],
+            lowerOuter: positions[41]
+        };
+
+        // Right eye landmarks
+        const rightEyePoints = {
+            inner: positions[42],
+            upperInner: positions[43],
+            upperOuter: positions[44],
+            outer: positions[45],
+            lowerOuter: positions[46],
+            lowerInner: positions[47]
+        };
+
+        // Calculate eye centers and approximate iris positions
+        const leftEyeCenter = {
+            x: (leftEyePoints.outer.x + leftEyePoints.inner.x) / 2,
+            y: (leftEyePoints.upperInner.y + leftEyePoints.lowerInner.y) / 2
+        };
+
+        const rightEyeCenter = {
+            x: (rightEyePoints.outer.x + rightEyePoints.inner.x) / 2,
+            y: (rightEyePoints.upperInner.y + rightEyePoints.lowerInner.y) / 2
+        };
+
+        // Eye dimensions for normalization
+        const leftEyeWidth = leftEyePoints.inner.x - leftEyePoints.outer.x;
+        const rightEyeWidth = rightEyePoints.outer.x - rightEyePoints.inner.x;
+        const leftEyeHeight = leftEyePoints.lowerInner.y - leftEyePoints.upperInner.y;
+        const rightEyeHeight = rightEyePoints.lowerInner.y - rightEyePoints.upperInner.y;
+
+        // Estimate pupil position based on eye aspect ratio and corner positions
+        // The pupil tends to be slightly below center and varies with gaze
+        // Use the average of upper and lower lid positions weighted toward center
+
+        // Calculate Eye Aspect Ratio (EAR) - used for blink detection and eye openness
+        const leftEAR = leftEyeHeight / Math.max(leftEyeWidth, 1);
+        const rightEAR = rightEyeHeight / Math.max(rightEyeWidth, 1);
+        const avgEAR = (leftEAR + rightEAR) / 2;
+
+        // For gaze direction, we analyze the relative position of key eye landmarks
+        // When looking left: inner corners of eyes shift relative to outer corners
+        // When looking right: outer corners shift relative to inner corners
+
+        // Horizontal gaze estimation based on eye shape asymmetry
+        // Compare the position of eye center vs the geometric center
+        const leftEyeGeometricCenter = (leftEyePoints.outer.x + leftEyePoints.inner.x) / 2;
+        const rightEyeGeometricCenter = (rightEyePoints.inner.x + rightEyePoints.outer.x) / 2;
+
+        // Calculate iris offset (approximated from lid positions)
+        // When looking sideways, upper lid position shifts
+        const leftUpperMidpoint = (leftEyePoints.upperOuter.x + leftEyePoints.upperInner.x) / 2;
+        const rightUpperMidpoint = (rightEyePoints.upperOuter.x + rightEyePoints.upperInner.x) / 2;
+
+        const leftIrisOffset = (leftUpperMidpoint - leftEyeGeometricCenter) / Math.max(leftEyeWidth, 1);
+        const rightIrisOffset = (rightUpperMidpoint - rightEyeGeometricCenter) / Math.max(rightEyeWidth, 1);
+
+        // Average iris offset gives horizontal gaze component
+        const eyeGazeX = (leftIrisOffset + rightIrisOffset) / 2;
+
+        // Vertical gaze estimation
+        // When looking up/down, the ratio of upper to lower lid distance changes
+        const leftUpperDist = leftEyeCenter.y - leftEyePoints.upperInner.y;
+        const leftLowerDist = leftEyePoints.lowerInner.y - leftEyeCenter.y;
+        const rightUpperDist = rightEyeCenter.y - rightEyePoints.upperInner.y;
+        const rightLowerDist = rightEyePoints.lowerInner.y - rightEyeCenter.y;
+
+        const leftVerticalRatio = leftUpperDist / Math.max(leftLowerDist, 1);
+        const rightVerticalRatio = rightUpperDist / Math.max(rightLowerDist, 1);
+        const avgVerticalRatio = (leftVerticalRatio + rightVerticalRatio) / 2;
+
+        // Convert to gaze offset (-1 to 1 range)
+        const eyeGazeY = (avgVerticalRatio - 1) * 0.5; // Centered around 1, scaled
+
+        // ========== COMBINED GAZE CALCULATION ==========
+        // Combine head pose with eye gaze for final direction
+        // Weight: head pose has more influence on overall direction
+        const headWeight = 0.6;
+        const eyeWeight = 0.4;
+
+        const finalYaw = (headYaw * headWeight) + (eyeGazeX * eyeWeight * 2);
+        const finalPitch = (headPitch * headWeight) + (eyeGazeY * eyeWeight * 2);
+
+        // Log gaze tracking occasionally for debugging
+        if (this.lastFrameTime % 3000 < 100) {
+            console.log('👁️ Eye Tracking:', {
+                headYaw: headYaw.toFixed(2),
+                headPitch: headPitch.toFixed(2),
+                eyeGazeX: eyeGazeX.toFixed(2),
+                eyeGazeY: eyeGazeY.toFixed(2),
+                finalYaw: finalYaw.toFixed(2),
+                finalPitch: finalPitch.toFixed(2),
+                eyeAspectRatio: avgEAR.toFixed(2),
+                threshold: this.config.gazeDeviationThreshold
+            });
+        }
 
         return {
-            yaw: Math.max(-1, Math.min(1, yaw)),
-            pitch: Math.max(-1, Math.min(1, pitch)),
-            roll
+            yaw: Math.max(-1, Math.min(1, finalYaw)),
+            pitch: Math.max(-1, Math.min(1, finalPitch)),
+            roll: headRoll
         };
     }
 
@@ -734,7 +900,14 @@ export class AIProctoringService {
         const now = Date.now();
         const lastViolation = this.violationCooldowns.get(type) || 0;
 
-        if (now - lastViolation < this.VIOLATION_COOLDOWN_MS) {
+        // Use shorter cooldown for noise violations (2 seconds instead of 5)
+        const cooldownMs = type === 'excessive_noise' ? 2000 : this.VIOLATION_COOLDOWN_MS;
+
+        if (now - lastViolation < cooldownMs) {
+            // Log cooldown blocks occasionally for debugging
+            if (Math.random() < 0.05) {
+                console.log(`⏳ Violation ${type} blocked by cooldown (${Math.round((cooldownMs - (now - lastViolation)) / 1000)}s remaining)`);
+            }
             return; // Still in cooldown
         }
 
@@ -747,9 +920,16 @@ export class AIProctoringService {
             metadata
         };
 
-        console.log(`🚨 Violation: ${type}`, metadata);
+        console.log(`🚨 TRIGGERING VIOLATION: ${type}`, metadata);
         this.updateStatus({ lastViolation: violation });
-        this.config.onViolation?.(violation);
+
+        // Explicitly log the callback invocation
+        if (this.config.onViolation) {
+            console.log(`📞 Calling onViolation callback for: ${type}`);
+            this.config.onViolation(violation);
+        } else {
+            console.warn(`⚠️ No onViolation callback configured for: ${type}`);
+        }
     }
 
     // ========== VISUALIZATION ==========

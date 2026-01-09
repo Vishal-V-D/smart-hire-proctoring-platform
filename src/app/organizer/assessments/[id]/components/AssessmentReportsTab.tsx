@@ -1,447 +1,51 @@
-// src/views/admin/AdminAssessmentView.tsx
-'use client'
+"use client";
 
 import React, { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import {
-    ArrowLeft, Shield, FileText, Eye,
-    Users, BarChart3, Clock, Calendar, CheckCircle,
-    Copy, Search, Filter, Download, X,
-    SlidersHorizontal, ArrowUp, ArrowDown
+    AlertTriangle,
+    SlidersHorizontal,
+    Search,
+    X,
+    Download,
+    BarChart3,
+    ArrowUp,
+    ArrowDown,
+    Maximize2,
+    Minimize2
 } from 'lucide-react';
+import ReportsFilterModal from './ReportsFilterModal';
 import { assessmentService } from '@/api/assessmentService';
-import { showToast } from '@/utils/toast';
-import ReportsFilterModal from '@/app/organizer/assessments/[id]/components/ReportsFilterModal';
+import { submissionService } from '@/api/submissionService';
 
-// We reuse the tab components if they were separate, but since they are in the same file in Organizer,
-// I will implement a cleaner version here for Admin.
-
-export default function AdminAssessmentView() {
-    const router = useRouter();
-    const params = useParams();
-    const assessmentId = params?.id as string;
-
-    const [assessment, setAssessment] = useState<any>(null);
-    const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState<'overview' | 'participants' | 'monitoring' | 'reports'>('overview');
-
-    useEffect(() => {
-        if (assessmentId) {
-            fetchAssessment();
-        }
-    }, [assessmentId]);
-
-    const fetchAssessment = async () => {
-        setLoading(true);
-        try {
-            const res = await assessmentService.getAssessment(assessmentId);
-            setAssessment(res.data);
-        } catch (err) {
-            console.error("Failed to fetch assessment", err);
-            showToast("Failed to load assessment details.", "error");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    if (loading) {
-        return (
-            <div className="p-8 flex items-center justify-center min-h-[60vh]">
-                <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
-            </div>
-        );
-    }
-
-    if (!assessment) {
-        return (
-            <div className="p-8 text-center">
-                <p className="text-theme-secondary">Assessment not found.</p>
-                <button onClick={() => router.push('/admin/dashboard')} className="mt-4 button-theme">Go Back</button>
-            </div>
-        );
-    }
-
-    return (
-        <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-                <button
-                    onClick={() => router.push('/admin/dashboard')}
-                    className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors font-medium"
-                >
-                    <ArrowLeft size={18} />
-                    Back to Dashboard
-                </button>
-                <div className="flex items-center gap-3">
-                    <span className="px-3 py-1 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 rounded-lg text-xs font-bold border border-blue-200 dark:border-blue-800">
-                        READ-ONLY ACCESS
-                    </span>
-                    <button
-                        onClick={() => {
-                            navigator.clipboard.writeText(assessment.id);
-                            showToast("ID copied to clipboard", "success");
-                        }}
-                        className="p-2 hover:bg-muted rounded-lg text-muted-foreground transition-colors"
-                        title="Copy Assessment ID"
-                    >
-                        <Copy size={16} />
-                    </button>
-                </div>
-            </div>
-
-            {/* Assessment Info */}
-            <div className="bg-muted/20 border border-border p-8 rounded-3xl relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-8 opacity-10">
-                    <Shield size={120} />
-                </div>
-                <div className="relative z-10 space-y-4 max-w-2xl">
-                    <div className="flex items-center gap-3">
-                        <div className="p-3 bg-primary rounded-2xl text-primary-foreground shadow-lg shadow-primary/20">
-                            <Shield size={24} />
-                        </div>
-                        <h1 className="text-4xl font-bold text-foreground">{assessment.title}</h1>
-                    </div>
-                    <p className="text-muted-foreground text-lg leading-relaxed">{assessment.description}</p>
-
-                    <div className="flex flex-wrap gap-4 pt-2">
-                        <div className="flex items-center gap-2 px-4 py-2 bg-background/50 rounded-xl border border-border text-sm text-muted-foreground">
-                            <Calendar size={14} className="text-primary" />
-                            <span>Ends: {new Date(assessment.endDate).toLocaleDateString()}</span>
-                        </div>
-                        <div className="flex items-center gap-2 px-4 py-2 bg-background/50 rounded-xl border border-border text-sm text-muted-foreground">
-                            <Clock size={14} className="text-primary" />
-                            <span>Duration: {assessment.duration} mins</span>
-                        </div>
-                        <div className="flex items-center gap-2 px-4 py-2 bg-background/50 rounded-xl border border-border text-sm text-muted-foreground">
-                            <FileText size={14} className="text-primary" />
-                            <span>{assessment.totalQuestions || 0} Questions</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Tabs */}
-            <div className="flex gap-2 border-b border-border pb-px">
-                {[
-                    { id: 'overview', label: 'Overview', icon: FileText },
-                    { id: 'participants', label: 'Participants', icon: Users },
-                    { id: 'monitoring', label: 'Monitoring', icon: Eye },
-                    { id: 'reports', label: 'Reports', icon: BarChart3 },
-                ].map((tab) => (
-                    <button
-                        key={tab.id}
-                        onClick={() => setActiveTab(tab.id as any)}
-                        className={`
-                            flex items-center gap-2 px-6 py-4 text-sm font-bold transition-all relative
-                            ${activeTab === tab.id
-                                ? 'text-primary after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-primary'
-                                : 'text-muted-foreground hover:text-foreground'}
-                        `}
-                    >
-                        <tab.icon size={16} />
-                        {tab.label}
-                    </button>
-                ))}
-            </div>
-
-            {/* Content Area */}
-            <div className="min-h-[400px]">
-                {activeTab === 'overview' && (
-                    <div className="space-y-6 animate-in fade-in duration-300">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {assessment.sections?.map((section: any, idx: number) => (
-                                <div key={section.id} className="bg-card border border-border rounded-2xl p-6 space-y-4">
-                                    <div className="flex justify-between items-center">
-                                        <h3 className="font-bold text-foreground flex items-center gap-2">
-                                            <span className="w-6 h-6 rounded bg-primary/10 text-primary flex items-center justify-center text-xs">{idx + 1}</span>
-                                            {section.title}
-                                        </h3>
-                                        <span className="text-[10px] font-bold px-2 py-0.5 bg-muted text-muted-foreground rounded uppercase">
-                                            {section.type}
-                                        </span>
-                                    </div>
-                                    <p className="text-sm text-muted-foreground">{section.description}</p>
-                                    <div className="flex gap-4 text-xs text-muted-foreground/70">
-                                        <span>{section.questionCount} Questions</span>
-                                        <span>•</span>
-                                        <span>{section.timeLimit} mins</span>
-                                        <span>•</span>
-                                        <span className="capitalize">{section.difficulty} difficulty</span>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                        {assessment.proctoringSettings?.enabled && (
-                            <div className="bg-amber-500/5 border border-amber-500/10 rounded-2xl p-6">
-                                <h3 className="font-bold text-amber-800 dark:text-amber-400 flex items-center gap-2 mb-4">
-                                    <Shield size={18} /> Proctoring Configuration
-                                </h3>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                    {Object.entries(assessment.proctoringSettings).map(([key, value]) => {
-                                        if (typeof value !== 'boolean' || !value || key === 'enabled') return null;
-                                        return (
-                                            <div key={key} className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300">
-                                                <CheckCircle size={12} />
-                                                <span className="capitalize">{key.replace(/([A-Z])/g, ' $1')}</span>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {activeTab === 'monitoring' && (
-                    <div className="animate-in fade-in duration-300">
-                        <MonitoringTab assessmentId={assessmentId} />
-                    </div>
-                )}
-
-                {activeTab === 'reports' && (
-                    <div className="animate-in fade-in duration-300">
-                        <ReportsTab assessmentId={assessmentId} />
-                    </div>
-                )}
-
-                {(activeTab === 'participants') && (
-                    <div className="animate-in fade-in duration-300">
-                        <ParticipantsTab assessmentId={assessmentId} />
-                    </div>
-                )}
-            </div>
-        </div>
-    );
+// Extract needed types from the parent or redefine
+interface AssessmentDetail {
+    id: string;
+    title: string;
+    description: string;
+    status: string;
+    startDate: string;
+    endDate: string;
+    duration: number;
+    sections: any[];
+    [key: string]: any;
 }
 
-// ========== MONITORING TAB COMPONENT ==========
-
-// ========== MONITORING TAB COMPONENT ==========
-
-function MonitoringTab({ assessmentId }: { assessmentId: string }) {
-    const [violations, setViolations] = useState<any[]>([]);
-    const [stats, setStats] = useState<any>(null);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true);
-            try {
-                const [vRes, sRes] = await Promise.all([
-                    assessmentService.getViolations(assessmentId, { limit: 20 }),
-                    assessmentService.getViolationStats(assessmentId)
-                ]);
-                setViolations(vRes.data.violations || []);
-                setStats(sRes.data.stats);
-            } catch (err) {
-                console.error("Failed to load monitoring data", err);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchData();
-        const interval = setInterval(fetchData, 10000); // Polling every 10s
-        return () => clearInterval(interval);
-    }, [assessmentId]);
-
-    if (loading && !stats) return <div className="py-20 text-center text-muted-foreground">Loading live feed...</div>;
-
-    return (
-        <div className="space-y-8 animate-in fade-in duration-300">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-card border border-border p-6 rounded-2xl shadow-sm">
-                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Total Violations</p>
-                    <p className="text-3xl font-bold text-foreground">{stats?.total || 0}</p>
-                </div>
-                <div className="bg-card border border-border p-6 rounded-2xl shadow-sm">
-                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">High Risk Cases</p>
-                    <p className="text-3xl font-bold text-red-500">{stats?.highRiskCount || 0}</p>
-                </div>
-                <div className="bg-card border border-border p-6 rounded-2xl shadow-sm">
-                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Live Feed</p>
-                    <div className="flex items-center gap-2 text-green-500 font-bold">
-                        <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                        ACTIVE
-                    </div>
-                </div>
-            </div>
-
-            <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
-                <div className="p-6 border-b border-border font-bold text-foreground">Recent Activity Feed</div>
-                <div className="divide-y divide-border">
-                    {violations.length === 0 ? (
-                        <div className="p-12 text-center text-muted-foreground">No violations detected yet. Good sign!</div>
-                    ) : (
-                        violations.map((v) => (
-                            <div key={v.id} className="p-4 flex items-center justify-between hover:bg-muted/30 transition-colors">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center text-red-500">
-                                        <Shield size={20} />
-                                    </div>
-                                    <div>
-                                        <p className="font-bold text-foreground">{v.contestantName}</p>
-                                        <p className="text-xs text-red-500 uppercase font-bold">{v.type}</p>
-                                    </div>
-                                </div>
-                                <div className="text-right">
-                                    <p className="text-xs text-muted-foreground">{new Date(v.timestamp).toLocaleTimeString()}</p>
-                                    <p className="text-[10px] text-muted-foreground/60 font-mono">{v.id.substring(0, 8)}</p>
-                                </div>
-                            </div>
-                        ))
-                    )}
-                </div>
-            </div>
-        </div>
-    );
+interface AssessmentReportsTabProps {
+    assessmentId: string;
+    assessment: AssessmentDetail;
 }
 
-// ========== PARTICIPANTS TAB COMPONENT ==========
-
-function ParticipantsTab({ assessmentId }: { assessmentId: string }) {
-    const [participants, setParticipants] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [pagination, setPagination] = useState({ page: 1, limit: 50, total: 0, totalPages: 1 });
-
-    useEffect(() => {
-        fetchParticipants();
-    }, [assessmentId, pagination.page]);
-
-    const fetchParticipants = async () => {
-        setLoading(true);
-        try {
-            // Import invitationService dynamically to avoid circular deps
-            const { invitationService } = await import('@/api/invitationService');
-            const res = await invitationService.getParticipants(assessmentId, { page: pagination.page, limit: pagination.limit });
-            setParticipants(res.data.participants || []);
-            if (res.data.pagination) {
-                setPagination(res.data.pagination);
-            }
-        } catch (err) {
-            console.error("Failed to load participants", err);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    if (loading && participants.length === 0) {
-        return (
-            <div className="py-20 flex justify-center">
-                <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
-            </div>
-        );
-    }
-
-    return (
-        <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
-            <div className="p-6 border-b border-border flex items-center justify-between bg-muted/10">
-                <div className="flex items-center gap-2">
-                    <Users className="text-primary" size={20} />
-                    <span className="font-bold text-foreground text-lg">Participants</span>
-                    <span className="px-2 py-0.5 bg-muted text-muted-foreground rounded-full text-xs font-bold">
-                        {pagination.total}
-                    </span>
-                </div>
-            </div>
-
-            {participants.length === 0 ? (
-                <div className="p-12 text-center">
-                    <Users size={48} className="mx-auto text-muted-foreground/40 mb-4" />
-                    <p className="text-muted-foreground font-medium">No participants have accepted invitations yet.</p>
-                </div>
-            ) : (
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                        <thead className="bg-muted/50 text-muted-foreground text-xs uppercase tracking-wider border-b border-border">
-                            <tr>
-                                <th className="text-left px-6 py-4">#</th>
-                                <th className="text-left px-6 py-4">Participant</th>
-                                <th className="text-left px-6 py-4">Username</th>
-                                <th className="text-center px-6 py-4">Invited At</th>
-                                <th className="text-center px-6 py-4">Accepted At</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border">
-                            {participants.map((p, idx) => (
-                                <tr key={p.id} className="hover:bg-muted/30 transition-colors">
-                                    <td className="px-6 py-4 font-medium text-muted-foreground">
-                                        {(pagination.page - 1) * pagination.limit + idx + 1}
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex flex-col">
-                                            <span className="font-bold text-foreground">
-                                                {p.user?.fullName || p.invitationName || 'Unknown'}
-                                            </span>
-                                            <span className="text-xs text-muted-foreground font-mono">
-                                                {p.user?.email || p.invitationEmail}
-                                            </span>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 text-muted-foreground">
-                                        {p.user?.username || '-'}
-                                    </td>
-                                    <td className="px-6 py-4 text-center text-xs text-muted-foreground">
-                                        {p.createdAt ? new Date(p.createdAt).toLocaleDateString() : '-'}
-                                    </td>
-                                    <td className="px-6 py-4 text-center">
-                                        {p.acceptedAt ? (
-                                            <span className="inline-flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full font-bold">
-                                                <CheckCircle size={12} />
-                                                {new Date(p.acceptedAt).toLocaleDateString()}
-                                            </span>
-                                        ) : (
-                                            <span className="text-xs text-muted-foreground">-</span>
-                                        )}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            )}
-
-            {/* Pagination */}
-            {pagination.totalPages > 1 && (
-                <div className="p-4 border-t border-border flex items-center justify-between">
-                    <p className="text-xs text-muted-foreground">
-                        Page {pagination.page} of {pagination.totalPages} ({pagination.total} total)
-                    </p>
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={() => setPagination(p => ({ ...p, page: p.page - 1 }))}
-                            disabled={pagination.page <= 1}
-                            className="px-3 py-1.5 text-xs font-bold border border-border rounded-lg disabled:opacity-50 hover:bg-muted transition-colors"
-                        >
-                            Previous
-                        </button>
-                        <button
-                            onClick={() => setPagination(p => ({ ...p, page: p.page + 1 }))}
-                            disabled={pagination.page >= pagination.totalPages}
-                            className="px-3 py-1.5 text-xs font-bold border border-border rounded-lg disabled:opacity-50 hover:bg-muted transition-colors"
-                        >
-                            Next
-                        </button>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-}
-
-
-// ========== REPORTS TAB COMPONENT ==========
-
-function ReportsTab({ assessmentId }: { assessmentId: string }) {
+const AssessmentReportsTab = ({ assessmentId, assessment }: AssessmentReportsTabProps) => {
     const router = useRouter();
     const [participants, setParticipants] = useState<any[]>([]);
     const [stats, setStats] = useState<any>(null);
     const [violationStats, setViolationStats] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [exporting, setExporting] = useState(false);
-    const [filter, setFilter] = useState<'all' | 'submitted' | 'in_progress' | 'evaluated'>('all');
+    const [filter, setFilter] = useState<'all' | 'submitted' | 'in_progress' | 'evaluated'>('all'); // Legacy simple filter
     const [search, setSearch] = useState('');
-    const [tableFilter, setTableFilter] = useState('');
-    const [filterColumn, setFilterColumn] = useState<string>('all');
+
 
     // Advanced Filters State
     const [showFilterModal, setShowFilterModal] = useState(false);
@@ -454,10 +58,13 @@ function ReportsTab({ assessmentId }: { assessmentId: string }) {
         college: '',
         plagiarismRisk: []
     });
-
+    const [tableFilter, setTableFilter] = useState(''); // Local filter for table rows
+    const [filterColumn, setFilterColumn] = useState<string>('all'); // Column to filter by
     const [sortBy, setSortBy] = useState<'name' | 'department' | 'totalTime' | 'totalScore' | 'submittedAt' | 'percentage' | 'mcqScore' | 'codingScore' | 'testCases' | 'plagiarismScore' | 'aiConfidence' | 'plagiarismRisk'>('totalScore');
     const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('DESC');
+    const [isFullScreen, setIsFullScreen] = useState(false);
 
+    // Define filterable columns
     const filterableColumns = [
         { key: 'all', label: 'All Columns' },
         { key: 'name', label: 'Name' },
@@ -484,18 +91,12 @@ function ReportsTab({ assessmentId }: { assessmentId: string }) {
         setLoading(true);
         try {
             const params: any = { sortBy: 'totalScore', sortOrder: 'DESC' };
-            if (search) params.search = search;
-            if (search) params.search = search;
-
             // Try new reports API first
             try {
                 const response = await assessmentService.getParticipantReports(assessmentId, params);
                 if (response.data) {
-                    // Ensure verification data exists by mapping potentially missing fields
-                    // Ensure verification data exists by mapping potentially missing fields
                     const participants = (response.data.participants || []).map((p: any) => {
                         const photoUrl = p.verification?.photoUrl || p.contestant?.profilePhotoUrl || p.contestant?.photoUrl || p.profilePhotoUrl || p.user?.profilePhotoUrl;
-                        console.log('📸 [Available Photo URL]:', photoUrl, 'for', p.registration?.fullName || p.contestantName);
 
                         return {
                             ...p,
@@ -526,9 +127,7 @@ function ReportsTab({ assessmentId }: { assessmentId: string }) {
 
             // Fallback to existing submissions API
             try {
-                const fallbackParams = filter !== 'all' ? { status: filter === 'evaluated' ? 'submitted' : filter } : {};
-                const response = await assessmentService.getSubmissions(assessmentId, fallbackParams);
-
+                const response = await submissionService.getAllSubmissions(assessmentId, 1, 1000);
                 const submissions = response.data.submissions || [];
                 const transformedParticipants = submissions.map((sub: any) => {
                     const sectionScores = (sub.sections || sub.sectionScores || []).map((s: any) => ({
@@ -541,6 +140,11 @@ function ReportsTab({ assessmentId }: { assessmentId: string }) {
                         correctAnswers: s.correctAnswers,
                         wrongAnswers: s.wrongAnswers,
                         unattempted: s.unattempted,
+                        testCases: s.testCases || s.testcaseResults || {
+                            passed: s.passedTests || s.passed || 0,
+                            total: s.totalTests || s.total || 0
+                        },
+                        timeTaken: s.timeTaken || 0 // Added timeTaken field
                     }));
 
                     return {
@@ -564,10 +168,14 @@ function ReportsTab({ assessmentId }: { assessmentId: string }) {
                             photoThumbnailUrl: sub.contestant?.photoThumbnailUrl,
                         },
                         scores: {
-                            totalScore: sub.totalScore,
-                            maxScore: sub.totalMarks,
-                            percentage: sub.percentage,
+                            totalScore: sub.totalScore || sub.score || 0,
+                            maxScore: sub.totalMarks || sub.maxScore || 0,
+                            percentage: sub.percentage || 0,
                             sectionScores: sectionScores,
+                            testCases: sub.testCases || sub.testcaseResults || {
+                                passed: sub.passedTests || 0,
+                                total: sub.totalTests || 0
+                            }
                         },
                         violations: {
                             totalCount: 0,
@@ -578,7 +186,7 @@ function ReportsTab({ assessmentId }: { assessmentId: string }) {
                             status: 'pending' as const,
                             finalScore: sub.totalScore || 0,
                         },
-                        codingProblems: sub.codingProblems || [],
+                        codingProblems: sub.codingProblems || sub.submissions || [],
                     };
                 });
 
@@ -595,46 +203,48 @@ function ReportsTab({ assessmentId }: { assessmentId: string }) {
                 });
                 setViolationStats(null);
             } catch (fallbackErr: any) {
-                console.warn('Submissions API also not available:', fallbackErr?.response?.status);
                 setParticipants([]);
-                setStats({});
+                setStats({
+                    totalParticipants: 0,
+                    completed: 0,
+                    inProgress: 0,
+                    notStarted: 0,
+                    averageScore: 0,
+                    passRate: 0
+                });
                 setViolationStats(null);
             }
         } catch (err) {
             console.error('Failed to fetch reports:', err);
             setParticipants([]);
-            setStats({});
         } finally {
             setLoading(false);
         }
     };
 
-    const handleSearch = () => {
-        fetchReports();
-    };
-
     const handleExport = async () => {
         setExporting(true);
         try {
-            const blob = await assessmentService.exportReports(assessmentId, 'csv');
-            const url = window.URL.createObjectURL(new Blob([blob.data as any]));
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', `reports-${assessmentId}.csv`);
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            showToast("Export started!", "success");
+            const response = await assessmentService.exportReports(assessmentId, 'csv');
+            const blob = new Blob([response.data], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${assessment.title.replace(/\s+/g, '_')}_reports.csv`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
         } catch (err) {
             console.error('Failed to export reports:', err);
-            showToast("Failed to export reports", "error");
+            alert('Failed to export reports');
         } finally {
             setExporting(false);
         }
     };
 
     const viewReport = (participantId: string) => {
-        router.push(`/admin/assessments/${assessmentId}/reports/${participantId}`);
+        router.push(`/organizer/assessments/${assessmentId}/reports/${participantId}`);
     };
 
     const formatDuration = (seconds?: number) => {
@@ -662,24 +272,31 @@ function ReportsTab({ assessmentId }: { assessmentId: string }) {
 
     const getVerdictBadge = (status?: string) => {
         switch (status) {
-            case 'passed': return 'bg-green-600 text-white';
-            case 'failed': return 'bg-red-500 text-white';
-            case 'disqualified': return 'bg-red-700 text-white';
-            default: return 'bg-amber-500 text-white';
+            case 'passed':
+                return 'bg-green-600 text-white';
+            case 'failed':
+                return 'bg-red-500 text-white';
+            case 'disqualified':
+                return 'bg-red-700 text-white';
+            default:
+                return 'bg-amber-500 text-white';
         }
     };
 
     const getRiskBadge = (level?: string) => {
         switch (level) {
-            case 'high': return 'bg-red-100 text-red-600';
-            case 'medium': return 'bg-amber-100 text-amber-600';
-            default: return 'bg-green-100 text-green-600';
+            case 'high':
+                return 'bg-red-100 text-red-600';
+            case 'medium':
+                return 'bg-amber-100 text-amber-600';
+            default:
+                return 'bg-green-100 text-green-600';
         }
     };
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-300">
-            {/* Stats Cards */}
+        <div className="space-y-6">
+            {/* Stats Cards - Row 1 */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 <div className="bg-card border border-border rounded-xl p-4">
                     <p className="text-xs text-muted-foreground mb-1">Total Participants</p>
@@ -713,8 +330,33 @@ function ReportsTab({ assessmentId }: { assessmentId: string }) {
                 </div>
             </div>
 
+            {/* Violation Stats */}
+            {violationStats && (
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <AlertTriangle className="text-amber-600" size={20} />
+                            <span className="font-bold text-amber-800 dark:text-amber-200">Proctoring Summary</span>
+                        </div>
+                        <div className="flex items-center gap-6 text-sm">
+                            <span className="text-amber-700 dark:text-amber-300">
+                                Total Violations: <strong>{violationStats.totalViolations}</strong>
+                            </span>
+                            <span className="text-amber-700 dark:text-amber-300">
+                                Participants Flagged: <strong>{violationStats.participantsWithViolations}</strong>
+                            </span>
+                            {violationStats.highRiskCount > 0 && (
+                                <span className="text-red-600 font-bold">
+                                    High Risk: {violationStats.highRiskCount}
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Results Table */}
-            <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
+            <div className={`bg-card border border-border rounded-xl overflow-hidden shadow-sm transition-all duration-300 ${isFullScreen ? 'fixed inset-0 z-[100] rounded-none flex flex-col' : ''}`}>
                 <div className="flex flex-col sm:flex-row items-center justify-between p-4 border-b border-border gap-4">
                     <h3 className="text-lg font-bold flex items-center gap-2">
                         Participant Reports
@@ -743,7 +385,6 @@ function ReportsTab({ assessmentId }: { assessmentId: string }) {
                             colleges={Array.from(new Set(participants.map(p => p.registration?.college).filter(Boolean)))}
                         />
 
-                        {/* Column Filter Dropdown + Input */}
                         {/* Column Filter Dropdown + Input */}
                         <div className="flex items-center gap-1 bg-background border border-border rounded-lg overflow-hidden flex-1 max-w-sm ml-auto">
                             <select
@@ -784,6 +425,14 @@ function ReportsTab({ assessmentId }: { assessmentId: string }) {
                             <Download size={16} />
                             {exporting ? 'Exporting...' : 'Export CSV'}
                         </button>
+
+                        <button
+                            onClick={() => setIsFullScreen(!isFullScreen)}
+                            className="p-2 hover:bg-muted rounded-lg border border-border transition-colors text-muted-foreground hover:text-foreground"
+                            title={isFullScreen ? "Exit Fullscreen" : "Fullscreen"}
+                        >
+                            {isFullScreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+                        </button>
                     </div>
                 </div>
 
@@ -801,14 +450,14 @@ function ReportsTab({ assessmentId }: { assessmentId: string }) {
                         </p>
                     </div>
                 ) : (
-                    <div className="overflow-x-auto">
+                    <div className="overflow-auto flex-1 w-full">
                         <table className="w-full">
                             <thead className="bg-muted/50 border-b border-border sticky top-0 z-10">
                                 <tr>
                                     <th className="text-left py-3 px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground border-r border-border min-w-[50px]">#</th>
 
-                                    <th className="text-left py-3 px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground border-r border-border min-w-[200px] cursor-pointer hover:bg-muted/80 transition-colors"
-                                        onClick={() => { setSortBy((prev) => prev === 'name' ? 'name' : 'name' as any); setSortOrder(prev => prev === 'ASC' ? 'DESC' : 'ASC'); }}
+                                    <th className="text-left py-3 px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground border-r border-border min-w-[280px] cursor-pointer hover:bg-muted/80 transition-colors"
+                                        onClick={() => { setSortBy('name'); setSortOrder(prev => prev === 'ASC' ? 'DESC' : 'ASC'); }}
                                     >
                                         <div className="flex items-center gap-1">
                                             Participant
@@ -819,7 +468,7 @@ function ReportsTab({ assessmentId }: { assessmentId: string }) {
                                         </div>
                                     </th>
 
-                                    <th className="text-left py-3 px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground border-r border-border min-w-[150px]">Department</th>
+                                    <th className="text-left py-3 px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground border-r border-border min-w-[150px]">Dept / College</th>
 
                                     <th className="text-left py-3 px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground border-r border-border min-w-[120px]">Status</th>
 
@@ -835,8 +484,43 @@ function ReportsTab({ assessmentId }: { assessmentId: string }) {
                                         </div>
                                     </th>
 
-                                    <th className="text-center py-3 px-2 text-xs font-bold uppercase tracking-wider text-blue-600 border-r border-border bg-blue-50/50" colSpan={2}>MCQ/Aptitude</th>
-                                    <th className="text-center py-3 px-2 text-xs font-bold uppercase tracking-wider text-purple-600 border-r border-border bg-purple-50/50" colSpan={3}>Coding</th>
+                                    {assessment?.sections?.map((section: any) => {
+                                        if (section.type === 'coding') {
+                                            return (
+                                                <React.Fragment key={section.id}>
+                                                    <th className="text-center py-3 px-2 text-xs font-bold uppercase tracking-wider border-r border-border bg-purple-50/20 min-w-[80px]" rowSpan={2}>
+                                                        {section.title} <span className="text-[10px] text-purple-600 block">Score</span>
+                                                    </th>
+                                                    <th className="text-center py-3 px-2 text-xs font-bold uppercase tracking-wider border-r border-border bg-purple-50/20 min-w-[80px]" rowSpan={2}>
+                                                        {section.title} <span className="text-[10px] text-purple-600 block">Time</span>
+                                                    </th>
+                                                    <th className="text-center py-3 px-2 text-xs font-bold uppercase tracking-wider border-r border-border bg-purple-50/20 min-w-[80px]" rowSpan={2}>
+                                                        {section.title} <span className="text-[10px] text-purple-600 block">Tests</span>
+                                                    </th>
+                                                </React.Fragment>
+                                            );
+                                        }
+                                        return (
+                                            <React.Fragment key={section.id}>
+                                                <th className="text-center py-3 px-3 text-xs font-bold uppercase tracking-wider border-r border-border bg-muted/20 min-w-[100px]" rowSpan={2}>
+                                                    <div className="flex flex-col items-center gap-1.5">
+                                                        <span>{section.title}</span>
+                                                        <span className="px-1.5 py-0.5 rounded-[4px] text-[9px] border bg-blue-100/50 text-blue-700 border-blue-200">
+                                                            Score
+                                                        </span>
+                                                    </div>
+                                                </th>
+                                                <th className="text-center py-3 px-3 text-xs font-bold uppercase tracking-wider border-r border-border bg-muted/20 min-w-[90px]" rowSpan={2}>
+                                                    <div className="flex flex-col items-center gap-1.5">
+                                                        <span>{section.title}</span>
+                                                        <span className="px-1.5 py-0.5 rounded-[4px] text-[9px] border bg-gray-100 text-gray-700 border-gray-200">
+                                                            Time
+                                                        </span>
+                                                    </div>
+                                                </th>
+                                            </React.Fragment>
+                                        );
+                                    })}
                                     <th className="text-center py-3 px-2 text-xs font-bold uppercase tracking-wider text-red-600 border-r border-border bg-red-50/50" colSpan={3}>Plagiarism</th>
 
                                     <th className="text-center py-3 px-2 text-xs font-bold uppercase tracking-wider text-green-600 border-r border-border bg-green-50/50 cursor-pointer hover:bg-green-100/50 transition-colors" colSpan={2}
@@ -861,42 +545,6 @@ function ReportsTab({ assessmentId }: { assessmentId: string }) {
                                     <th className="border-r border-border"></th>
                                     <th className="border-r border-border"></th>
                                     <th className="border-r border-border"></th>
-                                    <th className="text-center py-1 px-2 text-[10px] font-semibold text-muted-foreground bg-blue-50/30 cursor-pointer hover:bg-blue-100/50 transition-colors"
-                                        onClick={() => { setSortBy('mcqScore'); setSortOrder(prev => prev === 'ASC' ? 'DESC' : 'ASC'); }}
-                                    >
-                                        <div className="flex items-center justify-center gap-1">
-                                            Scored
-                                            <div className="flex flex-col">
-                                                <ArrowUp size={8} className={sortBy === 'mcqScore' && sortOrder === 'ASC' ? 'text-blue-600' : 'text-blue-600/30'} />
-                                                <ArrowDown size={8} className={sortBy === 'mcqScore' && sortOrder === 'DESC' ? 'text-blue-600' : 'text-blue-600/30'} />
-                                            </div>
-                                        </div>
-                                    </th>
-                                    <th className="text-center py-1 px-2 text-[10px] font-semibold text-muted-foreground border-r border-border bg-blue-50/30">Max</th>
-                                    <th className="text-center py-1 px-2 text-[10px] font-semibold text-muted-foreground bg-purple-50/30 cursor-pointer hover:bg-purple-100/50 transition-colors"
-                                        onClick={() => { setSortBy('codingScore'); setSortOrder(prev => prev === 'ASC' ? 'DESC' : 'ASC'); }}
-                                    >
-                                        <div className="flex items-center justify-center gap-1">
-                                            Scored
-                                            <div className="flex flex-col">
-                                                <ArrowUp size={8} className={sortBy === 'codingScore' && sortOrder === 'ASC' ? 'text-purple-600' : 'text-purple-600/30'} />
-                                                <ArrowDown size={8} className={sortBy === 'codingScore' && sortOrder === 'DESC' ? 'text-purple-600' : 'text-purple-600/30'} />
-                                            </div>
-                                        </div>
-                                    </th>
-                                    <th className="text-center py-1 px-2 text-[10px] font-semibold text-muted-foreground bg-purple-50/30">Max</th>
-                                    <th className="text-center py-1 px-2 text-[10px] font-semibold text-muted-foreground border-r border-border bg-purple-50/30 cursor-pointer hover:bg-purple-100/50 transition-colors"
-                                        onClick={() => { setSortBy('testCases'); setSortOrder(prev => prev === 'ASC' ? 'DESC' : 'ASC'); }}
-                                    >
-                                        <div className="flex items-center justify-center gap-1">
-                                            Cases
-                                            <div className="flex flex-col">
-                                                <ArrowUp size={8} className={sortBy === 'testCases' && sortOrder === 'ASC' ? 'text-purple-600' : 'text-purple-600/30'} />
-                                                <ArrowDown size={8} className={sortBy === 'testCases' && sortOrder === 'DESC' ? 'text-purple-600' : 'text-purple-600/30'} />
-                                            </div>
-                                        </div>
-                                    </th>
-
                                     {/* Plagiarism Sub-headers */}
                                     <th className="text-center py-1 px-2 text-[10px] font-semibold text-muted-foreground bg-red-50/30 cursor-pointer hover:bg-red-100/50 transition-colors"
                                         onClick={() => { setSortBy('plagiarismScore'); setSortOrder(prev => prev === 'ASC' ? 'DESC' : 'ASC'); }}
@@ -924,7 +572,7 @@ function ReportsTab({ assessmentId }: { assessmentId: string }) {
                                         onClick={() => { setSortBy('plagiarismRisk'); setSortOrder(prev => prev === 'ASC' ? 'DESC' : 'ASC'); }}
                                     >
                                         <div className="flex items-center justify-center gap-1">
-                                            Risk
+                                            Verdict
                                             <div className="flex flex-col">
                                                 <ArrowUp size={8} className={sortBy === 'plagiarismRisk' && sortOrder === 'ASC' ? 'text-red-600' : 'text-red-600/30'} />
                                                 <ArrowDown size={8} className={sortBy === 'plagiarismRisk' && sortOrder === 'DESC' ? 'text-red-600' : 'text-red-600/30'} />
@@ -942,7 +590,6 @@ function ReportsTab({ assessmentId }: { assessmentId: string }) {
                             <tbody className="divide-y divide-border">
                                 {participants
                                     .map(p => {
-                                        // Pre-calculate stats for usage in filter/sort
                                         const mcqSections = p.scores?.sectionScores?.filter((s: any) =>
                                             ['mcq', 'aptitude', 'quiz', 'multiple_choice', 'objective'].includes(s.sectionType?.toLowerCase())
                                         ) || [];
@@ -973,7 +620,6 @@ function ReportsTab({ assessmentId }: { assessmentId: string }) {
                                         };
                                     })
                                     .filter((p) => {
-                                        // 1. Text Filter (Search)
                                         let textMatch = true;
                                         if (tableFilter.trim()) {
                                             const searchLower = tableFilter.toLowerCase();
@@ -1001,7 +647,6 @@ function ReportsTab({ assessmentId }: { assessmentId: string }) {
                                         }
                                         if (!textMatch) return false;
 
-                                        // 2. Advanced Filters
                                         if (advancedFilters.statuses.length > 0 && !advancedFilters.statuses.includes(p.session?.status)) return false;
                                         if (advancedFilters.minScore !== '' && (Number(p.scores?.percentage || 0) < Number(advancedFilters.minScore))) return false;
                                         if (advancedFilters.maxScore !== '' && (Number(p.scores?.percentage || 0) > Number(advancedFilters.maxScore))) return false;
@@ -1090,23 +735,29 @@ function ReportsTab({ assessmentId }: { assessmentId: string }) {
                                                 <td className="py-3 px-4 text-sm font-medium border-r border-border whitespace-nowrap">
                                                     {p.scores?.rank || index + 1}
                                                 </td>
-                                                <td className="py-3 px-4 border-r border-border">
-                                                    <div className="flex items-center gap-3">
-                                                        {/* Avatar / Photo */}
+                                                <td className="py-4 px-4 border-r border-border">
+                                                    <div className="flex items-center gap-4">
                                                         {p.verification?.photoUrl ? (
-                                                            <img
-                                                                src={p.verification.photoUrl}
-                                                                alt="User"
-                                                                className="w-9 h-9 rounded-full object-cover border border-border shadow-sm"
-                                                            />
+                                                            <div className="relative group">
+                                                                <img
+                                                                    src={p.verification.photoUrl}
+                                                                    alt="User"
+                                                                    className="w-10 h-10 rounded-full object-cover border border-border shadow-sm"
+                                                                />
+                                                                <div className="absolute inset-0 rounded-full bg-black/5 group-hover:bg-transparent transition-colors" />
+                                                            </div>
                                                         ) : (
-                                                            <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs ring-2 ring-background">
+                                                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm ring-2 ring-background shadow-sm">
                                                                 {p.registration?.fullName?.charAt(0) || '?'}
                                                             </div>
                                                         )}
-                                                        <div>
-                                                            <p className="font-medium text-foreground">{p.registration?.fullName || 'Unknown'}</p>
-                                                            <p className="text-xs text-muted-foreground">{p.registration?.email}</p>
+                                                        <div className="flex flex-col gap-0.5 w-full">
+                                                            <p className="font-bold text-foreground text-sm truncate" title={p.registration?.fullName}>
+                                                                {p.registration?.fullName || 'Unknown'}
+                                                            </p>
+                                                            <p className="text-xs text-muted-foreground/80 truncate font-medium" title={p.registration?.email}>
+                                                                {p.registration?.email}
+                                                            </p>
                                                         </div>
                                                     </div>
                                                 </td>
@@ -1121,50 +772,111 @@ function ReportsTab({ assessmentId }: { assessmentId: string }) {
                                                         {p.session?.status?.replace('_', ' ') || '-'}
                                                     </span>
                                                 </td>
-                                                {/* Time Taken */}
                                                 <td className="py-3 px-4 border-r border-border whitespace-nowrap">
                                                     <span className="text-sm font-mono text-muted-foreground">
                                                         {formatDuration(p.session?.totalTimeTaken)}
                                                     </span>
                                                 </td>
-                                                {/* MCQ/Aptitude Scored */}
-                                                <td className="py-3 px-2 text-center bg-blue-50/20">
-                                                    <span className={`font-bold ${p.derived.mcqTotal > 0 ? 'text-blue-600' : 'text-muted-foreground'}`}>
-                                                        {p.derived.mcqTotal > 0 ? p.derived.mcqObtained : '-'}
-                                                    </span>
-                                                </td>
-                                                {/* MCQ/Aptitude Max */}
-                                                <td className="py-3 px-2 text-center border-r border-border bg-blue-50/20">
-                                                    <span className="text-muted-foreground">
-                                                        {p.derived.mcqTotal > 0 ? p.derived.mcqTotal : '-'}
-                                                    </span>
-                                                </td>
-                                                {/* Coding Scored */}
-                                                <td className="py-3 px-2 text-center bg-purple-50/20">
-                                                    <span className={`font-bold ${p.derived.codingTotal > 0 ? 'text-purple-600' : 'text-muted-foreground'}`}>
-                                                        {p.derived.codingTotal > 0 ? p.derived.codingObtained : '-'}
-                                                    </span>
-                                                </td>
-                                                {/* Coding Max */}
-                                                <td className="py-3 px-2 text-center border-r border-border bg-purple-50/20">
-                                                    <span className="text-muted-foreground">
-                                                        {p.derived.codingTotal > 0 ? p.derived.codingTotal : '-'}
-                                                    </span>
-                                                </td>
-                                                {/* Coding Test Cases */}
-                                                <td className="py-3 px-2 text-center border-r border-border bg-purple-50/20">
-                                                    {p.derived.totalCodingTests > 0 ? (
-                                                        <span className="text-xs font-medium text-muted-foreground">
-                                                            <span className="text-green-600 font-bold">{p.derived.passedCodingTests}</span>
-                                                            <span className="mx-0.5">/</span>
-                                                            <span>{p.derived.totalCodingTests}</span>
-                                                        </span>
-                                                    ) : (
-                                                        <span className="text-xs text-muted-foreground">-</span>
-                                                    )}
-                                                </td>
+                                                {assessment?.sections?.map((section: any) => {
+                                                    const sScore = p.scores?.sectionScores?.find((s: any) => s.sectionId === section.id || s.sectionTitle === section.title);
+                                                    const isCoding = section.type === 'coding';
+                                                    let totalTests = 0;
+                                                    let passedTests = 0;
 
-                                                {/* Plagiarism: Similarity */}
+                                                    if (isCoding) {
+                                                        if (sScore?.testCases && sScore.testCases.total > 0) {
+                                                            totalTests = sScore.testCases.total;
+                                                            passedTests = sScore.testCases.passed;
+                                                        }
+                                                        else if (p.codingProblems && p.codingProblems.length > 0) {
+                                                            const sectionQuestions = section.questions?.filter((q: any) => q.type === 'coding') || [];
+                                                            const matchedProblems = p.codingProblems.filter((prob: any) =>
+                                                                sectionQuestions.some((q: any) =>
+                                                                    (q.problemId && q.problemId === (prob.problemId || prob.questionId)) ||
+                                                                    (q.id && q.id === (prob.problemId || prob.questionId))
+                                                                )
+                                                            );
+                                                            matchedProblems.forEach((prob: any) => {
+                                                                totalTests += (prob.totalTests || 0);
+                                                                passedTests += (prob.passedTests || 0);
+                                                            });
+                                                        }
+                                                        if (totalTests === 0 && p.scores?.testCases?.total > 0) {
+                                                            totalTests = p.scores.testCases.total;
+                                                            passedTests = p.scores.testCases.passed;
+                                                        }
+                                                    }
+
+                                                    if (isCoding) {
+                                                        return (
+                                                            <React.Fragment key={section.id}>
+                                                                <td className="py-3 px-4 text-center border-r border-border bg-purple-50/5">
+                                                                    {sScore ? (
+                                                                        <div className="flex flex-col items-center gap-1">
+                                                                            <div className="flex items-baseline gap-1">
+                                                                                <span className="font-bold text-purple-700">
+                                                                                    {sScore.obtainedMarks}
+                                                                                </span>
+                                                                                <span className="text-muted-foreground text-xs">/ {sScore.totalMarks}</span>
+                                                                            </div>
+                                                                            <div className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${(sScore.percentage || 0) >= 70 ? 'bg-green-100 text-green-700' :
+                                                                                (sScore.percentage || 0) >= 40 ? 'bg-amber-100 text-amber-700' :
+                                                                                    'bg-red-100 text-red-700'
+                                                                                }`}>
+                                                                                {(Number(sScore.percentage) || 0).toFixed(1)}%
+                                                                            </div>
+                                                                        </div>
+                                                                    ) : <span className="text-muted-foreground text-xs">-</span>}
+                                                                </td>
+                                                                <td className="py-3 px-4 text-center border-r border-border bg-purple-50/10">
+                                                                    <span className="text-[11px] font-mono text-muted-foreground/80">
+                                                                        {sScore?.timeTaken ? formatDuration(sScore.timeTaken) : '-'}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="py-3 px-4 text-center border-r border-border bg-purple-50/10">
+                                                                    {totalTests > 0 ? (
+                                                                        <div className="flex items-center justify-center gap-0.5 text-[13px] font-bold tracking-tight">
+                                                                            <span className="text-emerald-600">{passedTests}</span>
+                                                                            <span className="text-muted-foreground/30 font-light mx-[1px]">/</span>
+                                                                            <span className="text-muted-foreground/80">{totalTests}</span>
+                                                                        </div>
+                                                                    ) : <span className="text-muted-foreground/40 text-[10px] font-mono select-none">- / -</span>}
+                                                                </td>
+                                                            </React.Fragment>
+                                                        );
+                                                    }
+
+                                                    return (
+                                                        <React.Fragment key={section.id}>
+                                                            <td className="py-3 px-4 text-center border-r border-border">
+                                                                {sScore ? (
+                                                                    <div className="flex flex-col items-center gap-1">
+                                                                        <div className="flex items-baseline gap-1">
+                                                                            <span className="font-bold text-blue-600">
+                                                                                {sScore.obtainedMarks}
+                                                                            </span>
+                                                                            <span className="text-muted-foreground text-xs">/ {sScore.totalMarks}</span>
+                                                                        </div>
+                                                                        <div className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${(sScore.percentage || 0) >= 70 ? 'bg-green-100 text-green-700' :
+                                                                            (sScore.percentage || 0) >= 40 ? 'bg-amber-100 text-amber-700' :
+                                                                                'bg-red-100 text-red-700'
+                                                                            }`}>
+                                                                            {(Number(sScore.percentage) || 0).toFixed(1)}%
+                                                                        </div>
+                                                                    </div>
+                                                                ) : (
+                                                                    <span className="text-muted-foreground text-xs">-</span>
+                                                                )}
+                                                            </td>
+                                                            <td className="py-3 px-4 text-center border-r border-border">
+                                                                <span className="text-[11px] font-mono text-muted-foreground/80">
+                                                                    {sScore?.timeTaken ? formatDuration(sScore.timeTaken) : '-'}
+                                                                </span>
+                                                            </td>
+                                                        </React.Fragment>
+                                                    );
+                                                })}
+
                                                 <td className="py-3 px-2 text-center bg-red-50/20">
                                                     {p.plagiarism ? (
                                                         <span className={`font-bold ${p.plagiarism.overallScore > 20 ? 'text-red-600' : 'text-muted-foreground'}`}>
@@ -1172,7 +884,6 @@ function ReportsTab({ assessmentId }: { assessmentId: string }) {
                                                         </span>
                                                     ) : <span className="text-muted-foreground">-</span>}
                                                 </td>
-                                                {/* Plagiarism: AI */}
                                                 <td className="py-3 px-2 text-center bg-red-50/20">
                                                     {p.plagiarism ? (
                                                         <span className={`font-bold ${p.plagiarism.aiConfidence > 50 ? 'text-red-600' : 'text-muted-foreground'}`}>
@@ -1180,25 +891,22 @@ function ReportsTab({ assessmentId }: { assessmentId: string }) {
                                                         </span>
                                                     ) : <span className="text-muted-foreground">-</span>}
                                                 </td>
-                                                {/* Plagiarism: Risk */}
                                                 <td className="py-3 px-2 text-center border-r border-border bg-red-50/20">
-                                                    {p.plagiarism?.riskLevel ? (
-                                                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase ${p.plagiarism.riskLevel === 'High' ? 'bg-red-500 text-white' :
-                                                            p.plagiarism.riskLevel === 'Medium' ? 'bg-amber-500 text-white' :
-                                                                'bg-green-500 text-white'
+                                                    {(p.plagiarism?.verdict || p.plagiarism?.riskLevel) ? (
+                                                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase ${(p.plagiarism.verdict === 'Clean' || p.plagiarism.riskLevel === 'Low') ? 'bg-green-500 text-white' :
+                                                            (p.plagiarism.verdict === 'Suspicious' || p.plagiarism.riskLevel === 'Medium') ? 'bg-amber-500 text-white' :
+                                                                'bg-red-500 text-white'
                                                             }`}>
-                                                            {p.plagiarism.riskLevel}
+                                                            {p.plagiarism.verdict || p.plagiarism.riskLevel}
                                                         </span>
                                                     ) : <span className="text-muted-foreground text-[10px]">-</span>}
                                                 </td>
 
-                                                {/* Total Scored */}
                                                 <td className="py-3 px-2 text-center bg-green-50/20">
                                                     <span className="font-bold text-green-600">
                                                         {p.scores?.totalScore ?? '-'}
                                                     </span>
                                                 </td>
-                                                {/* Total Max */}
                                                 <td className="py-3 px-2 text-center border-r border-border bg-green-50/20">
                                                     <span className="text-muted-foreground">
                                                         {p.scores?.maxScore ?? '-'}
@@ -1235,13 +943,13 @@ function ReportsTab({ assessmentId }: { assessmentId: string }) {
                                                         <span className="text-xs text-muted-foreground">-</span>
                                                     )}
                                                 </td>
-                                                <td className="py-3 px-4 text-right">
+                                                <td className="py-3 px-4 text-right sticky right-0 bg-white dark:bg-card border-l border-border z-10">
                                                     <button
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             viewReport(p.participantId);
                                                         }}
-                                                        className="px-3 py-1.5 bg-primary text-primary-foreground hover:opacity-90 rounded-lg text-xs font-bold transition-colors"
+                                                        className="px-3 py-1.5 bg-primary text-primary-foreground hover:opacity-90 rounded-lg text-xs font-bold transition-colors shadow-sm"
                                                     >
                                                         View Report
                                                     </button>
@@ -1254,7 +962,8 @@ function ReportsTab({ assessmentId }: { assessmentId: string }) {
                     </div>
                 )}
             </div>
-        </div>
+        </div >
     );
-}
+};
 
+export default AssessmentReportsTab;

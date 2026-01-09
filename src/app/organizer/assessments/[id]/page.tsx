@@ -9,39 +9,55 @@ import {
     Calendar,
     Clock,
     FileText,
+    Users,
+    Settings,
+    ChevronDown,
+    MoreVertical,
+    BarChart3,
     CheckCircle,
-    Eye,
-    Camera,
-    Monitor,
-    Mic,
+    XCircle,
     AlertTriangle,
+    Download,
+    Share2,
+    Trash2,
+    Eye,
+    Globe,
+    Lock,
+    Edit3,
+    Filter,
+    UserX,
+    ChevronUp,
+    Image as ImageIcon,
     Code,
     Type,
     Edit,
-    Trash2,
     Mail,
-    Users,
-    BarChart3,
+    Play,
     Send,
     X,
     Plus,
     RefreshCw,
     RefreshCcw,
     Search,
-    Filter,
-    Play,
     Activity,
     UserCheck,
-    UserX,
-    Download,
-    ChevronDown,
-    ChevronUp,
-    Image as ImageIcon,
-    MoreVertical
+    Camera,
+    Mic,
+    Monitor,
+    LayoutGrid,
+    List,
+    Copy,
+    ArrowUp,
+    ArrowDown,
+    SlidersHorizontal,
+    Upload
 } from 'lucide-react';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { assessmentService } from '@/api/assessmentService';
 import { invitationService, Invitation, InvitationStats } from '@/api/invitationService';
+import { submissionService } from '@/api/submissionService';
 import CodingQuestionDisplay from '@/app/organizer/new-assessment/components/CodingQuestionDisplay';
+import AssessmentReportsTab from './components/AssessmentReportsTab';
 
 // ========== TYPES ==========
 
@@ -124,11 +140,27 @@ const AssessmentDetailPage = () => {
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [deleteLoading, setDeleteLoading] = useState(false);
 
+    // Code Submission Modal State
+    const [selectedSubmission, setSelectedSubmission] = useState<{
+        participant: any;
+        section: any;
+        problems: any[];
+    } | null>(null);
+    const [showSubmissionModal, setShowSubmissionModal] = useState(false);
+
     // ========== FETCH DATA ==========
 
     useEffect(() => {
         if (assessmentId) {
             fetchAssessment();
+            // Prefetch violation stats in the background for instant monitoring tab load
+            assessmentService.getViolationStats(assessmentId)
+                .then(response => {
+                    console.log('✅ [PREFETCH] Violation stats prefetched successfully');
+                })
+                .catch(error => {
+                    console.log('⚠️ [PREFETCH] Violation stats prefetch failed (non-critical):', error?.message);
+                });
         }
     }, [assessmentId]);
 
@@ -169,6 +201,24 @@ const AssessmentDetailPage = () => {
             setInvitationStats(response.data);
         } catch (error) {
             console.error('Failed to fetch invitation stats:', error);
+        }
+    };
+
+    const handleCsvUpload = async (file: File) => {
+        const toastId = 'csv-upload'; // Simple ID if we had toast
+        try {
+            // Show loading state or toast
+            console.log('Uploading CSV...', file.name);
+
+            const response = await invitationService.uploadCsvInvites(assessmentId, file);
+            console.log('CSV Upload Response:', response.data);
+
+            alert(response.data.message || 'Invitations processed successfully!');
+            fetchInvitations();
+            fetchInvitationStats();
+        } catch (error: any) {
+            console.error('Failed to upload CSV:', error);
+            alert(error?.response?.data?.message || 'Failed to upload CSV invites');
         }
     };
 
@@ -434,13 +484,15 @@ const AssessmentDetailPage = () => {
                                 onSearch={fetchInvitations}
                                 onResend={handleResendInvitation}
                                 onCancel={handleCancelInvitation}
+
                                 onInvite={() => setShowInviteModal(true)}
+                                onCsvUpload={handleCsvUpload}
                                 getStatusColor={getInvitationStatusColor}
                             />
                         )}
                         {activeTab === 'participants' && <ParticipantsTab assessmentId={assessmentId} />}
                         {activeTab === 'monitoring' && <MonitoringTab assessmentId={assessmentId} />}
-                        {activeTab === 'reports' && <ReportsTab assessmentId={assessmentId} assessment={assessment} />}
+                        {activeTab === 'reports' && <AssessmentReportsTab assessmentId={assessmentId} assessment={assessment} />}
                     </motion.div>
                 </AnimatePresence>
             </div>
@@ -974,130 +1026,159 @@ const OverviewTab = ({ assessment, getQuestionTypeIcon, getDifficultyColor }: an
 
 // ========== INVITATIONS TAB ==========
 
-const InvitationsTab = ({ invitations, stats, filter, setFilter, search, setSearch, onSearch, onResend, onCancel, onInvite, getStatusColor }: any) => (
-    <div className="space-y-6">
-        {/* Stats Cards */}
-        {stats && (
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                <div className="bg-card border border-border rounded-xl p-4">
-                    <p className="text-xs text-muted-foreground mb-1">Pending</p>
-                    <p className="text-2xl font-black text-yellow-600">{stats.pending}</p>
-                </div>
-                <div className="bg-card border border-border rounded-xl p-4">
-                    <p className="text-xs text-muted-foreground mb-1">Sent</p>
-                    <p className="text-2xl font-black text-blue-600">{stats.sent}</p>
-                </div>
-                <div className="bg-card border border-border rounded-xl p-4">
-                    <p className="text-xs text-muted-foreground mb-1">Accepted</p>
-                    <p className="text-2xl font-black text-green-600">{stats.accepted}</p>
-                </div>
-                <div className="bg-card border border-border rounded-xl p-4">
-                    <p className="text-xs text-muted-foreground mb-1">Expired</p>
-                    <p className="text-2xl font-black text-gray-600">{stats.expired}</p>
-                </div>
-                <div className="bg-card border border-border rounded-xl p-4">
-                    <p className="text-xs text-muted-foreground mb-1">Total</p>
-                    <p className="text-2xl font-black text-foreground">{stats.total}</p>
-                </div>
-            </div>
-        )}
+const InvitationsTab = ({ invitations, stats, filter, setFilter, search, setSearch, onSearch, onResend, onCancel, onInvite, onCsvUpload, getStatusColor }: any) => {
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-        {/* Toolbar */}
-        <div className="flex items-center gap-3">
-            <div className="flex-1 relative">
-                <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <input
-                    type="text"
-                    placeholder="Search by email or name..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && onSearch()}
-                    className="w-full pl-10 pr-4 py-2.5 bg-background border border-border rounded-lg text-sm focus:border-primary outline-none"
-                />
-            </div>
-            <select
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                className="bg-background border border-border rounded-lg py-2.5 px-3 text-sm focus:border-primary outline-none"
-            >
-                <option value="">All Status</option>
-                <option value="pending">Pending</option>
-                <option value="sent">Sent</option>
-                <option value="accepted">Accepted</option>
-                <option value="expired">Expired</option>
-                <option value="cancelled">Cancelled</option>
-            </select>
-            <button
-                onClick={onInvite}
-                className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-bold hover:opacity-90"
-            >
-                <Plus size={18} />
-                Invite
-            </button>
-        </div>
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            onCsvUpload(file);
+        }
+        // Reset input so same file can be selected again if needed
+        if (e.target) e.target.value = '';
+    };
 
-        {/* Invitations Table */}
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
-            {invitations.length === 0 ? (
-                <div className="p-12 text-center">
-                    <Mail size={48} className="mx-auto text-muted-foreground/50 mb-3" />
-                    <p className="text-sm font-bold text-foreground">No invitations yet</p>
-                    <p className="text-xs text-muted-foreground mt-1">Send invitations to participants</p>
+    return (
+        <div className="space-y-6">
+            {/* Stats Cards */}
+            {stats && (
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                    <div className="bg-card border border-border rounded-xl p-4">
+                        <p className="text-xs text-muted-foreground mb-1">Pending</p>
+                        <p className="text-2xl font-black text-yellow-600">{stats.pending}</p>
+                    </div>
+                    <div className="bg-card border border-border rounded-xl p-4">
+                        <p className="text-xs text-muted-foreground mb-1">Sent</p>
+                        <p className="text-2xl font-black text-blue-600">{stats.sent}</p>
+                    </div>
+                    <div className="bg-card border border-border rounded-xl p-4">
+                        <p className="text-xs text-muted-foreground mb-1">Accepted</p>
+                        <p className="text-2xl font-black text-green-600">{stats.accepted}</p>
+                    </div>
+                    <div className="bg-card border border-border rounded-xl p-4">
+                        <p className="text-xs text-muted-foreground mb-1">Expired</p>
+                        <p className="text-2xl font-black text-gray-600">{stats.expired}</p>
+                    </div>
+                    <div className="bg-card border border-border rounded-xl p-4">
+                        <p className="text-xs text-muted-foreground mb-1">Total</p>
+                        <p className="text-2xl font-black text-foreground">{stats.total}</p>
+                    </div>
                 </div>
-            ) : (
-                <table className="w-full">
-                    <thead className="bg-muted/50 border-b border-border">
-                        <tr>
-                            <th className="text-left py-3 px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">Email</th>
-                            <th className="text-left py-3 px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">Name</th>
-                            <th className="text-left py-3 px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">Status</th>
-                            <th className="text-left py-3 px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">Sent At</th>
-                            <th className="text-right py-3 px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                        {invitations.map((inv: Invitation) => (
-                            <tr key={inv.id} className="hover:bg-muted/30">
-                                <td className="py-3 px-4 text-sm font-medium">{inv.email}</td>
-                                <td className="py-3 px-4 text-sm text-muted-foreground">{inv.name || '-'}</td>
-                                <td className="py-3 px-4">
-                                    <span className={`text-xs font-bold px-2 py-1 rounded-full ${getStatusColor(inv.status)}`}>
-                                        {inv.status}
-                                    </span>
-                                </td>
-                                <td className="py-3 px-4 text-sm text-muted-foreground">
-                                    {inv.sentAt ? new Date(inv.sentAt).toLocaleDateString() : '-'}
-                                </td>
-                                <td className="py-3 px-4">
-                                    <div className="flex items-center justify-end gap-2">
-                                        {inv.status !== 'accepted' && inv.status !== 'cancelled' && (
-                                            <button
-                                                onClick={() => onResend(inv.id)}
-                                                className="p-2 hover:bg-primary/10 text-primary rounded-lg transition-colors"
-                                                title="Resend"
-                                            >
-                                                <RefreshCw size={16} />
-                                            </button>
-                                        )}
-                                        {inv.status !== 'cancelled' && inv.status !== 'accepted' && (
-                                            <button
-                                                onClick={() => onCancel(inv.id)}
-                                                className="p-2 hover:bg-destructive/10 text-destructive rounded-lg transition-colors"
-                                                title="Cancel"
-                                            >
-                                                <X size={16} />
-                                            </button>
-                                        )}
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
             )}
+
+            {/* Toolbar */}
+            <div className="flex items-center gap-3">
+                <div className="flex-1 relative">
+                    <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    <input
+                        type="text"
+                        placeholder="Search by email or name..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && onSearch()}
+                        className="w-full pl-10 pr-4 py-2.5 bg-background border border-border rounded-lg text-sm focus:border-primary outline-none"
+                    />
+                </div>
+                <select
+                    value={filter}
+                    onChange={(e) => setFilter(e.target.value)}
+                    className="bg-background border border-border rounded-lg py-2.5 px-3 text-sm focus:border-primary outline-none"
+                >
+                    <option value="">All Status</option>
+                    <option value="pending">Pending</option>
+                    <option value="sent">Sent</option>
+                    <option value="accepted">Accepted</option>
+                    <option value="expired">Expired</option>
+                    <option value="cancelled">Cancelled</option>
+                </select>
+                <button
+                    onClick={onInvite}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-bold hover:opacity-90"
+                >
+                    <Plus size={18} />
+                    Invite
+                </button>
+                <div className="h-8 w-px bg-border mx-1"></div>
+                <input
+                    type="file"
+                    ref={fileInputRef}
+                    accept=".csv"
+                    className="hidden"
+                    onChange={handleFileChange}
+                />
+                <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-background border border-border text-foreground rounded-lg text-sm font-bold hover:bg-muted transition-colors"
+                    title="Upload CSV to bulk invite"
+                >
+                    <Upload size={18} className="text-muted-foreground" />
+                    Upload CSV
+                </button>
+            </div>
+
+            {/* Invitations Table */}
+            <div className="bg-card border border-border rounded-xl overflow-hidden">
+                {invitations.length === 0 ? (
+                    <div className="p-12 text-center">
+                        <Mail size={48} className="mx-auto text-muted-foreground/50 mb-3" />
+                        <p className="text-sm font-bold text-foreground">No invitations yet</p>
+                        <p className="text-xs text-muted-foreground mt-1">Send invitations to participants</p>
+                    </div>
+                ) : (
+                    <table className="w-full">
+                        <thead className="bg-muted/50 border-b border-border">
+                            <tr>
+                                <th className="text-left py-3 px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">Email</th>
+                                <th className="text-left py-3 px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">Name</th>
+                                <th className="text-left py-3 px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">Status</th>
+                                <th className="text-left py-3 px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">Sent At</th>
+                                <th className="text-right py-3 px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                            {invitations.map((inv: Invitation) => (
+                                <tr key={inv.id} className="hover:bg-muted/30">
+                                    <td className="py-3 px-4 text-sm font-medium">{inv.email}</td>
+                                    <td className="py-3 px-4 text-sm text-muted-foreground">{inv.name || '-'}</td>
+                                    <td className="py-3 px-4">
+                                        <span className={`text-xs font-bold px-2 py-1 rounded-full ${getStatusColor(inv.status)}`}>
+                                            {inv.status}
+                                        </span>
+                                    </td>
+                                    <td className="py-3 px-4 text-sm text-muted-foreground">
+                                        {inv.sentAt ? new Date(inv.sentAt).toLocaleDateString() : '-'}
+                                    </td>
+                                    <td className="py-3 px-4">
+                                        <div className="flex items-center justify-end gap-2">
+                                            {inv.status !== 'accepted' && inv.status !== 'cancelled' && (
+                                                <button
+                                                    onClick={() => onResend(inv.id)}
+                                                    className="p-2 hover:bg-primary/10 text-primary rounded-lg transition-colors"
+                                                    title="Resend"
+                                                >
+                                                    <RefreshCw size={16} />
+                                                </button>
+                                            )}
+                                            {inv.status !== 'cancelled' && inv.status !== 'accepted' && (
+                                                <button
+                                                    onClick={() => onCancel(inv.id)}
+                                                    className="p-2 hover:bg-destructive/10 text-destructive rounded-lg transition-colors"
+                                                    title="Cancel"
+                                                >
+                                                    <X size={16} />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                )}
+            </div>
         </div>
-    </div>
-);
+    );
+};
 
 // ========== PARTICIPANTS TAB ==========
 
@@ -1169,7 +1250,6 @@ const ParticipantsTab = ({ assessmentId }: { assessmentId: string }) => {
                                 <tr>
                                     <th className="text-left px-4 py-3">#</th>
                                     <th className="text-left px-4 py-3">Participant</th>
-                                    <th className="text-left px-4 py-3">Username</th>
                                     <th className="text-center px-4 py-3">Invited At</th>
                                     <th className="text-center px-4 py-3">Accepted At</th>
                                 </tr>
@@ -1183,15 +1263,12 @@ const ParticipantsTab = ({ assessmentId }: { assessmentId: string }) => {
                                         <td className="px-4 py-3">
                                             <div className="flex flex-col">
                                                 <span className="font-bold text-foreground">
-                                                    {p.user?.fullName || p.invitationName || 'Unknown'}
+                                                    {p.user?.fullName || p.invitationName || p.user?.username || 'Anonymous'}
                                                 </span>
                                                 <span className="text-xs text-muted-foreground">
                                                     {p.user?.email || p.invitationEmail}
                                                 </span>
                                             </div>
-                                        </td>
-                                        <td className="px-4 py-3 text-muted-foreground">
-                                            {p.user?.username || '-'}
                                         </td>
                                         <td className="px-4 py-3 text-center text-xs text-muted-foreground">
                                             {p.createdAt ? new Date(p.createdAt).toLocaleDateString() : '-'}
@@ -1313,10 +1390,36 @@ const MonitoringTab = ({ assessmentId }: { assessmentId: string }) => {
     const [invitedCount, setInvitedCount] = useState(0);
     const [statsTotal, setStatsTotal] = useState(0);
     const [refreshing, setRefreshing] = useState(false);
+    const [allViolations, setAllViolations] = useState<any[]>([]); // Store all violations for chart
+    const [chartData, setChartData] = useState<any[]>([]);
 
     // Derive total violations from individual counts
     // For sidebar we keep using the dynamic counts, but for the Top Card we use the static statsTotal
     const sidebarTotalViolations = Object.values(violationCounts).reduce((a, b) => a + b, 0);
+
+    // Process violations data for area chart
+    const processChartData = (violations: any[]) => {
+        if (!violations || violations.length === 0) return [];
+
+        // Group by 5-minute intervals
+        const buckets: Record<string, { time: string; count: number; timestamp: number }> = {};
+
+        violations.forEach(v => {
+            const date = new Date(v.detectedAt || v.timestamp || v.createdAt);
+            // Round down to nearest 5 min
+            const minutes = Math.floor(date.getMinutes() / 5) * 5;
+            date.setMinutes(minutes, 0, 0);
+            const timeKey = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+            if (!buckets[timeKey]) {
+                buckets[timeKey] = { time: timeKey, count: 0, timestamp: date.getTime() };
+            }
+            buckets[timeKey].count++;
+        });
+
+        // Convert to Array and Sort by timestamp
+        return Object.values(buckets).sort((a, b) => a.timestamp - b.timestamp);
+    };
     const activeSessions = Object.keys(activeCandidates).length;
 
     // Fetch initial stats
@@ -1333,7 +1436,48 @@ const MonitoringTab = ({ assessmentId }: { assessmentId: string }) => {
             const stats = responseData?.stats || responseData;
 
             if (stats && (stats.total !== undefined || stats.byType)) {
-                console.log(`✅ [STATS] Stats loaded:`, stats);
+                // Formatted console log showing exact data structure
+                console.log(
+                    '%c╔══════════════════════════════════════════════════════════╗',
+                    'color: #0f62fe; font-weight: bold;'
+                );
+                console.log(
+                    '%c║  📦 [VIOLATION_STATS] Sending Stats Payload             ║',
+                    'color: #0f62fe; font-weight: bold;'
+                );
+                console.log(
+                    '%c╠══════════════════════════════════════════════════════════╣',
+                    'color: #0f62fe; font-weight: bold;'
+                );
+                console.log(
+                    `%c║  Total Violations: ${String(stats.total || 0).padEnd(37)} ║`,
+                    'color: #42be65; font-weight: bold;'
+                );
+                console.log(
+                    '%c╠══════════════════════════════════════════════════════════╣',
+                    'color: #0f62fe; font-weight: bold;'
+                );
+                console.log(
+                    '%c║  Violations By Type:                                     ║',
+                    'color: #f1c21b; font-weight: bold;'
+                );
+
+                // Display each violation type with its count
+                if (stats.byType) {
+                    Object.entries(stats.byType).forEach(([type, count]) => {
+                        const displayText = `${type}: ${count}`;
+                        console.log(
+                            `%c║    • ${displayText.padEnd(52)} ║`,
+                            'color: #8a3ffc; font-weight: bold;'
+                        );
+                    });
+                }
+
+                console.log(
+                    '%c╚══════════════════════════════════════════════════════════╝',
+                    'color: #0f62fe; font-weight: bold;'
+                );
+                console.log('📊 [FULL_PAYLOAD]:', JSON.stringify(stats, null, 2));
 
                 setStatsTotal(stats.total || 0);
 
@@ -1357,6 +1501,21 @@ const MonitoringTab = ({ assessmentId }: { assessmentId: string }) => {
                     });
                 }
                 setViolationCounts(newCounts);
+
+                // Fetch all violations for chart if we have violations data
+                const statsData = stats as any;
+                if (statsData.users && Array.isArray(statsData.users)) {
+                    const allViols: any[] = [];
+                    statsData.users.forEach((user: any) => {
+                        if (user.violations && Array.isArray(user.violations)) {
+                            allViols.push(...user.violations);
+                        }
+                    });
+                    setAllViolations(allViols);
+                    const processed = processChartData(allViols);
+                    setChartData(processed);
+                    console.log('📈 [CHART] Processed chart data:', processed);
+                }
             }
             if (!isManual) setLastPolled(new Date().toISOString());
         } catch (error: any) {
@@ -1468,70 +1627,110 @@ const MonitoringTab = ({ assessmentId }: { assessmentId: string }) => {
 
     return (
         <div className="space-y-6">
-            {/* Dashboard Header */}
+            {/* Modern Dashboard Header with Gradients */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-card border border-border rounded-xl p-5 shadow-sm flex flex-col justify-between">
-                    <div className="flex items-center justify-between mb-4">
-                        <p className="text-sm font-medium text-muted-foreground">Active Sessions</p>
-                        <div className="p-2 bg-emerald-500/10 text-emerald-600 rounded-lg">
-                            <Activity size={18} />
+                {/* Active Sessions Card */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="relative bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent border border-emerald-500/20 rounded-2xl p-6 shadow-lg shadow-emerald-500/5 overflow-hidden group hover:shadow-emerald-500/5 transition-all"
+                >
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700" />
+                    <div className="relative z-10">
+                        <div className="flex items-center justify-between mb-4">
+                            <p className="text-sm font-semibold text-emerald-600">Active Sessions</p>
+                            <div className="p-2.5 bg-emerald-500/20 text-emerald-600 rounded-xl">
+                                <Activity size={20} />
+                            </div>
+                        </div>
+                        <div>
+                            <p className="text-4xl font-black text-foreground mb-1">{activeSessions}</p>
+                            <p className="text-xs text-emerald-600 font-bold flex items-center gap-1.5">
+                                <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+                                Live now
+                            </p>
                         </div>
                     </div>
-                    <div>
-                        <p className="text-3xl font-black text-foreground">{activeSessions}</p>
-                        <p className="text-xs text-emerald-600 font-bold mt-1 flex items-center gap-1">
-                            <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-                            Live now
-                        </p>
-                    </div>
-                </div>
+                </motion.div>
 
-                <div className="bg-card border border-border rounded-xl p-5 shadow-sm flex flex-col justify-between">
-                    <div className="flex items-center justify-between mb-4">
-                        <p className="text-sm font-medium text-muted-foreground">Total Violations</p>
-                        <div className="p-2 bg-amber-500/10 text-amber-600 rounded-lg">
-                            <AlertTriangle size={18} />
+                {/* Total Violations Card */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: 0.1 }}
+                    className="relative bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/20 rounded-2xl p-6 shadow-lg shadow-amber-500/5 overflow-hidden group hover:shadow-amber-500/10 transition-all"
+                >
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700" />
+                    <div className="relative z-10">
+                        <div className="flex items-center justify-between mb-4">
+                            <p className="text-sm font-semibold text-amber-600">Total Violations</p>
+                            <div className="p-2.5 bg-amber-500/20 text-amber-600 rounded-xl">
+                                <AlertTriangle size={20} />
+                            </div>
+                        </div>
+                        <div>
+                            <p className="text-4xl font-black text-foreground mb-1">
+                                {loading ? (
+                                    <span className="inline-block w-16 h-10 bg-muted/50 rounded animate-pulse" />
+                                ) : (
+                                    statsTotal
+                                )}
+                            </p>
+                            <p className="text-xs text-muted-foreground font-medium">
+                                Across all candidates
+                            </p>
                         </div>
                     </div>
-                    <div>
-                        <p className="text-3xl font-black text-foreground">
-                            {loading ? '-' : statsTotal}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                            Across all candidates
-                        </p>
-                    </div>
-                </div>
+                </motion.div>
 
-                <div className="bg-card border border-border rounded-xl p-5 shadow-sm flex flex-col justify-between">
-                    <div className="flex items-center justify-between mb-4">
-                        <p className="text-sm font-medium text-muted-foreground">Completed</p>
-                        <div className="p-2 bg-blue-500/10 text-blue-600 rounded-lg">
-                            <UserCheck size={18} />
+                {/* Completed Card */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: 0.2 }}
+                    className="relative bg-gradient-to-br from-blue-500/10 via-blue-500/5 to-transparent border border-blue-500/20 rounded-2xl p-6 shadow-lg shadow-blue-500/5 overflow-hidden group hover:shadow-blue-500/10 transition-all"
+                >
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700" />
+                    <div className="relative z-10">
+                        <div className="flex items-center justify-between mb-4">
+                            <p className="text-sm font-semibold text-blue-600">Completed</p>
+                            <div className="p-2.5 bg-blue-500/20 text-blue-600 rounded-xl">
+                                <UserCheck size={20} />
+                            </div>
+                        </div>
+                        <div>
+                            <p className="text-4xl font-black text-foreground mb-1">{completedCount}</p>
+                            <p className="text-xs text-muted-foreground font-medium">
+                                / {invitedCount} Invited
+                            </p>
                         </div>
                     </div>
-                    <div>
-                        <p className="text-3xl font-black text-foreground">{completedCount}</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                            / {invitedCount} Invited
-                        </p>
-                    </div>
-                </div>
+                </motion.div>
 
-                <div className="bg-card border border-border rounded-xl p-5 shadow-sm flex flex-col justify-between">
-                    <div className="flex items-center justify-between mb-4">
-                        <p className="text-sm font-medium text-muted-foreground">Proctor Status</p>
-                        <div className="p-2 bg-primary/10 text-primary rounded-lg">
-                            <Shield size={18} />
+                {/* Proctor Status Card */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: 0.3 }}
+                    className="relative bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border border-primary/20 rounded-2xl p-6 shadow-lg shadow-primary/5 overflow-hidden group hover:shadow-primary/10 transition-all"
+                >
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700" />
+                    <div className="relative z-10">
+                        <div className="flex items-center justify-between mb-4">
+                            <p className="text-sm font-semibold text-primary">Proctor Status</p>
+                            <div className="p-2.5 bg-primary/20 text-primary rounded-xl">
+                                <Shield size={20} />
+                            </div>
+                        </div>
+                        <div>
+                            <p className="text-4xl font-black text-foreground mb-1">Active</p>
+                            <p className="text-xs text-muted-foreground font-medium">
+                                System optimal
+                            </p>
                         </div>
                     </div>
-                    <div>
-                        <p className="text-3xl font-black text-foreground">Active</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                            System optimal
-                        </p>
-                    </div>
-                </div>
+                </motion.div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -1642,43 +1841,66 @@ const MonitoringTab = ({ assessmentId }: { assessmentId: string }) => {
                     </div>
                 </div>
 
-                {/* Violations Breakdown Panel */}
-                <div className="lg:col-span-1 bg-card border border-border rounded-xl shadow-sm overflow-hidden flex flex-col h-full">
-                    <div className="p-5 border-b border-border">
-                        <h3 className="font-bold text-foreground flex items-center gap-2">
-                            <AlertTriangle size={18} className="text-amber-500" />
+                {/* Violations Breakdown Panel - Enhanced */}
+                <div className="lg:col-span-1 bg-card/50 backdrop-blur-xl border border-border/50 rounded-2xl shadow-xl overflow-hidden flex flex-col">
+                    <div className="p-6 border-b border-border/50 bg-gradient-to-r from-amber-500/5 to-transparent">
+                        <h3 className="font-black text-lg text-foreground flex items-center gap-2">
+                            <div className="p-2 bg-amber-500/10 rounded-lg">
+                                <AlertTriangle size={20} className="text-amber-500" />
+                            </div>
                             Violations Monitor
-                            <span className="ml-auto text-xs text-muted-foreground font-normal">
-                                Total: {loading ? '-' : sidebarTotalViolations}
-                            </span>
                         </h3>
+                        <p className="text-xs text-muted-foreground mt-2">
+                            Total: <span className="font-bold text-foreground">{loading ? '-' : sidebarTotalViolations}</span>
+                        </p>
                     </div>
-                    <div className="p-0 overflow-y-auto max-h-[500px] custom-scrollbar">
+                    <div className="p-4 overflow-y-auto max-h-[500px] space-y-2 custom-scrollbar">
                         {loading ? (
-                            <div className="p-8 text-center">
-                                <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                                <p className="text-xs text-muted-foreground">Loading stats...</p>
+                            <div className="p-12 text-center">
+                                <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                                <p className="text-xs text-muted-foreground font-medium">Loading stats...</p>
                             </div>
                         ) : (
-                            <div className="grid grid-cols-1 gap-px bg-border">
-                                {ALL_VIOLATION_TYPES.map((type) => {
-                                    const count = violationCounts[type] || 0;
-                                    const isActive = count > 0;
-                                    return (
-                                        <div
-                                            key={type}
-                                            className={`flex items-center justify-between p-3 bg-card hover:bg-muted/20 transition-colors ${isActive ? 'bg-amber-500/5' : ''}`}
-                                        >
-                                            <span className={`text-xs font-medium ${isActive ? 'text-amber-700 font-bold' : 'text-muted-foreground'}`}>
+                            ALL_VIOLATION_TYPES.map((type) => {
+                                const count = violationCounts[type] || 0;
+                                const isActive = count > 0;
+                                const maxCount = Math.max(...Object.values(violationCounts));
+                                const percentage = maxCount > 0 ? (count / maxCount) * 100 : 0;
+
+                                return (
+                                    <motion.div
+                                        key={type}
+                                        initial={{ opacity: 0, x: -10 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        className={`relative p-3 rounded-xl border transition-all ${isActive
+                                            ? 'bg-amber-500/5 border-amber-500/20 hover:bg-amber-500/10'
+                                            : 'bg-muted/20 border-transparent hover:bg-muted/30'
+                                            }`}
+                                    >
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className={`text-xs font-semibold ${isActive ? 'text-amber-700' : 'text-muted-foreground'}`}>
                                                 {VIOLATION_TYPE_LABELS[type] || type}
                                             </span>
-                                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${isActive ? 'bg-amber-500/20 text-amber-700' : 'bg-muted text-muted-foreground'}`}>
+                                            <span className={`text-sm font-black px-2.5 py-0.5 rounded-full ${isActive
+                                                ? 'bg-amber-500/20 text-amber-700'
+                                                : 'bg-muted text-muted-foreground'
+                                                }`}>
                                                 {count}
                                             </span>
                                         </div>
-                                    );
-                                })}
-                            </div>
+                                        {isActive && (
+                                            <div className="h-1 bg-muted/30 rounded-full overflow-hidden">
+                                                <motion.div
+                                                    initial={{ width: 0 }}
+                                                    animate={{ width: `${percentage}%` }}
+                                                    transition={{ duration: 0.5, ease: "easeOut" }}
+                                                    className="h-full bg-gradient-to-r from-amber-500 to-amber-600 rounded-full"
+                                                />
+                                            </div>
+                                        )}
+                                    </motion.div>
+                                );
+                            })
                         )}
                     </div>
                 </div>
@@ -1698,8 +1920,8 @@ const MonitoringTab = ({ assessmentId }: { assessmentId: string }) => {
                                 <p className="text-xs">Waiting for live data...</p>
                             </div>
                         ) : (
-                            recentActivity.map((activity: any) => (
-                                <div key={activity.id} className="flex gap-3 border-l-2 border-primary/20 pl-3 py-1">
+                            recentActivity.map((activity: any, idx: number) => (
+                                <div key={`${activity.id}-${idx}`} className="flex gap-3 border-l-2 border-primary/20 pl-3 py-1">
                                     <div className="flex-1">
                                         <div className="flex items-center justify-between">
                                             <p className="text-xs font-bold text-foreground">{activity.name}</p>
@@ -1722,710 +1944,117 @@ const MonitoringTab = ({ assessmentId }: { assessmentId: string }) => {
                     </div>
                 </div>
             </div>
-        </div>
-    );
-};
 
-// ========== REPORTS TAB ==========
-
-const ReportsTab = ({ assessmentId, assessment }: { assessmentId: string; assessment: AssessmentDetail }) => {
-    const router = useRouter();
-    const [participants, setParticipants] = useState<any[]>([]);
-    const [stats, setStats] = useState<any>(null);
-    const [violationStats, setViolationStats] = useState<any>(null);
-    const [loading, setLoading] = useState(true);
-    const [exporting, setExporting] = useState(false);
-    const [filter, setFilter] = useState<'all' | 'submitted' | 'in_progress' | 'evaluated'>('all');
-    const [search, setSearch] = useState('');
-    const [tableFilter, setTableFilter] = useState(''); // Local filter for table rows
-    const [filterColumn, setFilterColumn] = useState<string>('all'); // Column to filter by
-    const [sortBy, setSortBy] = useState<'totalScore' | 'submittedAt' | 'percentage'>('totalScore');
-    const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('DESC');
-
-    // Define filterable columns
-    const filterableColumns = [
-        { key: 'all', label: 'All Columns' },
-        { key: 'name', label: 'Name' },
-        { key: 'email', label: 'Email' },
-        { key: 'department', label: 'Department' },
-        { key: 'college', label: 'College' },
-        { key: 'status', label: 'Status' },
-        { key: 'plagiarism', label: 'Plagiarism Score' },
-        { key: 'aiConfidence', label: 'AI Confidence' },
-        { key: 'mcqScore', label: 'MCQ Score' },
-        { key: 'codingScore', label: 'Coding Score' },
-        { key: 'totalScore', label: 'Total Score' },
-        { key: 'percentage', label: 'Percentage' },
-        { key: 'violations', label: 'Violations' },
-        { key: 'verdict', label: 'Verdict' },
-        { key: 'rank', label: 'Rank' },
-    ];
-
-    useEffect(() => {
-        fetchReports();
-    }, [assessmentId, filter, sortBy, sortOrder]);
-
-    const fetchReports = async () => {
-        setLoading(true);
-        try {
-            const params: any = { sortBy, sortOrder };
-            if (filter !== 'all') params.status = filter;
-            if (search) params.search = search;
-
-            // Try new reports API first
-            try {
-                const response = await assessmentService.getParticipantReports(assessmentId, params);
-                if (response.data) {
-                    // Ensure verification data exists by mapping potentially missing fields
-                    // Ensure verification data exists by mapping potentially missing fields
-                    const participants = (response.data.participants || []).map((p: any) => {
-                        const photoUrl = p.verification?.photoUrl || p.contestant?.profilePhotoUrl || p.contestant?.photoUrl || p.profilePhotoUrl || p.user?.profilePhotoUrl;
-                        console.log('📸 [Organizer Report] Photo URL:', photoUrl, 'for user:', p.registration?.fullName || p.contestantName);
-
-                        return {
-                            ...p,
-                            verification: {
-                                ...p.verification,
-                                photoUrl: photoUrl,
-                                photoThumbnailUrl: p.verification?.photoThumbnailUrl || p.contestant?.photoThumbnailUrl
-                            }
-                        };
-                    });
-                    setParticipants(participants);
-                    setStats(response.data.stats || {
-                        totalParticipants: 0,
-                        completed: 0,
-                        inProgress: 0,
-                        notStarted: 0,
-                        averageScore: 0,
-                        highestScore: 0,
-                        lowestScore: 0,
-                        passRate: 0
-                    });
-                    setViolationStats(response.data.violationStats || null);
-                    return;
-                }
-            } catch (apiErr: any) {
-                console.warn('New reports API not available, falling back to submissions API:', apiErr?.response?.status);
-            }
-
-            // Fallback to existing submissions API
-            try {
-                const fallbackParams = filter !== 'all' ? { status: filter === 'evaluated' ? 'submitted' : filter } : {};
-                const response = await assessmentService.getSubmissions(assessmentId, fallbackParams);
-
-                // Transform submissions data to match participants format
-                const submissions = response.data.submissions || [];
-                const transformedParticipants = submissions.map((sub: any) => {
-                    // Extract section scores from submission data
-                    const sectionScores = (sub.sections || sub.sectionScores || []).map((s: any) => ({
-                        sectionId: s.sectionId || s.id,
-                        sectionTitle: s.sectionTitle || s.title || 'Section',
-                        sectionType: s.sectionType || s.type || 'mcq',
-                        obtainedMarks: s.obtainedMarks || s.score || s.obtained || 0,
-                        totalMarks: s.totalMarks || s.maxScore || s.total || 0,
-                        percentage: s.percentage || 0,
-                        correctAnswers: s.correctAnswers,
-                        wrongAnswers: s.wrongAnswers,
-                        unattempted: s.unattempted,
-                    }));
-
-                    return {
-                        id: sub.id,
-                        participantId: sub.contestantId || sub.id,
-                        registration: {
-                            fullName: sub.contestantName || 'Unknown',
-                            email: sub.contestantEmail || '',
-                            department: sub.department || sub.contestantDepartment || '',
-                            college: sub.college || sub.contestantCollege || ''
-                        },
-                        session: {
-                            id: sub.id,
-                            status: sub.status === 'submitted' ? 'completed' : sub.status,
-                            startedAt: sub.startedAt,
-                            submittedAt: sub.submittedAt,
-                            totalTimeTaken: sub.timeTaken,
-                        },
-                        verification: {
-                            photoUrl: sub.contestant?.profilePhotoUrl || sub.contestant?.photoUrl || sub.profilePhotoUrl,
-                            photoThumbnailUrl: sub.contestant?.photoThumbnailUrl,
-                        },
-                        scores: {
-                            totalScore: sub.totalScore,
-                            maxScore: sub.totalMarks,
-                            percentage: sub.percentage,
-                            sectionScores: sectionScores,
-                        },
-                        violations: {
-                            totalCount: 0,
-                            byType: {},
-                            riskLevel: 'low' as const,
-                        },
-                        verdict: {
-                            status: 'pending' as const,
-                            finalScore: sub.totalScore || 0,
-                        },
-                        codingProblems: sub.codingProblems || [], // Pass coding problems for test case stats
-                    };
-                });
-
-                setParticipants(transformedParticipants);
-                setStats({
-                    totalParticipants: response.data.stats?.totalParticipants || 0,
-                    completed: response.data.stats?.submitted || 0,
-                    inProgress: response.data.stats?.inProgress || 0,
-                    notStarted: 0,
-                    averageScore: response.data.stats?.averagePercentage || 0,
-                    highestScore: response.data.stats?.highestScore || 0,
-                    lowestScore: response.data.stats?.lowestScore || 0,
-                    passRate: response.data.stats?.passRate || 0,
-                });
-                setViolationStats(null);
-            } catch (fallbackErr: any) {
-                console.warn('Submissions API also not available:', fallbackErr?.response?.status);
-                // Both APIs failed - show empty state
-                setParticipants([]);
-                setStats({
-                    totalParticipants: 0,
-                    completed: 0,
-                    inProgress: 0,
-                    notStarted: 0,
-                    averageScore: 0,
-                    passRate: 0
-                });
-                setViolationStats(null);
-            }
-        } catch (err) {
-            console.error('Failed to fetch reports:', err);
-            setParticipants([]);
-            setStats({
-                totalParticipants: 0,
-                completed: 0,
-                inProgress: 0,
-                averageScore: 0,
-                passRate: 0
-            });
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleSearch = () => {
-        fetchReports();
-    };
-
-    const handleExport = async () => {
-        setExporting(true);
-        try {
-            const response = await assessmentService.exportReports(assessmentId, 'csv');
-            const blob = new Blob([response.data], { type: 'text/csv' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${assessment.title.replace(/\s+/g, '_')}_reports.csv`;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
-        } catch (err) {
-            console.error('Failed to export reports:', err);
-            alert('Failed to export reports');
-        } finally {
-            setExporting(false);
-        }
-    };
-
-    const viewReport = (participantId: string) => {
-        router.push(`/organizer/assessments/${assessmentId}/reports/${participantId}`);
-    };
-
-    const formatDuration = (seconds?: number) => {
-        if (!seconds) return '-';
-        const mins = Math.floor(seconds / 60);
-        const secs = seconds % 60;
-        return `${mins}m ${secs}s`;
-    };
-
-    const getStatusBadge = (status: string) => {
-        switch (status) {
-            case 'completed':
-            case 'submitted':
-                return 'bg-green-500/10 text-green-600 border-green-500/20';
-            case 'evaluated':
-                return 'bg-blue-500/10 text-blue-600 border-blue-500/20';
-            case 'in_progress':
-                return 'bg-amber-500/10 text-amber-600 border-amber-500/20';
-            case 'not_started':
-                return 'bg-gray-500/10 text-gray-600 border-gray-500/20';
-            default:
-                return 'bg-muted text-muted-foreground';
-        }
-    };
-
-    const getVerdictBadge = (status?: string) => {
-        switch (status) {
-            case 'passed':
-                return 'bg-green-600 text-white';
-            case 'failed':
-                return 'bg-red-500 text-white';
-            case 'disqualified':
-                return 'bg-red-700 text-white';
-            default:
-                return 'bg-amber-500 text-white';
-        }
-    };
-
-    const getRiskBadge = (level?: string) => {
-        switch (level) {
-            case 'high':
-                return 'bg-red-100 text-red-600';
-            case 'medium':
-                return 'bg-amber-100 text-amber-600';
-            default:
-                return 'bg-green-100 text-green-600';
-        }
-    };
-
-    return (
-        <div className="space-y-6">
-            {/* Stats Cards - Row 1 */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                <div className="bg-card border border-border rounded-xl p-4">
-                    <p className="text-xs text-muted-foreground mb-1">Total Participants</p>
-                    <p className="text-2xl font-black text-foreground">
-                        {loading ? '-' : stats?.totalParticipants || 0}
-                    </p>
-                </div>
-                <div className="bg-card border border-border rounded-xl p-4">
-                    <p className="text-xs text-muted-foreground mb-1">Completed</p>
-                    <p className="text-2xl font-black text-green-600">
-                        {loading ? '-' : stats?.completed || 0}
-                    </p>
-                </div>
-                <div className="bg-card border border-border rounded-xl p-4">
-                    <p className="text-xs text-muted-foreground mb-1">In Progress</p>
-                    <p className="text-2xl font-black text-amber-600">
-                        {loading ? '-' : stats?.inProgress || 0}
-                    </p>
-                </div>
-                <div className="bg-card border border-border rounded-xl p-4">
-                    <p className="text-xs text-muted-foreground mb-1">Average Score</p>
-                    <p className="text-2xl font-black text-blue-600">
-                        {loading ? '-' : stats?.averageScore ? `${stats.averageScore.toFixed(1)}%` : '-'}
-                    </p>
-                </div>
-                <div className="bg-card border border-border rounded-xl p-4">
-                    <p className="text-xs text-muted-foreground mb-1">Pass Rate</p>
-                    <p className="text-2xl font-black text-primary">
-                        {loading ? '-' : stats?.passRate ? `${stats.passRate.toFixed(1)}%` : '-'}
-                    </p>
-                </div>
-            </div>
-
-            {/* Violation Stats */}
-            {violationStats && (
-                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
+            {/* Violations Trend Area Chart */}
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.3 }}
+                className="bg-card/50 backdrop-blur-xl border border-border/50 rounded-2xl shadow-xl overflow-hidden"
+            >
+                <div className="p-6 border-b border-border/50 bg-gradient-to-r from-red-500/5 to-transparent">
                     <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <AlertTriangle className="text-amber-600" size={20} />
-                            <span className="font-bold text-amber-800 dark:text-amber-200">Proctoring Summary</span>
+                        <div>
+                            <h3 className="font-black text-lg text-foreground flex items-center gap-2">
+                                <div className="p-2 bg-red-500/10 rounded-lg">
+                                    <BarChart3 size={20} className="text-red-500" />
+                                </div>
+                                Violations Trend
+                            </h3>
+                            <p className="text-xs text-muted-foreground mt-1">
+                                Real-time violation activity over time (5-minute intervals)
+                            </p>
                         </div>
-                        <div className="flex items-center gap-6 text-sm">
-                            <span className="text-amber-700 dark:text-amber-300">
-                                Total Violations: <strong>{violationStats.totalViolations}</strong>
-                            </span>
-                            <span className="text-amber-700 dark:text-amber-300">
-                                Participants Flagged: <strong>{violationStats.participantsWithViolations}</strong>
-                            </span>
-                            {violationStats.highRiskCount > 0 && (
-                                <span className="text-red-600 font-bold">
-                                    High Risk: {violationStats.highRiskCount}
-                                </span>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Results Table */}
-            <div className="bg-card border border-border rounded-xl overflow-hidden">
-                <div className="flex items-center justify-between p-4 border-b border-border">
-                    <h3 className="text-lg font-bold">Participant Reports</h3>
-                    <div className="flex items-center gap-3">
-                        {/* Column Filter Dropdown + Input */}
-                        <div className="flex items-center gap-1 bg-background border border-border rounded-lg overflow-hidden">
-                            <select
-                                value={filterColumn}
-                                onChange={(e) => setFilterColumn(e.target.value)}
-                                className="bg-transparent py-2 pl-3 pr-1 text-sm focus:outline-none border-r border-border text-muted-foreground"
-                            >
-                                {filterableColumns.map((col) => (
-                                    <option key={col.key} value={col.key}>{col.label}</option>
-                                ))}
-                            </select>
-                            <div className="relative">
-                                <Filter size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                                <input
-                                    type="text"
-                                    placeholder={`Filter by ${filterableColumns.find(c => c.key === filterColumn)?.label || 'all'}...`}
-                                    value={tableFilter}
-                                    onChange={(e) => setTableFilter(e.target.value)}
-                                    className="pl-7 pr-3 py-2 bg-transparent text-sm w-40 focus:outline-none"
-                                />
+                        {chartData.length > 0 && (
+                            <div className="text-right">
+                                <p className="text-xs text-muted-foreground">Peak Activity</p>
+                                <p className="text-lg font-black text-red-500">
+                                    {Math.max(...chartData.map(d => d.count))} violations
+                                </p>
                             </div>
-                            {tableFilter && (
-                                <button
-                                    onClick={() => setTableFilter('')}
-                                    className="pr-2 text-muted-foreground hover:text-foreground"
-                                >
-                                    <X size={14} />
-                                </button>
-                            )}
-                        </div>
-                        {/* Search */}
-                        <div className="relative">
-                            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                            <input
-                                type="text"
-                                placeholder="Search API..."
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                                className="pl-9 pr-3 py-2 bg-background border border-border rounded-lg text-sm w-40 focus:border-primary outline-none"
-                            />
-                        </div>
-                        <select
-                            value={filter}
-                            onChange={(e) => setFilter(e.target.value as any)}
-                            className="bg-background border border-border rounded-lg py-2 px-3 text-sm focus:border-primary outline-none"
-                        >
-                            <option value="all">All Status</option>
-                            <option value="submitted">Submitted</option>
-                            <option value="in_progress">In Progress</option>
-                            <option value="evaluated">Evaluated</option>
-                        </select>
-                        <select
-                            value={`${sortBy}-${sortOrder}`}
-                            onChange={(e) => {
-                                const [field, order] = e.target.value.split('-');
-                                setSortBy(field as any);
-                                setSortOrder(order as any);
-                            }}
-                            className="bg-background border border-border rounded-lg py-2 px-3 text-sm focus:border-primary outline-none"
-                        >
-                            <option value="totalScore-DESC">Score (High to Low)</option>
-                            <option value="totalScore-ASC">Score (Low to High)</option>
-                            <option value="submittedAt-DESC">Latest First</option>
-                            <option value="submittedAt-ASC">Oldest First</option>
-                        </select>
-                        <button
-                            onClick={handleExport}
-                            disabled={exporting || participants.length === 0}
-                            className="flex items-center gap-2 px-4 py-2 bg-muted hover:bg-muted/80 rounded-lg text-sm font-medium disabled:opacity-50"
-                        >
-                            <Download size={16} />
-                            {exporting ? 'Exporting...' : 'Export CSV'}
-                        </button>
+                        )}
                     </div>
                 </div>
-
-                {loading ? (
-                    <div className="p-12 text-center">
-                        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-                        <p className="text-sm text-muted-foreground">Loading reports...</p>
-                    </div>
-                ) : participants.length === 0 ? (
-                    <div className="p-12 text-center border border-dashed border-border m-4 rounded-xl">
-                        <BarChart3 size={48} className="mx-auto text-muted-foreground/50 mb-3" />
-                        <p className="text-sm text-muted-foreground">No participants yet</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                            Reports will appear here once contestants complete the assessment
-                        </p>
-                    </div>
-                ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead className="bg-muted/50 border-b border-border">
-                                <tr>
-                                    <th className="text-left py-3 px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground border-r border-border">#</th>
-                                    <th className="text-left py-3 px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground border-r border-border">Participant</th>
-                                    <th className="text-left py-3 px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground border-r border-border">Department</th>
-                                    <th className="text-left py-3 px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground border-r border-border">Status</th>
-                                    <th className="text-left py-3 px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground border-r border-border">Time</th>
-                                    <th className="text-center py-3 px-2 text-xs font-bold uppercase tracking-wider text-blue-600 border-r border-border bg-blue-50/50" colSpan={2}>MCQ/Aptitude</th>
-                                    <th className="text-center py-3 px-2 text-xs font-bold uppercase tracking-wider text-purple-600 border-r border-border bg-purple-50/50" colSpan={3}>Coding</th>
-                                    <th className="text-center py-3 px-2 text-xs font-bold uppercase tracking-wider text-red-600 border-r border-border bg-red-50/50" colSpan={3}>Plagiarism</th>
-                                    <th className="text-center py-3 px-2 text-xs font-bold uppercase tracking-wider text-green-600 border-r border-border bg-green-50/50" colSpan={2}>Total</th>
-                                    <th className="text-left py-3 px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground border-r border-border">Violations</th>
-                                    <th className="text-left py-3 px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground border-r border-border">Verdict</th>
-                                    <th className="text-right py-3 px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">Action</th>
-                                </tr>
-                                <tr className="bg-muted/30 border-b border-border">
-                                    <th className="border-r border-border"></th>
-                                    <th className="border-r border-border"></th>
-                                    <th className="border-r border-border"></th>
-                                    <th className="border-r border-border"></th>
-                                    <th className="border-r border-border"></th>
-                                    <th className="text-center py-1 px-2 text-[10px] font-semibold text-muted-foreground bg-blue-50/30">Scored</th>
-                                    <th className="text-center py-1 px-2 text-[10px] font-semibold text-muted-foreground border-r border-border bg-blue-50/30">Max</th>
-                                    <th className="text-center py-1 px-2 text-[10px] font-semibold text-muted-foreground bg-purple-50/30">Scored</th>
-                                    <th className="text-center py-1 px-2 text-[10px] font-semibold text-muted-foreground bg-purple-50/30">Max</th>
-                                    <th className="text-center py-1 px-2 text-[10px] font-semibold text-muted-foreground border-r border-border bg-purple-50/30">Test Cases</th>
-
-                                    {/* Plagiarism Sub-headers */}
-                                    <th className="text-center py-1 px-2 text-[10px] font-semibold text-muted-foreground bg-red-50/30">Sim %</th>
-                                    <th className="text-center py-1 px-2 text-[10px] font-semibold text-muted-foreground bg-red-50/30">AI %</th>
-                                    <th className="text-center py-1 px-2 text-[10px] font-semibold text-muted-foreground border-r border-border bg-red-50/30">Risk</th>
-
-                                    <th className="text-center py-1 px-2 text-[10px] font-semibold text-muted-foreground bg-green-50/30">Scored</th>
-                                    <th className="text-center py-1 px-2 text-[10px] font-semibold text-muted-foreground border-r border-border bg-green-50/30">Max</th>
-                                    <th className="border-r border-border"></th>
-                                    <th className="border-r border-border"></th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-border">
-                                {participants
-                                    .filter((p) => {
-                                        if (!tableFilter.trim()) return true;
-                                        const searchLower = tableFilter.toLowerCase();
-
-                                        // Get MCQ and Coding scores for filtering
-                                        const mcqSecs = p.scores?.sectionScores?.filter((s: any) =>
-                                            ['mcq', 'aptitude', 'quiz', 'multiple_choice', 'objective'].includes(s.sectionType?.toLowerCase())
-                                        ) || [];
-                                        const codingSecs = p.scores?.sectionScores?.filter((s: any) =>
-                                            ['coding', 'programming', 'code'].includes(s.sectionType?.toLowerCase())
-                                        ) || [];
-                                        const mcqScore = mcqSecs.reduce((sum: number, s: any) => sum + (s.obtainedMarks || s.scored || s.score || 0), 0);
-                                        const codingScore = codingSecs.reduce((sum: number, s: any) => sum + (s.obtainedMarks || s.scored || s.score || 0), 0);
-
-                                        // Column values
-                                        const columnValues: Record<string, string> = {
-                                            name: (p.registration?.fullName || '').toLowerCase(),
-                                            email: (p.registration?.email || '').toLowerCase(),
-                                            department: (p.registration?.department || '').toLowerCase(),
-                                            college: (p.registration?.college || '').toLowerCase(),
-                                            status: (p.session?.status || '').toLowerCase().replace('_', ' '),
-                                            plagiarism: String(p.plagiarism?.overallScore || ''),
-                                            aiConfidence: String(p.plagiarism?.aiConfidence || ''),
-                                            mcqScore: String(mcqScore),
-                                            codingScore: String(codingScore),
-                                            totalScore: String(p.scores?.totalScore || ''),
-                                            percentage: String(p.scores?.percentage || ''),
-                                            violations: String(p.violations?.totalCount || 0),
-                                            verdict: (p.verdict?.status || '').toLowerCase(),
-                                            rank: String(p.scores?.rank || ''),
-                                        };
-
-                                        // Filter by selected column or all columns
-                                        if (filterColumn === 'all') {
-                                            return Object.values(columnValues).some(val => val.includes(searchLower));
-                                        } else {
-                                            return columnValues[filterColumn]?.includes(searchLower) || false;
-                                        }
-                                    })
-                                    .map((p, index) => {
-                                        // Extract MCQ/Aptitude and Coding scores from sectionScores
-                                        // Check for multiple possible type names: mcq, aptitude, quiz, multiple_choice
-                                        const mcqSections = p.scores?.sectionScores?.filter((s: any) =>
-                                            ['mcq', 'aptitude', 'quiz', 'multiple_choice', 'objective'].includes(s.sectionType?.toLowerCase())
-                                        ) || [];
-                                        const codingSections = p.scores?.sectionScores?.filter((s: any) =>
-                                            ['coding', 'programming', 'code'].includes(s.sectionType?.toLowerCase())
-                                        ) || [];
-
-                                        const mcqObtained = mcqSections.reduce((sum: number, s: any) => sum + (s.obtainedMarks || s.scored || s.score || 0), 0);
-                                        const mcqTotal = mcqSections.reduce((sum: number, s: any) => sum + (s.totalMarks || s.maxScore || s.total || 0), 0);
-                                        const codingObtained = codingSections.reduce((sum: number, s: any) => sum + (s.obtainedMarks || s.scored || s.score || 0), 0);
-
-                                        const codingTotal = codingSections.reduce((sum: number, s: any) => sum + (s.totalMarks || s.maxScore || s.total || 0), 0);
-
-                                        // Calculate aggregated details for Test Cases
-                                        let totalCodingTests = 0;
-                                        let passedCodingTests = 0;
-                                        // If codingProblems array exists, use it
-                                        if (p.codingProblems && p.codingProblems.length > 0) {
-                                            p.codingProblems.forEach((prob: any) => {
-                                                totalCodingTests += (prob.totalTests || 0);
-                                                passedCodingTests += (prob.passedTests || 0);
-                                            });
-                                        } else {
-                                            // Fallback: try to infer from sections if problems not explicit (less accurate)
-                                            // Just show -/- if no details
-                                        }
-
-                                        return (
-                                            <tr
-                                                key={p.id}
-                                                className="hover:bg-muted/30 cursor-pointer transition-colors"
-                                                onClick={() => viewReport(p.participantId)}
-                                            >
-                                                <td className="py-3 px-4 text-sm font-medium border-r border-border">
-                                                    {p.scores?.rank || index + 1}
-                                                </td>
-                                                <td className="py-3 px-4 border-r border-border">
-                                                    <div className="flex items-center gap-3">
-                                                        {/* Avatar / Photo */}
-                                                        {p.verification?.photoUrl ? (
-                                                            <img
-                                                                src={p.verification.photoUrl}
-                                                                alt="User"
-                                                                className="w-9 h-9 rounded-full object-cover border border-border shadow-sm"
-                                                            />
-                                                        ) : (
-                                                            <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs ring-2 ring-background">
-                                                                {p.registration?.fullName?.charAt(0) || '?'}
-                                                            </div>
-                                                        )}
-                                                        <div>
-                                                            <p className="font-medium text-foreground">{p.registration?.fullName || 'Unknown'}</p>
-                                                            <p className="text-xs text-muted-foreground">{p.registration?.email}</p>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td className="py-3 px-4 border-r border-border">
-                                                    <div>
-                                                        <p className="font-medium text-foreground text-xs">{p.registration?.department || '-'}</p>
-                                                        <p className="text-[10px] text-muted-foreground truncate max-w-[150px]" title={p.registration?.college}>{p.registration?.college || '-'}</p>
-                                                    </div>
-                                                </td>
-                                                <td className="py-3 px-4 border-r border-border">
-                                                    <span className={`text-xs font-bold px-2 py-1 rounded-full border ${getStatusBadge(p.session?.status)}`}>
-                                                        {p.session?.status?.replace('_', ' ') || '-'}
-                                                    </span>
-                                                </td>
-                                                {/* Time Taken */}
-                                                <td className="py-3 px-4 border-r border-border">
-                                                    <span className="text-sm font-mono text-muted-foreground">
-                                                        {formatDuration(p.session?.totalTimeTaken)}
-                                                    </span>
-                                                </td>
-                                                {/* MCQ/Aptitude Scored */}
-                                                <td className="py-3 px-2 text-center bg-blue-50/20">
-                                                    <span className={`font-bold ${mcqTotal > 0 ? 'text-blue-600' : 'text-muted-foreground'}`}>
-                                                        {mcqTotal > 0 ? mcqObtained : '-'}
-                                                    </span>
-                                                </td>
-                                                {/* MCQ/Aptitude Max */}
-                                                <td className="py-3 px-2 text-center border-r border-border bg-blue-50/20">
-                                                    <span className="text-muted-foreground">
-                                                        {mcqTotal > 0 ? mcqTotal : '-'}
-                                                    </span>
-                                                </td>
-                                                {/* Coding Scored */}
-                                                <td className="py-3 px-2 text-center bg-purple-50/20">
-                                                    <span className={`font-bold ${codingTotal > 0 ? 'text-purple-600' : 'text-muted-foreground'}`}>
-                                                        {codingTotal > 0 ? codingObtained : '-'}
-                                                    </span>
-                                                </td>
-                                                {/* Coding Max */}
-                                                <td className="py-3 px-2 text-center border-r border-border bg-purple-50/20">
-                                                    <span className="text-muted-foreground">
-                                                        {codingTotal > 0 ? codingTotal : '-'}
-                                                    </span>
-                                                </td>
-                                                {/* Coding Test Cases */}
-                                                <td className="py-3 px-2 text-center border-r border-border bg-purple-50/20">
-                                                    {totalCodingTests > 0 ? (
-                                                        <span className="text-xs font-medium text-muted-foreground">
-                                                            <span className="text-green-600 font-bold">{passedCodingTests}</span>
-                                                            <span className="mx-0.5">/</span>
-                                                            <span>{totalCodingTests}</span>
-                                                        </span>
-                                                    ) : (
-                                                        <span className="text-xs text-muted-foreground">-</span>
-                                                    )}
-                                                </td>
-
-                                                {/* Plagiarism: Similarity */}
-                                                <td className="py-3 px-2 text-center bg-red-50/20">
-                                                    {p.plagiarism ? (
-                                                        <span className={`font-bold ${p.plagiarism.overallScore > 20 ? 'text-red-600' : 'text-muted-foreground'}`}>
-                                                            {p.plagiarism.overallScore}%
-                                                        </span>
-                                                    ) : <span className="text-muted-foreground">-</span>}
-                                                </td>
-                                                {/* Plagiarism: AI */}
-                                                <td className="py-3 px-2 text-center bg-red-50/20">
-                                                    {p.plagiarism ? (
-                                                        <span className={`font-bold ${p.plagiarism.aiConfidence > 50 ? 'text-red-600' : 'text-muted-foreground'}`}>
-                                                            {p.plagiarism.aiConfidence}%
-                                                        </span>
-                                                    ) : <span className="text-muted-foreground">-</span>}
-                                                </td>
-                                                {/* Plagiarism: Risk */}
-                                                <td className="py-3 px-2 text-center border-r border-border bg-red-50/20">
-                                                    {p.plagiarism?.riskLevel ? (
-                                                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase ${p.plagiarism.riskLevel === 'High' ? 'bg-red-500 text-white' :
-                                                            p.plagiarism.riskLevel === 'Medium' ? 'bg-amber-500 text-white' :
-                                                                'bg-green-500 text-white'
-                                                            }`}>
-                                                            {p.plagiarism.riskLevel}
-                                                        </span>
-                                                    ) : <span className="text-muted-foreground text-[10px]">-</span>}
-                                                </td>
-
-                                                {/* Total Scored */}
-                                                <td className="py-3 px-2 text-center bg-green-50/20">
-                                                    <span className="font-bold text-green-600">
-                                                        {p.scores?.totalScore ?? '-'}
-                                                    </span>
-                                                </td>
-                                                {/* Total Max */}
-                                                <td className="py-3 px-2 text-center border-r border-border bg-green-50/20">
-                                                    <span className="text-muted-foreground">
-                                                        {p.scores?.maxScore ?? '-'}
-                                                    </span>
-                                                    {p.scores?.percentage != null && (
-                                                        <span className={`ml-1 text-[10px] font-medium px-1 py-0.5 rounded ${Number(p.scores.percentage) >= 60 ? 'bg-green-100 text-green-700' :
-                                                            Number(p.scores.percentage) >= 40 ? 'bg-amber-100 text-amber-700' :
-                                                                'bg-red-100 text-red-700'
-                                                            }`}>
-                                                            {Number(p.scores.percentage).toFixed(0)}%
-                                                        </span>
-                                                    )}
-                                                </td>
-                                                <td className="py-3 px-4">
-                                                    {p.violations?.totalCount > 0 ? (
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="text-sm font-bold text-amber-600">{p.violations.totalCount}</span>
-                                                            <span className={`text-xs px-1.5 py-0.5 rounded font-medium uppercase ${getRiskBadge(p.violations.riskLevel)}`}>
-                                                                {p.violations.riskLevel}
-                                                            </span>
-                                                        </div>
-                                                    ) : (
-                                                        <span className="text-xs text-muted-foreground">None</span>
-                                                    )}
-                                                </td>
-                                                <td className="py-3 px-4">
-                                                    {p.verdict?.status ? (
-                                                        <span className={`text-xs font-bold px-2 py-1 rounded uppercase ${getVerdictBadge(p.verdict.status)}`}>
-                                                            {p.verdict.status}
-                                                        </span>
-                                                    ) : (
-                                                        <span className="text-xs text-muted-foreground">-</span>
-                                                    )}
-                                                </td>
-                                                <td className="py-3 px-4 text-right">
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            viewReport(p.participantId);
-                                                        }}
-                                                        className="px-3 py-1.5 bg-primary text-primary-foreground hover:opacity-90 rounded-lg text-xs font-bold transition-colors"
-                                                    >
-                                                        View Report
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
-            </div>
+                <div className="p-6">
+                    {loading ? (
+                        <div className="h-[300px] flex items-center justify-center">
+                            <div className="text-center">
+                                <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                                <p className="text-xs text-muted-foreground font-medium">Loading chart data...</p>
+                            </div>
+                        </div>
+                    ) : chartData.length === 0 ? (
+                        <div className="h-[300px] flex items-center justify-center">
+                            <div className="text-center">
+                                <div className="p-4 bg-muted/20 rounded-full mb-3 inline-block">
+                                    <BarChart3 size={32} className="text-muted-foreground/40" />
+                                </div>
+                                <p className="font-bold text-foreground mb-1">No Violation Data Yet</p>
+                                <p className="text-sm text-muted-foreground">
+                                    Chart will appear when violations are detected
+                                </p>
+                            </div>
+                        </div>
+                    ) : (
+                        <ResponsiveContainer width="100%" height={300}>
+                            <AreaChart
+                                data={chartData}
+                                margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                            >
+                                <defs>
+                                    <linearGradient id="colorViolations" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
+                                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
+                                <XAxis
+                                    dataKey="time"
+                                    stroke="hsl(var(--muted-foreground))"
+                                    fontSize={12}
+                                    tickLine={false}
+                                    axisLine={false}
+                                />
+                                <YAxis
+                                    stroke="hsl(var(--muted-foreground))"
+                                    fontSize={12}
+                                    tickLine={false}
+                                    axisLine={false}
+                                    allowDecimals={false}
+                                />
+                                <Tooltip
+                                    contentStyle={{
+                                        backgroundColor: 'hsl(var(--card))',
+                                        border: '1px solid hsl(var(--border))',
+                                        borderRadius: '12px',
+                                        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                                        padding: '12px'
+                                    }}
+                                    labelStyle={{
+                                        color: 'hsl(var(--foreground))',
+                                        fontWeight: 'bold',
+                                        marginBottom: '4px'
+                                    }}
+                                    itemStyle={{
+                                        color: '#ef4444',
+                                        fontWeight: '600'
+                                    }}
+                                    formatter={(value: any) => [`${value} violations`, 'Count']}
+                                />
+                                <Area
+                                    type="monotone"
+                                    dataKey="count"
+                                    stroke="#ef4444"
+                                    strokeWidth={2}
+                                    fillOpacity={1}
+                                    fill="url(#colorViolations)"
+                                    animationDuration={1000}
+                                />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    )}
+                </div>
+            </motion.div>
         </div>
     );
 };

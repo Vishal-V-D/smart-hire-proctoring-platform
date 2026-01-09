@@ -41,6 +41,8 @@ export interface UseAIProctoringOptions {
     objectDetectionEnabled?: boolean;
     verificationThreshold?: number;
     gazeDeviationThreshold?: number;
+    audioMonitoringEnabled?: boolean;
+    noiseThreshold?: number;
 
     // Callbacks
     onViolation?: (violation: ProctoringViolation) => void;
@@ -84,6 +86,8 @@ export function useAIProctoring(options: UseAIProctoringOptions = {}): UseAIProc
         objectDetectionEnabled = false,
         verificationThreshold = 0.5,
         gazeDeviationThreshold = 0.4,
+        audioMonitoringEnabled = false,
+        noiseThreshold = 0.1,
         onViolation,
         onStatusChange,
         onVerificationResult,
@@ -103,7 +107,8 @@ export function useAIProctoring(options: UseAIProctoringOptions = {}): UseAIProc
         faceCount: 0,
         isVerified: false,
         gazeDirection: { yaw: 0, pitch: 0, roll: 0 },
-        fps: 0
+        fps: 0,
+        audioLevel: 0
     });
     const [violations, setViolations] = useState<ProctoringViolation[]>([]);
     const [isInitialized, setIsInitialized] = useState(false);
@@ -114,6 +119,35 @@ export function useAIProctoring(options: UseAIProctoringOptions = {}): UseAIProc
     useEffect(() => {
         optionsRef.current = options;
     }, [options]);
+
+    // Force update config when options change
+    useEffect(() => {
+        if (serviceRef.current) {
+            serviceRef.current.updateConfig({
+                faceVerificationEnabled: options.faceVerificationEnabled,
+                faceDetectionEnabled: options.faceDetectionEnabled,
+                gazeTrackingEnabled: options.gazeTrackingEnabled,
+                objectDetectionEnabled: options.objectDetectionEnabled,
+                verificationThreshold: options.verificationThreshold,
+                gazeDeviationThreshold: options.gazeDeviationThreshold,
+                audioMonitoringEnabled: options.audioMonitoringEnabled,
+                noiseThreshold: options.noiseThreshold, // CRITICAL: This allows dynamic threshold updates
+                onViolation: (violation) => {
+                    setViolations(prev => [...prev, violation]);
+                    optionsRef.current.onViolation?.(violation);
+                }
+            });
+        }
+    }, [
+        options.faceVerificationEnabled,
+        options.faceDetectionEnabled,
+        options.gazeTrackingEnabled,
+        options.objectDetectionEnabled,
+        options.verificationThreshold,
+        options.gazeDeviationThreshold,
+        options.audioMonitoringEnabled,
+        options.noiseThreshold
+    ]);
 
     // Initialize service
     const initialize = useCallback(async (): Promise<boolean> => {
@@ -126,6 +160,8 @@ export function useAIProctoring(options: UseAIProctoringOptions = {}): UseAIProc
                 objectDetectionEnabled: currentOptions.objectDetectionEnabled,
                 verificationThreshold: currentOptions.verificationThreshold,
                 gazeDeviationThreshold: currentOptions.gazeDeviationThreshold,
+                audioMonitoringEnabled: currentOptions.audioMonitoringEnabled,
+                noiseThreshold: currentOptions.noiseThreshold,
                 onViolation: (violation) => {
                     setViolations(prev => [...prev, violation]);
                     optionsRef.current.onViolation?.(violation);
@@ -142,6 +178,9 @@ export function useAIProctoring(options: UseAIProctoringOptions = {}): UseAIProc
             const service = getAIProctoringService(config);
             serviceRef.current = service;
 
+            // Ensure config is fresh even if service was already instantiated
+            service.updateConfig(config);
+
             const success = await service.initialize();
             setIsInitialized(success);
 
@@ -157,13 +196,7 @@ export function useAIProctoring(options: UseAIProctoringOptions = {}): UseAIProc
             return false;
         }
     }, [
-        // Only re-initialize if core config flags change, NOT callbacks
-        options.faceVerificationEnabled,
-        options.faceDetectionEnabled,
-        options.gazeTrackingEnabled,
-        options.objectDetectionEnabled,
-        options.verificationThreshold,
-        options.gazeDeviationThreshold,
+        // Only trigger fully if stored photo changes (as that requires load)
         options.storedPhotoUrl
     ]);
 

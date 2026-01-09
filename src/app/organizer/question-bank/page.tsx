@@ -25,6 +25,7 @@ import {
 import { questionBankService, QuestionBankQuestion, QuestionBankFilters, FilterOptions, QuestionBankStats } from '@/api/questionBankService';
 import { codingQuestionService, CodingProblem, CodingProblemFilters } from '@/api/codingQuestionService';
 import CodingQuestionEditModal from './CodingQuestionEditModal';
+import PseudoCodeDisplay from '@/components/contestant/PseudoCodeDisplay';
 
 const QuestionBankPage = () => {
     const [questions, setQuestions] = useState<QuestionBankQuestion[]>([]);
@@ -234,6 +235,8 @@ const QuestionBankPage = () => {
             case 'single_choice': return <CheckCircle size={14} className="text-blue-500" />;
             case 'multiple_choice': return <CheckSquare size={14} className="text-purple-500" />;
             case 'fill_in_the_blank': return <Type size={14} className="text-orange-500" />;
+            case 'pseudo_code': return <Code size={14} className="text-pink-500" />;
+            case 'sql': return <Database size={14} className="text-amber-500" />;
             default: return <FileText size={14} className="text-muted-foreground" />;
         }
     };
@@ -448,6 +451,8 @@ const QuestionBankPage = () => {
                                                     <option value="multiple_choice">Multiple Choice</option>
                                                     <option value="fill_in_the_blank">Fill in the Blank</option>
                                                     <option value="coding">Coding</option>
+                                                    <option value="pseudo_code">Pseudo Code</option>
+                                                    <option value="sql">SQL</option>
                                                 </select>
                                             </div>
                                         </div>
@@ -525,7 +530,14 @@ const QuestionBankPage = () => {
                                                                 {question.image && (
                                                                     <ImageIcon size={16} className="text-muted-foreground mt-0.5 shrink-0" />
                                                                 )}
-                                                                <p className="text-sm text-foreground line-clamp-2 max-w-md">{question.text}</p>
+                                                                <div className="text-sm text-foreground line-clamp-2 max-w-md">
+                                                                    {question.text.split(/(```[\s\S]*?```)/g).map((part, pIdx) => {
+                                                                        if (part.startsWith('```')) {
+                                                                            return <span key={pIdx} className="font-mono text-xs bg-muted px-1 py-0.5 rounded text-primary">{'<Code Snippet>'}</span>;
+                                                                        }
+                                                                        return <span key={pIdx}>{part}</span>;
+                                                                    })}
+                                                                </div>
                                                             </div>
                                                         </td>
                                                         <td className="py-3 px-4">
@@ -831,7 +843,33 @@ const QuestionBankPage = () => {
                                 <div className="space-y-4">
                                     <div className="p-4 bg-muted/50 rounded-xl space-y-3">
                                         <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Question Text</p>
-                                        <p className="text-sm text-foreground leading-relaxed">{selectedQuestion.text}</p>
+                                        <div className="space-y-4">
+                                            {/* Text Input */}
+                                            <div>
+                                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">Question Statement</label>
+                                                <textarea
+                                                    value={editFormData.text ?? selectedQuestion.text}
+                                                    onChange={(e) => setEditFormData({ ...editFormData, text: e.target.value })}
+                                                    className="w-full bg-background border border-border rounded-lg p-3 text-sm focus:border-primary outline-none min-h-[80px]"
+                                                    placeholder="Enter question text..."
+                                                />
+                                            </div>
+
+
+
+                                            {/* Preview */}
+                                            <div className="pt-2 border-t border-border/50">
+                                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">Preview</p>
+                                                <div className="bg-card border border-border rounded-lg p-4">
+                                                    <div className="mb-3 whitespace-pre-wrap font-medium text-sm">
+                                                        {editFormData.text ?? selectedQuestion.text}
+                                                    </div>
+                                                    {((editFormData as any).pseudocode || (selectedQuestion as any).pseudocode) && (
+                                                        <PseudoCodeDisplay code={(editFormData as any).pseudocode ?? (selectedQuestion as any).pseudocode} />
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
                                         {selectedQuestion.image && (
                                             <div className="mt-3">
                                                 <img src={selectedQuestion.image} alt="Question" className="max-w-full rounded-lg border border-border" />
@@ -848,9 +886,27 @@ const QuestionBankPage = () => {
                                         </div>
                                     </div>
 
+
+                                </div>
+
+                                <div className="space-y-4">
                                     <div className="space-y-4 p-4 border border-border rounded-xl">
                                         <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">Edit Properties</p>
                                         <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="text-xs font-bold text-foreground mb-1.5 block">Type</label>
+                                                <select
+                                                    value={editFormData.type || selectedQuestion.type}
+                                                    onChange={(e) => setEditFormData({ ...editFormData, type: e.target.value as any })}
+                                                    className="w-full bg-background border border-border rounded-lg py-2 px-3 text-sm focus:border-primary outline-none"
+                                                >
+                                                    <option value="single_choice">Single Choice</option>
+                                                    <option value="multiple_choice">Multiple Choice</option>
+                                                    <option value="fill_in_the_blank">Fill in the Blank</option>
+                                                    <option value="pseudo_code">Pseudo Code</option>
+                                                    <option value="sql">SQL</option>
+                                                </select>
+                                            </div>
                                             <div>
                                                 <label className="text-xs font-bold text-foreground mb-1.5 block">Difficulty</label>
                                                 <select
@@ -885,10 +941,7 @@ const QuestionBankPage = () => {
                                             />
                                         </div>
                                     </div>
-                                </div>
-
-                                <div className="space-y-4">
-                                    <div className="p-4 border border-border rounded-xl h-full">
+                                    <div className="p-4 border border-border rounded-xl">
                                         <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">Options & Correct Answer</p>
                                         {selectedQuestion.options && selectedQuestion.options.length > 0 ? (
                                             <div>

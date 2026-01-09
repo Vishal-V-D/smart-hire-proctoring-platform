@@ -117,7 +117,8 @@ export default function CodingSection({ assessmentId, section, theme, onComplete
             const response = await codeService.runCode({
                 problemId: problem.id,
                 code: code,
-                language: langKey
+                language: langKey,
+                sectionProblemId: problem.sectionProblemId,
             });
 
             setTestResults(response.data.results || []);
@@ -163,7 +164,8 @@ export default function CodingSection({ assessmentId, section, theme, onComplete
                 code: code,
                 language: langKey,
                 assessmentId: assessmentId,
-                sectionId: section.id
+                sectionId: section.id,
+                sectionProblemId: problem.sectionProblemId
             });
 
             setSubmitResults(response.data);

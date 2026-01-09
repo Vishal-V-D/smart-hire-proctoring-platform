@@ -348,8 +348,8 @@ export default function ParticipantReportPage() {
                                 key={section.id}
                                 onClick={() => toggleSection(section.id)}
                                 className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${isSectionVisible(section.id)
-                                        ? 'bg-green-50 text-green-700 hover:bg-green-100'
-                                        : 'bg-red-50 text-red-600 hover:bg-red-100'
+                                    ? 'bg-green-50 text-green-700 hover:bg-green-100'
+                                    : 'bg-red-50 text-red-600 hover:bg-red-100'
                                     }`}
                             >
                                 <span>{section.label}</span>
@@ -376,8 +376,8 @@ export default function ParticipantReportPage() {
                         <button
                             onClick={() => setIsLandscape(!isLandscape)}
                             className={`flex items-center gap-2 px-4 py-2 rounded-lg shadow transition-all ${isLandscape
-                                    ? 'bg-blue-600 text-white hover:bg-blue-700'
-                                    : 'bg-white border border-border hover:shadow-md'
+                                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                                : 'bg-white border border-border hover:shadow-md'
                                 }`}
                         >
                             <RotateCcw size={18} className={isLandscape ? '' : 'rotate-90'} />
@@ -441,10 +441,10 @@ export default function ParticipantReportPage() {
                         <>
                             {/* Top Row: Participant Info + Session + Verdict side by side */}
                             <div className={`grid gap-3 mb-3 ${[isSectionVisible('participant'), isSectionVisible('session'), isSectionVisible('verdict')].filter(Boolean).length === 3
-                                    ? 'grid-cols-3'
-                                    : [isSectionVisible('participant'), isSectionVisible('session'), isSectionVisible('verdict')].filter(Boolean).length === 2
-                                        ? 'grid-cols-2'
-                                        : 'grid-cols-1'
+                                ? 'grid-cols-3'
+                                : [isSectionVisible('participant'), isSectionVisible('session'), isSectionVisible('verdict')].filter(Boolean).length === 2
+                                    ? 'grid-cols-2'
+                                    : 'grid-cols-1'
                                 }`}>
                                 {/* Participant Info */}
                                 {isSectionVisible('participant') ? (
@@ -870,7 +870,6 @@ export default function ParticipantReportPage() {
                                                 <th className="text-center py-2 px-3 border-b border-gray-300 font-semibold">Scored</th>
                                                 <th className="text-center py-2 px-3 border-b border-gray-300 font-semibold">Max Score</th>
                                                 <th className="text-center py-2 px-3 border-b border-gray-300 font-semibold">Percentage</th>
-                                                <th className="text-center py-2 px-3 border-b border-gray-300 font-semibold">Details</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -889,11 +888,6 @@ export default function ParticipantReportPage() {
                                                             {Number(section.percentage || 0).toFixed(1)}%
                                                         </span>
                                                     </td>
-                                                    <td className="py-2 px-3 text-center text-xs text-gray-500">
-                                                        {section.sectionType === 'mcq' && section.correctAnswers !== undefined && (
-                                                            <span>✓{section.correctAnswers} ✗{section.wrongAnswers} ○{section.unattempted}</span>
-                                                        )}
-                                                    </td>
                                                 </tr>
                                             ))}
                                             <tr className="bg-gray-800 text-white font-bold">
@@ -906,9 +900,6 @@ export default function ParticipantReportPage() {
                                                 </td>
                                                 <td className="py-3 px-3 text-center text-lg">
                                                     {Number(report.scores.percentage || 0).toFixed(1)}%
-                                                </td>
-                                                <td className="py-3 px-3 text-center">
-                                                    {report.scores.rank && `Rank #${report.scores.rank}`}
                                                 </td>
                                             </tr>
                                         </tbody>

@@ -8,7 +8,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-    Play, Send, ChevronLeft, ChevronDown, Sun, Moon, Clock, CheckCircle, XCircle,
+    Play, Send, ChevronLeft, ChevronRight, ChevronDown, Sun, Moon, Clock, CheckCircle, XCircle,
     Loader2, Terminal, Code2, FileText, Zap, AlertTriangle, Lock, Tag, BarChart2, Copy
 } from 'lucide-react';
 import { contestantService } from '@/api/contestantService';
@@ -97,6 +97,15 @@ function CodingPageContent() {
     const problemLink = problems[questionIndex];
     const problem = problemLink?.problem || problemLink || null;
 
+    // Navigation Handler
+    const handleQuestionNavigate = (newIndex: number) => {
+        if (newIndex >= 0 && newIndex < problems.length) {
+            const params = new URLSearchParams(Array.from(searchParams.entries()));
+            params.set('question', newIndex.toString());
+            router.push(`?${params.toString()}`);
+        }
+    };
+
     // Derived Loading
     const loading = sectionsLoading || (!!currentSectionId && questionsLoading);
 
@@ -124,6 +133,7 @@ function CodingPageContent() {
     const [submitting, setSubmitting] = useState(false);
     const [submissionId, setSubmissionId] = useState<string | null>(null);
     const [isStateLoaded, setIsStateLoaded] = useState(false);
+    const [sectionScrollPosition, setSectionScrollPosition] = useState(0);
 
     // Timer State removed
     const { startSectionTimer } = useAssessment();
@@ -251,7 +261,8 @@ function CodingPageContent() {
             const response = await codeService.runCode({
                 problemId: problem.id,
                 code: code,
-                language: langKey
+                language: langKey,
+                sectionProblemId: problem.sectionProblemId,
             });
 
             setTestResults(response.data.results || []);
@@ -298,7 +309,8 @@ function CodingPageContent() {
                 code: code,
                 language: langKey,
                 assessmentId: assessmentId,
-                sectionId: sections[currentSectionIndex]?.id
+                sectionId: sections[currentSectionIndex]?.id,
+                sectionProblemId: problem.sectionProblemId,
             });
 
             setSubmitResults(response.data);
@@ -328,7 +340,7 @@ function CodingPageContent() {
         }
     };
 
-    const handleFinalSubmit = async () => {
+    const handleFinalSubmit = async (isAutoSubmit: boolean = false) => {
         if (submitting) return;
 
         setSubmitting(true);
@@ -389,7 +401,7 @@ function CodingPageContent() {
         }
     }, [code, language, problem?.id, sectionIndex, sections]);
 
-    const handleSectionFinish = async () => {
+    const handleSectionFinish = async (isAutoSubmit: boolean = false) => {
         console.log("🏁 [CodingPage] Finishing Section:", currentSectionIndex);
 
         // Lock current section
@@ -428,47 +440,8 @@ function CodingPageContent() {
             }
         } else {
             // Finished
-            setSubmitting(true);
-            try {
-                // Format answers for the bulk endpoint
-                const formattedAnswers: any[] = [];
-
-                Object.values(answers).forEach((data: any) => {
-                    if (data.type === 'mcq') {
-                        formattedAnswers.push({
-                            sectionId: data.sectionId,
-                            questionId: data.questionId,
-                            selectedAnswer: data.answer
-                        });
-                    } else if (data.type === 'coding') {
-                        formattedAnswers.push({
-                            sectionId: data.sectionId,
-                            problemId: data.problemId,
-                            code: data.code,
-                            language: data.language
-                        });
-                    }
-                });
-
-                console.log('🚀 [SUBMIT] Sending final submission:', { answersCount: formattedAnswers.length });
-
-                // Use the /submit endpoint directly - it handles submission creation internally
-                await contestantService.submitAssessment(assessmentId, {
-                    answers: formattedAnswers,
-                    isAutoSubmit: false
-                });
-
-                // Clear local storage progress
-                localStorage.removeItem(STORAGE_KEY);
-                // Navigate to complete page
-                router.push(`/contestant/assessment/${assessmentId}/complete`);
-            } catch (err: any) {
-                console.error('Failed to submit assessment:', err);
-                alert(`Failed to submit: ${err.response?.data?.message || err.message}`);
-                setSubmitting(false);
-            }
+            await handleFinalSubmit(isAutoSubmit);
         }
-
     };
 
     // const goBack = () => router.push(`/contestant/assessment/${assessmentId}/take`);
@@ -516,44 +489,99 @@ function CodingPageContent() {
 
             {/* Header */}
             <header className={`h-14 shrink-0 px-6 flex items-center justify-between ${cardBg} border-b ${cardBorder}`}>
-                <div className="flex items-center gap-4">
-                    {/* Section Stepper - Modern Pill Design */}
-                    <div className={`flex items-center gap-0.5 p-1 rounded-xl ${theme === 'dark' ? 'bg-[#262626]' : 'bg-[#f4f4f4]'}`}>
-                        {sections.map((sec, idx) => {
-                            const isCurrent = idx === currentSectionIndex;
-                            const isLocked = lockedSectionIndices.has(idx);
+                <div className="flex items-center gap-4 flex-1 min-w-0">
+                    {/* Section Stepper - Modern Pill Design with Overflow */}
+                    <div className="relative flex items-center gap-2 flex-1 min-w-0">
+                        {/* Left Arrow - Show when sections > 5 and can scroll left */}
+                        {sections.length > 5 && sectionScrollPosition > 0 && (
+                            <button
+                                onClick={() => {
+                                    const container = document.getElementById('section-stepper-container');
+                                    if (container) {
+                                        container.scrollBy({ left: -200, behavior: 'smooth' });
+                                    }
+                                }}
+                                className={`shrink-0 p-1.5 rounded-lg transition-all z-10 ${theme === 'dark'
+                                    ? 'bg-[#262626] hover:bg-[#393939] border border-[#393939]'
+                                    : 'bg-white hover:bg-[#f4f4f4] border border-[#e0e0e0]'
+                                    }`}
+                            >
+                                <ChevronLeft className="w-4 h-4" />
+                            </button>
+                        )}
 
-                            return (
-                                <div key={sec.id} className="flex items-center">
-                                    <div
-                                        className={`
-                                            flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200 cursor-default
-                                            ${isCurrent
-                                                ? 'bg-gradient-to-r from-[#0f62fe] to-[#6929c4] text-white shadow-md shadow-[#0f62fe]/20'
-                                                : isLocked
-                                                    ? 'bg-gradient-to-r from-[#42be65] to-[#24a148] text-white'
-                                                    : `${theme === 'dark' ? 'text-[#8d8d8d] hover:bg-[#393939]' : 'text-[#6f6f6f] hover:bg-[#e0e0e0]'}`
-                                            }
-                                        `}
-                                    >
-                                        {isLocked ? <CheckCircle className="w-3.5 h-3.5" /> : <span className="w-5 h-5 rounded-full bg-current/20 flex items-center justify-center text-[10px]">{idx + 1}</span>}
-                                        <span className="truncate max-w-[120px]">{sec.title}</span>
+                        {/* Scrollable Container */}
+                        <div
+                            id="section-stepper-container"
+                            className={`flex items-center gap-0.5 p-1 rounded-xl overflow-x-auto scrollbar-hide ${theme === 'dark' ? 'bg-[#262626]' : 'bg-[#f4f4f4]'
+                                }`}
+                            style={{
+                                scrollbarWidth: 'none',
+                                msOverflowStyle: 'none',
+                                WebkitOverflowScrolling: 'touch'
+                            }}
+                            onScroll={(e) => {
+                                const target = e.target as HTMLDivElement;
+                                setSectionScrollPosition(target.scrollLeft);
+                            }}
+                        >
+                            {sections.map((sec, idx) => {
+                                const isCurrent = idx === currentSectionIndex;
+                                const isLocked = lockedSectionIndices.has(idx);
+
+                                return (
+                                    <div key={sec.id} className="flex items-center shrink-0">
+                                        <div
+                                            className={`
+                                                flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200 cursor-default whitespace-nowrap
+                                                ${isCurrent
+                                                    ? 'bg-gradient-to-r from-[#0f62fe] to-[#6929c4] text-white shadow-md shadow-[#0f62fe]/20'
+                                                    : isLocked
+                                                        ? 'bg-gradient-to-r from-[#42be65] to-[#24a148] text-white'
+                                                        : `${theme === 'dark' ? 'text-[#8d8d8d] hover:bg-[#393939]' : 'text-[#6f6f6f] hover:bg-[#e0e0e0]'}`
+                                                }
+                                            `}
+                                        >
+                                            {isLocked ? <CheckCircle className="w-3.5 h-3.5" /> : <span className="w-5 h-5 rounded-full bg-current/20 flex items-center justify-center text-[10px]">{idx + 1}</span>}
+                                            <span className="truncate max-w-[120px]">{sec.title}</span>
+                                        </div>
+                                        {idx < sections.length - 1 && (
+                                            <div className={`w-6 h-[2px] mx-0.5 rounded-full ${isLocked ? 'bg-[#42be65]' : theme === 'dark' ? 'bg-[#393939]' : 'bg-[#e0e0e0]'}`} />
+                                        )}
                                     </div>
-                                    {idx < sections.length - 1 && (
-                                        <div className={`w-6 h-[2px] mx-0.5 rounded-full ${isLocked ? 'bg-[#42be65]' : theme === 'dark' ? 'bg-[#393939]' : 'bg-[#e0e0e0]'}`} />
-                                    )}
-                                </div>
-                            );
-                        })}
+                                );
+                            })}
+                        </div>
+
+                        {/* Right Arrow - Show when sections > 5 and can scroll right */}
+                        {sections.length > 5 && (
+                            <button
+                                onClick={() => {
+                                    const container = document.getElementById('section-stepper-container');
+                                    if (container) {
+                                        container.scrollBy({ left: 200, behavior: 'smooth' });
+                                    }
+                                }}
+                                className={`shrink-0 p-1.5 rounded-lg transition-all z-10 ${theme === 'dark'
+                                    ? 'bg-[#262626] hover:bg-[#393939] border border-[#393939]'
+                                    : 'bg-white hover:bg-[#f4f4f4] border border-[#e0e0e0]'
+                                    }`}
+                            >
+                                <ChevronRight className="w-4 h-4" />
+                            </button>
+                        )}
                     </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 shrink-0">
                     {/* Timer */}
                     {currentSection?.id && (
                         <AssessmentTimer
                             assessmentId={assessmentId}
                             sectionId={currentSection.id}
-                            onExpire={() => setShowSubmitConfirm(true)}
+                            onExpire={() => {
+                                console.log("⌛ Section Timer Expired!");
+                                handleSectionFinish(true);
+                            }}
                             className="text-sm font-bold bg-[#262626] px-3 py-1.5 rounded-lg border border-[#393939]"
                         />
                     )}
@@ -593,10 +621,44 @@ function CodingPageContent() {
                     <div className="p-6">
                         {/* Problem Header */}
                         <div className="flex items-start justify-between gap-4 mb-4">
-                            <h2 className="text-xl font-bold flex items-center gap-2">
-                                <Code2 size={20} className="text-[#0f62fe]" />
-                                {problem?.title || 'Loading...'}
-                            </h2>
+                            <div className="flex items-center gap-3">
+                                <h2 className="text-xl font-bold flex items-center gap-2">
+                                    <Code2 size={20} className="text-[#0f62fe]" />
+                                    {problem?.title || 'Loading...'}
+                                </h2>
+
+                                {problems.length > 1 && (
+                                    <div className={`flex items-center rounded-lg p-1 border shadow-sm ${theme === 'dark' ? 'bg-[#1f1f1f] border-[#333]' : 'bg-white border-[#e0e0e0]'}`}>
+                                        <button
+                                            onClick={() => handleQuestionNavigate(questionIndex - 1)}
+                                            disabled={questionIndex === 0}
+                                            className={`p-1.5 rounded-md transition-colors ${questionIndex === 0
+                                                ? 'opacity-30 cursor-not-allowed'
+                                                : theme === 'dark' ? 'hover:bg-[#333] active:bg-[#444] text-white' : 'hover:bg-gray-100 active:bg-gray-200 text-gray-700'
+                                                }`}
+                                            title="Previous Question"
+                                        >
+                                            <ChevronLeft size={14} strokeWidth={2.5} />
+                                        </button>
+                                        <div className={`text-[11px] font-bold tracking-wider px-2.5 min-w-[50px] text-center select-none ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
+                                            <span className={`${theme === 'dark' ? 'text-white' : 'text-gray-900'} text-sm`}>{questionIndex + 1}</span>
+                                            <span className="mx-1 opacity-50">/</span>
+                                            <span className="opacity-80">{problems.length}</span>
+                                        </div>
+                                        <button
+                                            onClick={() => handleQuestionNavigate(questionIndex + 1)}
+                                            disabled={questionIndex === problems.length - 1}
+                                            className={`p-1.5 rounded-md transition-colors ${questionIndex === problems.length - 1
+                                                ? 'opacity-30 cursor-not-allowed'
+                                                : theme === 'dark' ? 'hover:bg-[#333] active:bg-[#444] text-white' : 'hover:bg-gray-100 active:bg-gray-200 text-gray-700'
+                                                }`}
+                                            title="Next Question"
+                                        >
+                                            <ChevronRight size={14} strokeWidth={2.5} />
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
                             {problem?.difficulty && (
                                 <span className={`text-xs font-semibold px-2.5 py-1 rounded-md border flex items-center gap-1.5 ${problem.difficulty?.toLowerCase() === 'easy' ? 'bg-emerald-500/15 text-emerald-500 border-emerald-500/30' :
                                     problem.difficulty?.toLowerCase() === 'medium' ? 'bg-amber-500/15 text-amber-500 border-amber-500/30' :
@@ -1141,7 +1203,7 @@ function CodingPageContent() {
                                 className={`flex-1 py-2.5 rounded-lg font-medium text-sm ${theme === 'dark' ? 'bg-[#393939] hover:bg-[#4c4c4c]' : 'bg-[#e0e0e0] hover:bg-[#c6c6c6]'}`}>
                                 Cancel
                             </button>
-                            <button onClick={handleFinalSubmit} disabled={submitting} className="flex-1 py-2.5 bg-[#0f62fe] hover:bg-[#0353e9] text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2">
+                            <button onClick={() => handleFinalSubmit(false)} disabled={submitting} className="flex-1 py-2.5 bg-[#0f62fe] hover:bg-[#0353e9] text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2">
                                 {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Submit All'}
                             </button>
                         </div>
@@ -1167,7 +1229,7 @@ function CodingPageContent() {
                                 className={`flex-1 py-2.5 rounded-lg font-medium text-sm ${theme === 'dark' ? 'bg-[#393939] hover:bg-[#4c4c4c]' : 'bg-[#e0e0e0] hover:bg-[#c6c6c6]'}`}>
                                 Cancel
                             </button>
-                            <button onClick={handleSectionFinish} disabled={submitting} className="flex-1 py-2.5 bg-[#0f62fe] hover:bg-[#0353e9] text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2">
+                            <button onClick={() => handleSectionFinish(false)} disabled={submitting} className="flex-1 py-2.5 bg-[#0f62fe] hover:bg-[#0353e9] text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2">
                                 {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirm'}
                             </button>
                         </div>
