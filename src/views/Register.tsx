@@ -17,6 +17,7 @@ import {
     FaEye,
     FaEyeSlash,
     FaBuilding,
+    FaEnvelopeOpenText,
 } from "react-icons/fa";
 import GoogleAuthButton from "@/components/GoogleAuthButton";
 
@@ -37,9 +38,9 @@ const registerSchema = yup.object({
         .required("Password is required"),
     role: yup
         .string()
-        .oneOf(["organizer", "contestant"], "Invalid role")
-        .required("Role is required") as yup.Schema<"organizer" | "contestant">,
-    organizationName: yup.string().optional(),
+        .oneOf(["organizer"], "Invalid role")
+        .default("organizer"),
+    organizationName: yup.string().required("Organization name is required"),
 });
 
 interface RegisterFormData {
@@ -58,6 +59,8 @@ export default function Register() {
 
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [showVerifyModal, setShowVerifyModal] = useState(false);
+    const [registeredEmail, setRegisteredEmail] = useState("");
 
     const {
         register,
@@ -67,9 +70,9 @@ export default function Register() {
         reset,
         watch,
     } = useForm<RegisterFormData>({
-        resolver: yupResolver(registerSchema) as any, // Cast to any to avoid optionality mismatch issue
+        resolver: yupResolver(registerSchema) as any,
         defaultValues: {
-            role: "contestant",
+            role: "organizer",
             organizationName: ""
         },
     });
@@ -101,11 +104,8 @@ export default function Register() {
     }, [auth.user, auth.loading, redirectPath, router]);
 
     const onSubmit = async (data: RegisterFormData) => {
-        // Manual validation for organization name
-        if (data.role === 'organizer' && !data.organizationName?.trim()) {
-            setError('organizationName', { type: 'manual', message: 'Organization name is required' });
-            return;
-        }
+        // Force role to organizer
+        data.role = "organizer";
 
         setLoading(true);
         try {
@@ -117,15 +117,10 @@ export default function Register() {
                 organizationName: data.organizationName,
             });
 
-            showToast("Registration successful! Please check your email to verify your account.", "success");
+            // Store email for the modal and show verification modal
+            setRegisteredEmail(data.email);
             reset();
-
-            const loginUrl = redirectPath
-                ? `/login?redirect=${encodeURIComponent(redirectPath)}`
-                : "/login";
-
-            console.log("🚀 [Register] Redirecting to:", loginUrl);
-            router.push(loginUrl);
+            setShowVerifyModal(true);
 
         } catch (err: unknown) {
             const axiosError = err as { response?: { data?: { message?: string } } };
@@ -143,57 +138,7 @@ export default function Register() {
 
             <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
 
-                {/* Role Selection Card */}
-                <div className="bg-theme-secondary border border-theme rounded-xl p-3 shadow-md">
-                    <p className="text-xs font-medium text-theme-primary mb-2 text-center">
-                        Select your role
-                    </p>
-
-                    <div className="flex items-center justify-between gap-3">
-
-                        {/* Organizer */}
-                        <label
-                            className={`flex-1 border rounded-lg p-2 cursor-pointer text-center transition 
-                ${selectedRole === "organizer"
-                                    ? "border-[hsl(var(--color-accent))] bg-[hsl(var(--color-accent)/0.1)]"
-                                    : "border-theme"
-                                }`}
-                        >
-                            <input
-                                type="radio"
-                                value="organizer"
-                                {...register("role")}
-                                className="hidden"
-                            />
-                            <span className="font-medium text-sm">Organizer</span>
-                        </label>
-
-                        {/* Contestant */}
-                        <label
-                            className={`flex-1 border rounded-lg p-2 cursor-pointer text-center transition 
-                ${selectedRole === "contestant"
-                                    ? "border-[hsl(var(--color-accent))] bg-[hsl(var(--color-accent)/0.1)]"
-                                    : "border-theme"
-                                }`}
-                        >
-                            <input
-                                type="radio"
-                                value="contestant"
-                                {...register("role")}
-                                className="hidden"
-                            />
-                            <span className="font-medium text-sm">Contestant</span>
-                        </label>
-                    </div>
-
-                    {errors.role && (
-                        <p className="text-[hsl(var(--color-error))] text-xs mt-1">
-                            {errors.role.message}
-                        </p>
-                    )}
-                </div>
-
-                <GoogleAuthButton role={selectedRole as "organizer" | "contestant"} text="signup_with" />
+                <GoogleAuthButton role="organizer" text="signup_with" />
 
                 <div className="flex items-center gap-4 my-1">
                     <div className="h-px bg-theme-secondary flex-1"></div>
@@ -207,9 +152,7 @@ export default function Register() {
 
                     <input
                         type="text"
-                        placeholder={
-                            selectedRole === "organizer" ? "Organizer Name" : "Full Name"
-                        }
+                        placeholder="Organizer Name"
                         {...register("name")}
                         className="w-full h-14 pl-12 pr-4 border border-theme rounded-xl bg-theme-secondary text-theme-primary placeholder:text-theme-muted focus:outline-none focus:ring-2 focus:ring-[hsl(var(--color-accent))] focus:border-transparent transition-all"
                     />
@@ -221,22 +164,20 @@ export default function Register() {
                 </div>
 
                 {/* Organization Name Field */}
-                {selectedRole === "organizer" && (
-                    <div className="relative animate-fade-in">
-                        <FaBuilding className="absolute left-4 top-1/2 -translate-y-1/2 text-theme-secondary opacity-60" />
-                        <input
-                            type="text"
-                            placeholder="Organization Name"
-                            {...register("organizationName")}
-                            className="w-full h-14 pl-12 pr-4 border border-theme rounded-xl bg-theme-secondary text-theme-primary placeholder:text-theme-muted focus:outline-none focus:ring-2 focus:ring-[hsl(var(--color-accent))] focus:border-transparent transition-all"
-                        />
-                        {errors.organizationName && (
-                            <p className="text-[hsl(var(--color-error))] text-xs mt-1">
-                                {errors.organizationName.message}
-                            </p>
-                        )}
-                    </div>
-                )}
+                <div className="relative animate-fade-in">
+                    <FaBuilding className="absolute left-4 top-1/2 -translate-y-1/2 text-theme-secondary opacity-60" />
+                    <input
+                        type="text"
+                        placeholder="Organization Name"
+                        {...register("organizationName")}
+                        className="w-full h-14 pl-12 pr-4 border border-theme rounded-xl bg-theme-secondary text-theme-primary placeholder:text-theme-muted focus:outline-none focus:ring-2 focus:ring-[hsl(var(--color-accent))] focus:border-transparent transition-all"
+                    />
+                    {errors.organizationName && (
+                        <p className="text-[hsl(var(--color-error))] text-xs mt-1">
+                            {errors.organizationName.message}
+                        </p>
+                    )}
+                </div>
 
                 {/* Email */}
                 <div className="relative">
@@ -326,5 +267,71 @@ export default function Register() {
         </div>
     );
 
-    return <SplitScreenLayout formSide={formSide} isLogin={false} />;
+    const handleGoToLogin = () => {
+        setShowVerifyModal(false);
+        const loginUrl = redirectPath
+            ? `/login?redirect=${encodeURIComponent(redirectPath)}`
+            : "/login";
+        router.push(loginUrl);
+    };
+
+    // Email Verification Modal
+    const verifyEmailModal = showVerifyModal && (
+        <div className="fixed inset-0 bg-background/90 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in">
+            <div className="bg-card border border-border rounded-2xl p-8 max-w-md w-full text-center shadow-2xl animate-fade-in-slide-up">
+                {/* Email Icon with Animation */}
+                <div className="relative mb-6">
+                    <div className="w-20 h-20 mx-auto bg-gradient-to-br from-primary to-primary/70 rounded-full flex items-center justify-center shadow-lg shadow-primary/30">
+                        <FaEnvelopeOpenText className="text-4xl text-primary-foreground animate-pulse" />
+                    </div>
+                    {/* Decorative circles */}
+                    <div className="absolute -top-2 -right-2 w-6 h-6 bg-[hsl(var(--color-success))] rounded-full opacity-80 animate-ping" />
+                    <div className="absolute -bottom-1 -left-1 w-4 h-4 bg-[hsl(var(--color-accent))] rounded-full opacity-60" />
+                </div>
+
+                {/* Title */}
+                <h2 className="text-2xl font-bold text-theme-primary mb-3">
+                    Check Your Email
+                </h2>
+
+                {/* Message */}
+                <p className="text-theme-secondary mb-2">
+                    We've sent a verification link to:
+                </p>
+                <p className="text-[hsl(var(--color-accent))] font-semibold mb-4 break-all">
+                    {registeredEmail}
+                </p>
+                <p className="text-theme-muted text-sm mb-6">
+                    Click the verify link in the email to activate your account.
+                    Don't forget to check your spam folder!
+                </p>
+
+                {/* Divider */}
+                <div className="h-px bg-theme mb-6" />
+
+                {/* Action Button */}
+                <button
+                    onClick={handleGoToLogin}
+                    className="w-full button-theme py-3 text-lg font-semibold"
+                >
+                    Go to Login
+                </button>
+
+                {/* Additional Info */}
+                <p className="text-theme-muted text-xs mt-4">
+                    Didn't receive the email?{" "}
+                    <span className="text-[hsl(var(--color-accent))] cursor-pointer hover:underline">
+                        Resend verification email
+                    </span>
+                </p>
+            </div>
+        </div>
+    );
+
+    return (
+        <>
+            {verifyEmailModal}
+            <SplitScreenLayout formSide={formSide} isLogin={false} />
+        </>
+    );
 }

@@ -12,9 +12,12 @@ import {
     ArrowUp,
     ArrowDown,
     Maximize2,
-    Minimize2
+    Minimize2,
+    TrendingUp,
+    Award
 } from 'lucide-react';
 import ReportsFilterModal from './ReportsFilterModal';
+import StatsModal from './StatsModal';
 import { assessmentService } from '@/api/assessmentService';
 import { submissionService } from '@/api/submissionService';
 
@@ -63,6 +66,9 @@ const AssessmentReportsTab = ({ assessmentId, assessment }: AssessmentReportsTab
     const [sortBy, setSortBy] = useState<'name' | 'department' | 'totalTime' | 'totalScore' | 'submittedAt' | 'percentage' | 'mcqScore' | 'codingScore' | 'testCases' | 'plagiarismScore' | 'aiConfidence' | 'plagiarismRisk'>('totalScore');
     const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('DESC');
     const [isFullScreen, setIsFullScreen] = useState(false);
+    const [showStatsModal, setShowStatsModal] = useState(false);
+    const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+    const [autoRefresh, setAutoRefresh] = useState(true);
 
     // Define filterable columns
     const filterableColumns = [
@@ -86,6 +92,18 @@ const AssessmentReportsTab = ({ assessmentId, assessment }: AssessmentReportsTab
     useEffect(() => {
         fetchReports();
     }, [assessmentId]);
+
+    // Auto-refresh every 2 minutes
+    useEffect(() => {
+        if (!autoRefresh) return;
+
+        const interval = setInterval(() => {
+            console.log('🔄 Auto-refreshing reports data...');
+            fetchReports();
+        }, 120000); // 2 minutes
+
+        return () => clearInterval(interval);
+    }, [assessmentId, autoRefresh]);
 
     const fetchReports = async () => {
         setLoading(true);
@@ -219,6 +237,7 @@ const AssessmentReportsTab = ({ assessmentId, assessment }: AssessmentReportsTab
             setParticipants([]);
         } finally {
             setLoading(false);
+            setLastUpdated(new Date());
         }
     };
 
@@ -296,72 +315,96 @@ const AssessmentReportsTab = ({ assessmentId, assessment }: AssessmentReportsTab
 
     return (
         <div className="space-y-6">
-            {/* Stats Cards - Row 1 */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                <div className="bg-card border border-border rounded-xl p-4">
-                    <p className="text-xs text-muted-foreground mb-1">Total Participants</p>
-                    <p className="text-2xl font-black text-foreground">
-                        {loading ? '-' : stats?.totalParticipants || 0}
-                    </p>
-                </div>
-                <div className="bg-card border border-border rounded-xl p-4">
-                    <p className="text-xs text-muted-foreground mb-1">Completed</p>
-                    <p className="text-2xl font-black text-green-600">
-                        {loading ? '-' : stats?.completed || 0}
-                    </p>
-                </div>
-                <div className="bg-card border border-border rounded-xl p-4">
-                    <p className="text-xs text-muted-foreground mb-1">In Progress</p>
-                    <p className="text-2xl font-black text-amber-600">
-                        {loading ? '-' : stats?.inProgress || 0}
-                    </p>
-                </div>
-                <div className="bg-card border border-border rounded-xl p-4">
-                    <p className="text-xs text-muted-foreground mb-1">Average Score</p>
-                    <p className="text-2xl font-black text-blue-600">
-                        {loading ? '-' : stats?.averageScore ? `${stats.averageScore.toFixed(1)}%` : '-'}
-                    </p>
-                </div>
-                <div className="bg-card border border-border rounded-xl p-4">
-                    <p className="text-xs text-muted-foreground mb-1">Pass Rate</p>
-                    <p className="text-2xl font-black text-primary">
-                        {loading ? '-' : stats?.passRate ? `${stats.passRate.toFixed(1)}%` : '-'}
-                    </p>
-                </div>
-            </div>
-
-            {/* Violation Stats */}
-            {violationStats && (
-                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <AlertTriangle className="text-amber-600" size={20} />
-                            <span className="font-bold text-amber-800 dark:text-amber-200">Proctoring Summary</span>
+            {/* Compact Stats Summary */}
+            <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-muted/30 p-2 rounded-lg border border-border">
+                <div className="flex items-center gap-6 overflow-x-auto w-full md:w-auto px-2">
+                    <div className="flex items-center gap-2">
+                        <div className="p-1.5 bg-background rounded-md border border-border shadow-sm">
+                            <BarChart3 size={14} className="text-muted-foreground" />
                         </div>
-                        <div className="flex items-center gap-6 text-sm">
-                            <span className="text-amber-700 dark:text-amber-300">
-                                Total Violations: <strong>{violationStats.totalViolations}</strong>
-                            </span>
-                            <span className="text-amber-700 dark:text-amber-300">
-                                Participants Flagged: <strong>{violationStats.participantsWithViolations}</strong>
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Total</span>
+                            <span className="text-sm font-bold leading-none">{loading ? '-' : stats?.totalParticipants || 0}</span>
+                        </div>
+                    </div>
+
+                    <div className="h-8 w-px bg-border flex-shrink-0" />
+
+                    <div className="flex items-center gap-2">
+                        <div className="p-1.5 bg-background rounded-md border border-border shadow-sm">
+                            <span className="text-[10px] font-black text-green-600">✓</span>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Completed</span>
+                            <span className="text-sm font-bold leading-none text-green-600">{loading ? '-' : stats?.completed || 0}</span>
+                        </div>
+                    </div>
+
+                    <div className="h-8 w-px bg-border flex-shrink-0" />
+
+                    <div className="flex items-center gap-2">
+                        <div className="p-1.5 bg-background rounded-md border border-border shadow-sm">
+                            <TrendingUp size={14} className="text-primary" />
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Avg Score</span>
+                            <span className="text-sm font-bold leading-none text-primary">{loading ? '-' : stats?.averageScore ? `${stats.averageScore.toFixed(0)}%` : '-'}</span>
+                        </div>
+                    </div>
+
+                    <div className="h-8 w-px bg-border flex-shrink-0" />
+
+                    <div className="flex items-center gap-2">
+                        <div className="p-1.5 bg-background rounded-md border border-border shadow-sm">
+                            <Award size={14} className="text-amber-600" />
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Pass Rate</span>
+                            <span className="text-sm font-bold leading-none text-amber-600">{loading ? '-' : stats?.passRate ? `${stats.passRate.toFixed(0)}%` : '-'}</span>
+                        </div>
+                    </div>
+                </div>
+
+                {violationStats && violationStats.totalViolations > 0 && (
+                    <div className="flex items-center gap-3 px-4 py-1.5 bg-amber-100/50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md">
+                        <AlertTriangle size={14} className="text-amber-600" />
+                        <div className="flex items-center gap-3 text-xs">
+                            <span className="font-medium text-amber-800 dark:text-amber-300">
+                                <strong>{violationStats.totalViolations}</strong> Violations
                             </span>
                             {violationStats.highRiskCount > 0 && (
-                                <span className="text-red-600 font-bold">
-                                    High Risk: {violationStats.highRiskCount}
+                                <span className="font-bold text-red-600 bg-white dark:bg-black/20 px-1.5 rounded">
+                                    {violationStats.highRiskCount} High Risk
                                 </span>
                             )}
                         </div>
                     </div>
-                </div>
-            )}
+                )}
+            </div>
 
             {/* Results Table */}
             <div className={`bg-card border border-border rounded-xl overflow-hidden shadow-sm transition-all duration-300 ${isFullScreen ? 'fixed inset-0 z-[100] rounded-none flex flex-col' : ''}`}>
                 <div className="flex flex-col sm:flex-row items-center justify-between p-4 border-b border-border gap-4">
-                    <h3 className="text-lg font-bold flex items-center gap-2">
-                        Participant Reports
-                        <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs">{participants.length}</span>
-                    </h3>
+                    <div className="flex flex-col gap-1">
+                        <h3 className="text-lg font-bold flex items-center gap-2">
+                            Participant Reports
+                            <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs">{participants.length}</span>
+                        </h3>
+                        {lastUpdated && (
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                                <span>Last updated: {lastUpdated.toLocaleTimeString()}</span>
+                                <button
+                                    onClick={() => setAutoRefresh(!autoRefresh)}
+                                    className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${autoRefresh
+                                        ? 'bg-primary/10 text-primary'
+                                        : 'bg-muted text-muted-foreground'
+                                        }`}
+                                >
+                                    {autoRefresh ? '🔄 Auto-refresh ON' : 'Auto-refresh OFF'}
+                                </button>
+                            </div>
+                        )}
+                    </div>
                     <div className="flex items-center gap-3 w-full sm:w-auto">
 
                         {/* Advanced Filter Button */}
@@ -417,6 +460,16 @@ const AssessmentReportsTab = ({ assessmentId, assessment }: AssessmentReportsTab
                                 </button>
                             )}
                         </div>
+
+                        <button
+                            onClick={() => setShowStatsModal(true)}
+                            disabled={participants.length === 0}
+                            className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg text-sm font-medium disabled:opacity-50 transition-colors"
+                        >
+                            <BarChart3 size={16} />
+                            Stats
+                        </button>
+
                         <button
                             onClick={handleExport}
                             disabled={exporting || participants.length === 0}
@@ -962,6 +1015,15 @@ const AssessmentReportsTab = ({ assessmentId, assessment }: AssessmentReportsTab
                     </div>
                 )}
             </div>
+
+            {/* Stats Modal */}
+            <StatsModal
+                isOpen={showStatsModal}
+                onClose={() => setShowStatsModal(false)}
+                participants={participants}
+                stats={stats}
+                assessment={assessment}
+            />
         </div >
     );
 };

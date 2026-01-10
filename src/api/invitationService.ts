@@ -136,6 +136,12 @@ export const invitationService = {
         axiosContestClient.post(`/invitations/${id}/resend`),
 
     /**
+     * Permanently delete an invitation
+     */
+    deleteInvitation: (id: string) =>
+        axiosContestClient.delete(`/invitations/${id}/delete`),
+
+    /**
      * Verify invitation token (public endpoint)
      */
     verifyToken: (token: string) =>

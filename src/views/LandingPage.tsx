@@ -318,8 +318,55 @@ const AssessmentPlatformLandingPage = () => {
             {/* ================= 2. Hero Section ================= */}
             <section id="product" className="relative min-h-screen flex items-center pt-20 overflow-hidden">
 
-                {/* Modern Grid Background */}
-                <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none opacity-100"></div>
+                {/* Professional Zigzag Grid - Cyan Only (Top Only) */}
+                <div className="absolute inset-0 pointer-events-none">
+                    {/* Container with top-only visibility */}
+                    <div className="absolute inset-0 [mask-image:linear-gradient(to_bottom,black_0%,black_40%,transparent_70%)]">
+                        {/* Base dark grid lines */}
+                        <div className="absolute inset-0  bg-[size:24px_24px]"></div>
+
+                        {/* Zigzag Cyan pattern - Diagonal stripes */}
+                        <div
+                            className="absolute inset-0 opacity-40"
+                            style={{
+                                backgroundImage: `
+                                    repeating-linear-gradient(
+                                        45deg,
+                                        transparent,
+                                        transparent 24px,
+                                        #06b6d420 24px,
+                                        #06b6d420 48px,
+                                        transparent 48px,
+                                        transparent 72px,
+                                        #06b6d420 72px,
+                                        #06b6d420 96px
+                                    )
+                                `
+                            }}
+                        ></div>
+
+
+
+                        {/* Random accent dots - Cyan */}
+                        <div
+                            className="absolute inset-0 opacity-20"
+                            style={{
+                                backgroundImage: `
+                                    radial-gradient(circle at 20% 30%, #06b6d430 2px, transparent 2px),
+                                    radial-gradient(circle at 60% 20%, #06b6d430 3px, transparent 3px),
+                                    radial-gradient(circle at 80% 40%, #06b6d430 2px, transparent 2px),
+                                    radial-gradient(circle at 40% 50%, #06b6d430 2px, transparent 2px)
+                                `,
+                                backgroundSize: '200px 200px'
+                            }}
+                        ></div>
+
+
+                    </div>
+
+                    {/* Elegant bottom fade to blend with rest of page */}
+                    <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-zinc-950"></div>
+                </div>
 
                 {/* Beams Background */}
                 <div className="absolute inset-0 pointer-events-none">
@@ -335,7 +382,7 @@ const AssessmentPlatformLandingPage = () => {
                         {/* Left Column: Text Content */}
                         <div className="pl-4 md:pl-12 flex flex-col items-start text-left">
 
-                            <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold tracking-tighter text-white mb-6 leading-[1.1]">
+                            <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-6 leading-[1.1] font-['Inter',sans-serif]">
                                 <DecryptedText
                                     text="Build Your"
                                     speed={100}
@@ -350,13 +397,13 @@ const AssessmentPlatformLandingPage = () => {
                                     animateInterval={4000}
                                 />
                                 <br />
-                                <span className="bg-clip-text text-transparent bg-gradient-to-r text-white">
+                                <span className="inline-block">
                                     <DecryptedText
                                         text="Dream Team"
                                         speed={100}
                                         maxIterations={20}
                                         characters="ABCD1234!?"
-                                        className="text-transparent bg-clip-text bg-gradient-to-r from-white via-zinc-200 to-zinc-500"
+                                        className="text-cyan-400"
                                         parentClassName="inline-block"
                                         encryptedClassName="text-zinc-600"
                                         animateOn="view"
@@ -377,16 +424,29 @@ const AssessmentPlatformLandingPage = () => {
                             </p>
 
                             <div className="flex flex-col sm:flex-row items-center gap-5">
+                                {/* Start Hiring Button - Primary CTA */}
                                 <a
                                     href={!user ? "/register" : (user.role === 'organizer' ? '/dashboard' : '/contestant-dashboard')}
-                                    className="group relative px-8 py-4 bg-white text-black text-lg font-bold rounded-full hover:bg-zinc-200 transition-all shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:shadow-[0_0_40px_rgba(255,255,255,0.5)] active:scale-95"
+                                    className="group relative px-8 py-4 bg-gradient-to-r from-cyan-500 to-purple-500 text-white text-base font-semibold rounded-xl overflow-hidden transition-all duration-300 hover:scale-105 hover:shadow-[0_0_30px_rgba(168,85,247,0.4)] active:scale-95"
                                 >
-                                    <span className="flex items-center gap-2">
-                                        {!user ? "Start Hiring" : "Start Hiring"} <ArrowUpRight size={20} className="transition-transform group-hover:translate-x-1 group-hover:-translate-y-1" />
+                                    {/* Shine effect on hover */}
+                                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-700"></div>
+
+                                    <span className="relative flex items-center gap-2">
+                                        {!user ? "Start Hiring" : "Start Hiring"}
+                                        <ArrowUpRight size={18} className="transition-transform group-hover:translate-x-1 group-hover:-translate-y-1" />
                                     </span>
                                 </a>
-                                <button className="group px-8 py-4 rounded-full font-bold border border-white/10 hover:border-white/30 hover:bg-white/5 transition-all backdrop-blur-md text-zinc-300 hover:text-white flex items-center gap-2">
-                                    Explore Library <ChevronDown size={16} className="group-hover:translate-y-1 transition-transform" />
+
+                                {/* Explore Library Button - Secondary CTA */}
+                                <button className="group relative px-8 py-4 rounded-xl font-semibold text-base text-white border border-purple-500/30 bg-purple-500/5 backdrop-blur-sm hover:bg-purple-500/10 hover:border-purple-400/50 transition-all duration-300 flex items-center gap-2 overflow-hidden">
+                                    {/* Subtle glow effect */}
+                                    <div className="absolute inset-0 bg-gradient-to-r from-purple-500/0 via-purple-500/10 to-purple-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+
+                                    <span className="relative flex items-center gap-2">
+                                        Explore Library
+                                        <ChevronDown size={16} className="group-hover:translate-y-1 transition-transform" />
+                                    </span>
                                 </button>
                             </div>
                         </div>

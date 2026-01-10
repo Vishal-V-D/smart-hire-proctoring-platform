@@ -1,17 +1,14 @@
 // src/api/axiosSubmissionClient.ts
 import axios from "axios";
 
-const SUBMISSION_API_URL = process.env.NEXT_PUBLIC_SUBMISSION_SERVICE_URL;
-const CONTEST_API_URL = process.env.NEXT_PUBLIC_CONTEST_SERVICE_URL;
+const SUBMISSION_API_URL = process.env.NEXT_PUBLIC_SUBMISSION_SERVICE_URL || 'http://localhost:3003';
+const CONTEST_API_URL = process.env.NEXT_PUBLIC_CONTEST_SERVICE_URL || 'http://localhost:3002/api/v1';
 
 console.log('🔧 [Config] Loading Submission Service Client...');
-console.log('🔧 [Config] NEXT_PUBLIC_SUBMISSION_SERVICE_URL:', SUBMISSION_API_URL);
+// console.log('🔧 [Config] NEXT_PUBLIC_SUBMISSION_SERVICE_URL:', SUBMISSION_API_URL);
 
-if (!SUBMISSION_API_URL || !CONTEST_API_URL) {
-    console.error('❌ [Config] Missing API URLs in environment variables');
-    console.error('❌ [Config] SUBMISSION_API_URL:', SUBMISSION_API_URL);
-    console.error('❌ [Config] CONTEST_API_URL:', CONTEST_API_URL);
-    // throw new Error("Missing API URLs in environment variables"); // Don't crash app if env var missing during dev
+if (!process.env.NEXT_PUBLIC_SUBMISSION_SERVICE_URL || !process.env.NEXT_PUBLIC_CONTEST_SERVICE_URL) {
+    console.warn('⚠️ [Config] Missing API URLs in environment variables, using defaults');
 }
 
 console.log('✅ [Config] Submission Service URL configured:', SUBMISSION_API_URL);

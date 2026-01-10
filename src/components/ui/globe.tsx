@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { Color, Scene, Fog, Vector3 } from "three";
+import { Color, Scene, Fog, Vector3, Group } from "three";
 import ThreeGlobe from "three-globe";
 import { useThree, Canvas, extend } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
@@ -9,7 +9,7 @@ import countries from "@/data/globe.json";
 declare module "@react-three/fiber" {
   interface ThreeElements {
     threeGlobe: ThreeElements["mesh"] & {
-      new (): ThreeGlobe;
+      new(): ThreeGlobe;
     };
   }
 }
@@ -64,7 +64,7 @@ interface WorldProps {
 
 export function Globe({ globeConfig, data }: WorldProps) {
   const globeRef = useRef<ThreeGlobe | null>(null);
-  const groupRef = useRef();
+  const groupRef = useRef<Group>(null);
   const [isInitialized, setIsInitialized] = useState(false);
 
   const defaultProps = {
@@ -112,7 +112,7 @@ export function Globe({ globeConfig, data }: WorldProps) {
 
     // ... (Your existing data processing logic remains the same) ...
     // Simplified for brevity, assume standard arcs/points setup here
-    
+
     globeRef.current
       .hexPolygonsData(countries.features)
       .hexPolygonResolution(3)
@@ -177,9 +177,9 @@ export function World(props: WorldProps) {
       <directionalLight color={globeConfig.directionalLeftLight} position={new Vector3(-400, 100, 400)} />
       <directionalLight color={globeConfig.directionalTopLight} position={new Vector3(-200, 500, 200)} />
       <pointLight color={globeConfig.pointLight} position={new Vector3(-200, 500, 200)} intensity={0.8} />
-      
+
       <Globe {...props} />
-      
+
       <OrbitControls
         enablePan={false}
         enableZoom={false}
