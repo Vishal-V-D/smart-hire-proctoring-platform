@@ -17,13 +17,17 @@ import {
     TrendingUp,
     Clock,
     FileText,
-    Sparkles
+    Sparkles,
+    Sun,
+    Moon
 } from 'lucide-react';
 import Link from 'next/link';
 import { AuthContext } from '@/components/AuthProviderClient';
+import { ThemeContext } from '@/context/ThemeContext';
 
 export default function AdminDashboard() {
     const auth = useContext(AuthContext);
+    const { theme, toggleTheme } = useContext(ThemeContext);
     const [assessments, setAssessments] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -54,6 +58,15 @@ export default function AdminDashboard() {
                 <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
                 <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2 blur-2xl" />
                 <div className="absolute top-1/2 right-1/4 w-32 h-32 bg-white/5 rounded-full blur-xl" />
+
+                {/* Theme Toggle */}
+                <button
+                    onClick={toggleTheme}
+                    className="absolute top-6 right-6 z-20 p-3 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full text-white transition-all shadow-lg border border-white/20 group"
+                    title="Toggle Theme"
+                >
+                    {theme === 'dark' ? <Sun size={20} className="group-hover:rotate-90 transition-transform" /> : <Moon size={20} className="group-hover:-rotate-12 transition-transform" />}
+                </button>
 
                 <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
                     <div className="space-y-4 max-w-2xl">
@@ -176,10 +189,10 @@ export default function AdminDashboard() {
                         >
                             {/* Status ribbon */}
                             <div className={`h-1.5 ${a.status === 'active' || a.status === 'published'
-                                    ? 'bg-gradient-to-r from-green-500 to-emerald-400'
-                                    : a.status === 'draft'
-                                        ? 'bg-gradient-to-r from-gray-400 to-gray-300'
-                                        : 'bg-gradient-to-r from-amber-500 to-yellow-400'
+                                ? 'bg-gradient-to-r from-green-500 to-emerald-400'
+                                : a.status === 'draft'
+                                    ? 'bg-gradient-to-r from-gray-400 to-gray-300'
+                                    : 'bg-gradient-to-r from-amber-500 to-yellow-400'
                                 }`} />
 
                             <div className="p-6 space-y-4">
@@ -188,10 +201,10 @@ export default function AdminDashboard() {
                                         {a.title}
                                     </h3>
                                     <span className={`shrink-0 px-2.5 py-1 text-[10px] font-bold rounded-lg uppercase tracking-wide ${a.status === 'active' || a.status === 'published'
-                                            ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800'
-                                            : a.status === 'draft'
-                                                ? 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 border border-gray-200 dark:border-gray-700'
-                                                : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800'
+                                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800'
+                                        : a.status === 'draft'
+                                            ? 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 border border-gray-200 dark:border-gray-700'
+                                            : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800'
                                         }`}>
                                         {a.status}
                                     </span>

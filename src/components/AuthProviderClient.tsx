@@ -2,6 +2,7 @@
 
 import {
     createContext,
+    useContext,
     useState,
     useEffect,
     type ReactNode,
@@ -21,7 +22,7 @@ interface LoginData {
 interface RegisterData {
     email: string;
     username: string;
-    role: "organizer" | "contestant" | "admin";
+    role: "organizer" | "contestant" | "admin" | "company";
     password: string;
     organizationName?: string;
 }
@@ -30,12 +31,31 @@ interface User {
     id: string;
     email: string;
     username: string;
-    role: "organizer" | "contestant" | "admin";
+    role: "organizer" | "contestant" | "admin" | "company";
     organizationName?: string;
     avatarUrl?: string;
     fullName?: string;
     requiresPasswordSetup?: boolean;
     assignedOrganizerId?: string;
+    // Company fields for admins
+    companyId?: string;
+    companyName?: string;
+    companyWebsite?: string;
+    companyDetails?: string;
+    companyPermissions?: {
+        createAssessment: boolean;
+        deleteAssessment: boolean;
+        viewAllAssessments: boolean;
+    };
+    company?: {
+        id: string;
+        name: string;
+        permissions: {
+            createAssessment: boolean;
+            deleteAssessment: boolean;
+            viewAllAssessments: boolean;
+        };
+    };
 }
 
 interface AuthContextType {
@@ -50,6 +70,14 @@ interface AuthContextType {
 }
 
 export const AuthContext = createContext<AuthContextType | null>(null);
+
+export const useAuth = () => {
+    const context = useContext(AuthContext);
+    if (!context) {
+        throw new Error('useAuth must be used within an AuthProvider');
+    }
+    return context;
+};
 
 // Helper: Save auth data to both localStorage AND cookies
 const saveAuthData = (token: string, userData: User) => {
@@ -68,6 +96,7 @@ const saveAuthData = (token: string, userData: User) => {
     Cookies.set("userData", JSON.stringify(userData), cookieOptions);
 
     console.log(`✅ [Auth] Auth data saved for user: ${userData.username} (${userData.role})`);
+    console.log("DEBUG: Current User Role:", userData.role);
 };
 
 // Helper: Clear auth data from both localStorage AND cookies

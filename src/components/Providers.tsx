@@ -11,6 +11,7 @@ import { useState } from 'react'
 
 // Client-side auth provider wrapper
 import { AuthProviderClient } from './AuthProviderClient'
+import { NotificationProvider } from '@/context/NotificationContext'
 
 export function Providers({ children }: { children: React.ReactNode }) {
     const [queryClient] = useState(() => new QueryClient({
@@ -28,22 +29,24 @@ export function Providers({ children }: { children: React.ReactNode }) {
             <QueryClientProvider client={queryClient}>
                 <ThemeProvider>
                     <AuthProviderClient>
-                        <ToastProvider>
-                            {children}
-                            <ToastContainer
-                                position="top-right"
-                                autoClose={3000}
-                                hideProgressBar={false}
-                                newestOnTop={false}
-                                closeOnClick
-                                rtl={false}
-                                pauseOnFocusLoss
-                                draggable
-                                pauseOnHover
-                                theme="colored"
-                            />
-                            <Toaster />
-                        </ToastProvider>
+                        <NotificationProvider>
+                            <ToastProvider>
+                                {children}
+                                <ToastContainer
+                                    position="top-right"
+                                    autoClose={3000}
+                                    hideProgressBar={false}
+                                    newestOnTop={false}
+                                    closeOnClick
+                                    rtl={false}
+                                    pauseOnFocusLoss
+                                    draggable
+                                    pauseOnHover
+                                    theme="colored"
+                                />
+                                <Toaster />
+                            </ToastProvider>
+                        </NotificationProvider>
                     </AuthProviderClient>
                 </ThemeProvider>
             </QueryClientProvider>

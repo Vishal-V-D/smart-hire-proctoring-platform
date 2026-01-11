@@ -27,12 +27,20 @@ export default function ProtectedRoute({ role, children }: ProtectedRouteProps) 
             const actualRole = user?.role?.toLowerCase();
             console.log("✅ [ProtectedRoute] Checking role:", { expected: role, actual: actualRole });
 
-            if (role && actualRole !== role.toLowerCase()) {
+            const isAuthorized = role
+                ? (
+                    actualRole === role.toLowerCase() ||
+                    (role === 'admin' && actualRole === 'company') ||
+                    (role === 'organizer' && (actualRole === 'admin' || actualRole === 'company'))
+                )
+                : true;
+
+            if (!isAuthorized) {
                 console.log(`🚫 [ProtectedRoute] Role mismatch. Expected ${role}, got ${actualRole}. Redirecting...`);
                 let target = "/login";
-                if (actualRole === "organizer") target = "/organizer/assessment-hub";
+                if (actualRole === "organizer") target = "/organizer";
                 else if (actualRole === "contestant") target = "/contestant";
-                else if (actualRole === "admin") target = "/admin/dashboard";
+                else if (actualRole === "admin" || actualRole === "company") target = "/admin/dashboard";
 
                 router.push(target);
             }
@@ -65,7 +73,15 @@ export default function ProtectedRoute({ role, children }: ProtectedRouteProps) 
 
     // Check role mismatch
     const actualRole = auth.user?.role?.toLowerCase();
-    if (role && actualRole !== role.toLowerCase()) {
+    const isAuthorized = role
+        ? (
+            actualRole === role.toLowerCase() ||
+            (role === 'admin' && actualRole === 'company') ||
+            (role === 'organizer' && (actualRole === 'admin' || actualRole === 'company'))
+        )
+        : true;
+
+    if (!isAuthorized) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-theme-primary">
                 <div className="flex flex-col items-center gap-4">

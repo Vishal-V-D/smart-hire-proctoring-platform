@@ -5,10 +5,8 @@ import { usePathname } from 'next/navigation'
 export function NavbarWrapper({ children }: { children: React.ReactNode }) {
     const pathname = usePathname() || ""
 
-    // Hide Navbar on login/register pages for now
-    const hideNavbar =
-        pathname.includes('/login') ||
-        pathname.includes('/register')
+    // Hide Navbar on login page for now
+    const hideNavbar = pathname.includes('/login')
 
     return (
         <div className="min-h-screen">

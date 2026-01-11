@@ -132,7 +132,7 @@ const MyAssessmentsPage = () => {
                         </p>
                     </div>
                     <button
-                        onClick={() => router.push('/organizer/new-assessment')}
+                        onClick={() => router.push('/assessments/create')}
                         className="flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl font-bold hover:opacity-90 transition-all shadow-lg shadow-primary/25 active:scale-95"
                     >
                         <Plus size={20} />
@@ -210,7 +210,7 @@ const MyAssessmentsPage = () => {
                             Get started by creating your first assessment. It only takes a few minutes.
                         </p>
                         <button
-                            onClick={() => router.push('/organizer/new-assessment')}
+                            onClick={() => router.push('/assessments/create')}
                             className="px-6 py-2.5 bg-primary text-primary-foreground rounded-xl font-bold hover:opacity-90 transition-all shadow-lg active:scale-95"
                         >
                             Create New Assessment
@@ -244,13 +244,13 @@ const MyAssessmentsPage = () => {
                                                 <tr
                                                     key={assessment.id}
                                                     className="hover:bg-muted/30 transition-colors cursor-pointer"
-                                                    onClick={() => router.push(`/organizer/assessments/${assessment.id}`)}
+                                                    onClick={() => router.push(`/assessments/${assessment.id}`)}
                                                 >
                                                     <td className="py-3 px-4">
                                                         <div className="flex items-center gap-3">
                                                             <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-sm font-bold shrink-0 ${assessment.status === 'PUBLISHED' ? 'bg-emerald-500/10 text-emerald-600' :
-                                                                    assessment.status === 'ARCHIVED' ? 'bg-slate-500/10 text-slate-600' :
-                                                                        'bg-amber-500/10 text-amber-600'
+                                                                assessment.status === 'ARCHIVED' ? 'bg-slate-500/10 text-slate-600' :
+                                                                    'bg-amber-500/10 text-amber-600'
                                                                 }`}>
                                                                 {assessment.title.charAt(0).toUpperCase()}
                                                             </div>
@@ -290,7 +290,7 @@ const MyAssessmentsPage = () => {
                                                     <td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
                                                         <div className="flex items-center justify-end gap-1">
                                                             <button
-                                                                onClick={() => router.push(`/organizer/assessments/${assessment.id}`)}
+                                                                onClick={() => router.push(`/assessments/${assessment.id}`)}
                                                                 className="p-2 hover:bg-primary/10 text-primary rounded-lg transition-colors"
                                                                 title="View"
                                                             >
@@ -346,7 +346,7 @@ const MyAssessmentsPage = () => {
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ delay: index * 0.05 }}
                                         className="group bg-card border border-border rounded-2xl p-6 hover:shadow-xl hover:border-primary/50 transition-all cursor-pointer relative overflow-hidden"
-                                        onClick={() => router.push(`/organizer/assessments/${assessment.id}`)}
+                                        onClick={() => router.push(`/assessments/${assessment.id}`)}
                                     >
                                         <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
                                             <Eye className="text-muted-foreground" size={20} />

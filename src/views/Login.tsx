@@ -12,7 +12,6 @@ import Cookies from "js-cookie";
 import { showToast } from "@/utils/toast";
 import { SplitScreenLayout } from "./SplitScreenLayout";
 import { FaEnvelope, FaLock, FaUserShield, FaEye, FaEyeSlash } from "react-icons/fa";
-import GoogleAuthButton from "@/components/GoogleAuthButton";
 
 const loginSchema = yup.object({
     email: yup.string().email("Must be a valid email").required("Email is required"),
@@ -52,7 +51,14 @@ export default function Login() {
             if (redirectPath) {
                 router.replace(redirectPath);
             } else {
-                router.replace(auth.user.role === "organizer" ? "/organizer/assessment-hub" : "/contestant");
+                const role = (auth.user.role || '').toLowerCase();
+                if (role === "organizer") {
+                    router.replace("/organizer");
+                } else if (role === "admin" || role === "company") {
+                    router.replace("/admin/dashboard");
+                } else {
+                    router.replace("/contestant");
+                }
             }
         }
     }, [auth.user, auth.loading, redirectPath, router]);
@@ -76,12 +82,18 @@ export default function Login() {
             if (redirectPath) {
                 console.log("🚀 [Login] Redirecting to:", redirectPath);
                 router.push(redirectPath);
-            } else if (loggedUser.role === "organizer") {
-                console.log("🚀 [Login] Navigating to /organizer/assessment-hub");
-                router.push("/organizer/assessment-hub");
             } else {
-                console.log("🚀 [Login] Navigating to /contestant");
-                router.push("/contestant");
+                const role = (loggedUser.role || '').toLowerCase();
+                if (role === "organizer") {
+                    console.log("🚀 [Login] Navigating to /organizer");
+                    router.push("/organizer");
+                } else if (role === "admin" || role === "company") {
+                    console.log("🚀 [Login] Navigating to /admin/dashboard");
+                    router.push("/admin/dashboard");
+                } else {
+                    console.log("🚀 [Login] Navigating to /contestant");
+                    router.push("/contestant");
+                }
             }
         } catch (err: unknown) {
             const axiosError = err as { response?: { status?: number } };
@@ -104,14 +116,6 @@ export default function Login() {
             </h1>
 
             <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-6">
-                <GoogleAuthButton text="signin_with" />
-
-                <div className="flex items-center gap-4 my-2">
-                    <div className="h-px bg-theme-secondary flex-1"></div>
-                    <span className="text-theme-secondary text-sm">OR</span>
-                    <div className="h-px bg-theme-secondary flex-1"></div>
-                </div>
-
                 {/* Email */}
                 <div className="relative">
                     <FaEnvelope className="absolute left-4 top-1/2 -translate-y-1/2 text-theme-secondary opacity-60" />
@@ -161,16 +165,15 @@ export default function Login() {
                 </button>
             </form>
 
-            <p className="mt-8 text-center text-theme-secondary">
-                New here?{" "}
+            <p className="mt-8 text-center text-sm">
                 <Link
-                    href={redirectPath ? `/register?redirect=${encodeURIComponent(redirectPath)}` : "/register"}
-                    className="text-[hsl(var(--color-accent))] font-medium hover:underline transition-colors"
+                    href="/partner-signup"
+                    className="text-theme-secondary hover:text-theme-primary transition-colors hover:underline"
                 >
-                    Create an account
+                    Interested in becoming a partner? Register here
                 </Link>
             </p>
-        </div>
+        </div >
     );
 
     return (

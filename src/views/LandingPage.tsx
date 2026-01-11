@@ -295,13 +295,13 @@ const AssessmentPlatformLandingPage = () => {
                                 <a href="/login" className="text-sm font-medium text-zinc-300 hover:text-white transition-colors hidden md:block">
                                     Log In
                                 </a>
-                                <a href="/register" className="flex items-center gap-2 bg-white text-black px-4 py-2 rounded-full text-sm font-bold hover:bg-zinc-200 transition-colors shadow-none">
-                                    <span>Create Account</span>
+                                <a href="/partner-signup" className="flex items-center gap-2 bg-white text-black px-4 py-2 rounded-full text-sm font-bold hover:bg-zinc-200 transition-colors shadow-none">
+                                    <span>Partner Signup</span>
                                 </a>
                             </>
                         ) : (
                             <a
-                                href={user.role === 'organizer' ? '/dashboard' : '/contestant-dashboard'}
+                                href={(user.role || '').toLowerCase() === 'organizer' ? '/dashboard' : (['admin', 'company'].includes((user.role || '').toLowerCase()) ? '/admin/dashboard' : '/contestant-dashboard')}
                                 className="flex items-center gap-2 bg-white text-black px-4 py-2 rounded-full text-sm font-bold hover:bg-zinc-400 transition-colors shadow-none"
                             >
                                 <span>Get Started</span>
@@ -426,7 +426,7 @@ const AssessmentPlatformLandingPage = () => {
                             <div className="flex flex-col sm:flex-row items-center gap-5">
                                 {/* Start Hiring Button - Primary CTA */}
                                 <a
-                                    href={!user ? "/register" : (user.role === 'organizer' ? '/dashboard' : '/contestant-dashboard')}
+                                    href={!user ? "/login" : ((user.role || '').toLowerCase() === 'organizer' ? '/dashboard' : (['admin', 'company'].includes((user.role || '').toLowerCase()) ? '/admin/dashboard' : '/contestant-dashboard'))}
                                     className="group relative px-8 py-4 bg-gradient-to-r from-cyan-500 to-purple-500 text-white text-base font-semibold rounded-xl overflow-hidden transition-all duration-300 hover:scale-105 hover:shadow-[0_0_30px_rgba(168,85,247,0.4)] active:scale-95"
                                 >
                                     {/* Shine effect on hover */}

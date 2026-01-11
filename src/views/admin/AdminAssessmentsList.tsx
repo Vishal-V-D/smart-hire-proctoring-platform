@@ -181,7 +181,7 @@ export default function AdminAssessmentsList() {
                                     </td>
                                     <td className="px-6 py-4 text-right">
                                         <Link
-                                            href={`/admin/assessments/${a.id}`}
+                                            href={`/assessments/${a.id}`}
                                             className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 hover:bg-primary text-primary hover:text-primary-foreground rounded-lg text-xs font-bold transition-all"
                                         >
                                             <Eye size={14} />
@@ -233,7 +233,7 @@ export default function AdminAssessmentsList() {
 
                             <div className="bg-muted/30 p-4 border-t border-border">
                                 <Link
-                                    href={`/admin/assessments/${a.id}`}
+                                    href={`/assessments/${a.id}`}
                                     className="flex items-center justify-between text-sm font-bold text-primary group-hover:text-primary/80 transition-colors"
                                 >
                                     Open Dashboard

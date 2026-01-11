@@ -173,6 +173,62 @@ const SettingsPage = () => {
                 animate="visible"
                 className="max-w-4xl space-y-8"
             >
+                {/* --- COMPANY INFORMATION SECTION (For Admins) --- */}
+                {auth?.user?.companyId && (
+                    <motion.div variants={itemVariants} className="bg-card border border-border rounded-3xl p-8 shadow-sm">
+                        <div className="flex items-center gap-4 mb-6">
+                            <div className="p-3 bg-purple-500/10 rounded-2xl text-purple-500">
+                                <Shield size={24} />
+                            </div>
+                            <div>
+                                <h2 className="text-xl font-bold">Company Information</h2>
+                                <p className="text-sm text-muted-foreground">Details about your organization.</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <label className="text-sm font-semibold text-muted-foreground">Company Name</label>
+                                    <div className="p-3 rounded-xl border border-border bg-background/50">
+                                        <p className="font-medium">{auth.user.companyName || 'N/A'}</p>
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-semibold text-muted-foreground">Website</label>
+                                    <div className="p-3 rounded-xl border border-border bg-background/50">
+                                        {auth.user.companyWebsite ? (
+                                            <a
+                                                href={auth.user.companyWebsite}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-primary hover:underline flex items-center gap-1"
+                                            >
+                                                {auth.user.companyWebsite}
+                                                <ChevronRight size={14} className="rotate-[-45deg]" />
+                                            </a>
+                                        ) : (
+                                            <p className="text-muted-foreground">N/A</p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-semibold text-muted-foreground">About Company</label>
+                                <div className="p-3 rounded-xl border border-border bg-background/50 min-h-[80px]">
+                                    <p className="text-sm leading-relaxed">{auth.user.companyDetails || 'No description available'}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mt-4 p-3 bg-muted/30 rounded-xl border border-border/50">
+                            <p className="text-xs text-muted-foreground">
+                                <strong>Note:</strong> Company information is managed by the company owner. Contact your company administrator to update these details.
+                            </p>
+                        </div>
+                    </motion.div>
+                )}
+
                 {/* --- PROFILE SECTION --- */}
                 <motion.div variants={itemVariants} className="bg-card border border-border rounded-3xl p-8 shadow-sm">
                     <div className="flex items-center gap-4 mb-6">

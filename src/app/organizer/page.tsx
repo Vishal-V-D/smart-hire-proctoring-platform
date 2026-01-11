@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 
 import { ThemeContext } from '@/context/ThemeContext';
+import { useNotifications } from '@/context/NotificationContext';
 
 import { useRouter } from 'next/navigation';
 import {
@@ -186,6 +187,7 @@ type Assessment = {
 
 const AdminDashboard = () => {
   const { theme, setTheme } = React.useContext(ThemeContext);
+  const { unreadCount } = useNotifications();
   const [date, setDate] = useState<any>(new Date());
   const [cardIndex, setCardIndex] = useState(0);
   const router = useRouter();
@@ -316,9 +318,16 @@ const AdminDashboard = () => {
                 </kbd>
               </div>
             </div>
-            <button className="p-3 bg-card rounded-xl shadow-sm hover:bg-muted border border-transparent hover:border-border transition-all relative">
-              <Bell className="w-5 h-5 text-muted-foreground" />
-              <span className="absolute top-2 right-2.5 w-2 h-2 bg-destructive rounded-full border border-card"></span>
+            <button
+              onClick={() => router.push('/organizer/notifications')}
+              className="p-3 bg-card rounded-xl shadow-sm hover:bg-muted border border-transparent hover:border-border transition-all relative group"
+            >
+              <Bell className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full border-2 border-background flex items-center justify-center text-[10px] font-bold text-white shadow-sm">
+                  {unreadCount}
+                </span>
+              )}
             </button>
             <div className="w-10 h-10 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 flex items-center justify-center text-white font-bold text-sm overflow-hidden border-2 border-card shadow-md cursor-pointer hover:shadow-lg transition-shadow">
               AD

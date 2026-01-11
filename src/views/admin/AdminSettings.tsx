@@ -21,8 +21,13 @@ import {
     Sparkles,
     Settings,
     Building,
-    Badge
+    Badge,
+    Palette,
+    Sun,
+    Moon,
+    Monitor
 } from 'lucide-react';
+import { ThemeContext } from '@/context/ThemeContext';
 
 const passwordSchema = yup.object({
     currentPassword: yup.string().required('Current password is required'),
@@ -32,6 +37,7 @@ const passwordSchema = yup.object({
 
 export default function AdminSettings() {
     const auth = useContext(AuthContext);
+    const { theme, setTheme } = useContext(ThemeContext);
     const [loading, setLoading] = useState(false);
     const [showCurrentPassword, setShowCurrentPassword] = useState(false);
     const [showNewPassword, setShowNewPassword] = useState(false);
@@ -151,42 +157,146 @@ export default function AdminSettings() {
                 {/* Forms */}
                 <div className="lg:col-span-2 space-y-6">
                     {/* Account Info (Read Only) */}
+                    {/* Organization & Permissions */}
+                    <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
+                        <div className="px-6 py-4 border-b border-border bg-muted/30 flex items-center gap-3">
+                            <div className="p-2 bg-primary/10 rounded-lg">
+                                <Building size={18} className="text-primary" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-foreground">Organization Details</h3>
+                                <p className="text-xs text-muted-foreground">{auth.user.company?.name || auth.user.organizationName || 'Start-up Plan'}</p>
+                            </div>
+                        </div>
+                        <div className="p-6 space-y-6">
+                            {/* Basic Info */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">Company Name</label>
+                                    <div className="flex items-center gap-3 p-3.5 bg-muted/30 rounded-xl border border-border text-foreground">
+                                        <Building size={18} className="text-muted-foreground shrink-0" />
+                                        <span className="text-sm font-medium">{auth.user.company?.name || auth.user.organizationName || 'N/A'}</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">Website / Contact</label>
+                                    <div className="flex items-center gap-3 p-3.5 bg-muted/30 rounded-xl border border-border text-foreground">
+                                        <Monitor size={18} className="text-muted-foreground shrink-0" />
+                                        <span className="text-sm truncate">
+                                            {auth.user.companyWebsite || (auth.user as any).website || 'N/A'}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Permissions Grid */}
+                            <div className="border-t border-border pt-6">
+                                <label className="block text-xs font-medium text-muted-foreground mb-4 uppercase tracking-wider flex items-center gap-2">
+                                    <Shield size={12} /> Active Permissions
+                                </label>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                    {[
+                                        { label: 'Create Assessments', value: auth.user.company?.permissions?.createAssessment || auth.user.companyPermissions?.createAssessment },
+                                        { label: 'Delete Assessments', value: auth.user.company?.permissions?.deleteAssessment || auth.user.companyPermissions?.deleteAssessment },
+                                        { label: 'View All Assessments', value: auth.user.company?.permissions?.viewAllAssessments || auth.user.companyPermissions?.viewAllAssessments }
+                                    ].map((perm, idx) => (
+                                        <div key={idx} className={`flex items-center justify-between p-3 rounded-xl border transition-all ${perm.value ? 'bg-green-500/5 border-green-500/20 shadow-sm' : 'bg-muted/20 border-border opacity-50'}`}>
+                                            <span className={`text-xs font-bold ${perm.value ? 'text-green-700 dark:text-green-400' : 'text-muted-foreground'}`}>{perm.label}</span>
+                                            {perm.value ? <CheckCircle size={16} className="text-green-500" /> : <Lock size={14} className="text-muted-foreground" />}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Personal Information */}
                     <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
                         <div className="px-6 py-4 border-b border-border bg-muted/30 flex items-center gap-3">
                             <div className="p-2 bg-primary/10 rounded-lg">
                                 <User size={18} className="text-primary" />
                             </div>
                             <div>
-                                <h3 className="font-bold text-foreground">Account Information</h3>
-                                <p className="text-xs text-muted-foreground">Your account details (read-only)</p>
+                                <h3 className="font-bold text-foreground">Personal Information</h3>
+                                <p className="text-xs text-muted-foreground">Your login details (read-only)</p>
                             </div>
                         </div>
-                        <div className="p-6 space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">Email Address</label>
-                                    <div className="flex items-center gap-3 p-3.5 bg-muted/30 rounded-xl border border-border text-foreground">
-                                        <Mail size={18} className="text-muted-foreground shrink-0" />
-                                        <span className="text-sm truncate">{auth.user.email}</span>
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">Username</label>
-                                    <div className="flex items-center gap-3 p-3.5 bg-muted/30 rounded-xl border border-border text-foreground">
-                                        <Badge size={18} className="text-muted-foreground shrink-0" />
-                                        <span className="text-sm">{auth.user.username}</span>
-                                    </div>
+                        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">Email Address</label>
+                                <div className="flex items-center gap-3 p-3.5 bg-muted/30 rounded-xl border border-border text-foreground">
+                                    <Mail size={18} className="text-muted-foreground shrink-0" />
+                                    <span className="text-sm truncate">{auth.user.email}</span>
                                 </div>
                             </div>
-                            {auth.user.organizationName && (
-                                <div>
-                                    <label className="block text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">Organization</label>
-                                    <div className="flex items-center gap-3 p-3.5 bg-muted/30 rounded-xl border border-border text-foreground">
-                                        <Building size={18} className="text-muted-foreground shrink-0" />
-                                        <span className="text-sm">{auth.user.organizationName}</span>
-                                    </div>
+                            <div>
+                                <label className="block text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">Username</label>
+                                <div className="flex items-center gap-3 p-3.5 bg-muted/30 rounded-xl border border-border text-foreground">
+                                    <Badge size={18} className="text-muted-foreground shrink-0" />
+                                    <span className="text-sm">{auth.user.username}</span>
                                 </div>
-                            )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Appearance Settings */}
+                    <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
+                        <div className="px-6 py-4 border-b border-border bg-muted/30 flex items-center gap-3">
+                            <div className="p-2 bg-primary/10 rounded-lg">
+                                <Palette size={18} className="text-primary" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-foreground">Appearance</h3>
+                                <p className="text-xs text-muted-foreground">Customize your interface theme</p>
+                            </div>
+                        </div>
+                        <div className="p-6">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                {/* Light Mode */}
+                                <button
+                                    onClick={() => setTheme('light')}
+                                    className={`relative flex flex-col items-center justify-center gap-3 p-4 rounded-xl border-2 transition-all ${theme === 'light'
+                                        ? 'border-primary bg-primary/5 shadow-sm'
+                                        : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                                        }`}
+                                >
+                                    <Sun size={24} className={theme === 'light' ? 'text-primary' : 'text-muted-foreground'} />
+                                    <span className={`text-sm font-bold ${theme === 'light' ? 'text-foreground' : 'text-muted-foreground'}`}>Light</span>
+                                    {theme === 'light' && (
+                                        <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary animate-pulse" />
+                                    )}
+                                </button>
+
+                                {/* Dark Mode */}
+                                <button
+                                    onClick={() => setTheme('dark')}
+                                    className={`relative flex flex-col items-center justify-center gap-3 p-4 rounded-xl border-2 transition-all ${theme === 'dark'
+                                        ? 'border-primary bg-primary/5 shadow-sm'
+                                        : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                                        }`}
+                                >
+                                    <Moon size={24} className={theme === 'dark' ? 'text-primary' : 'text-muted-foreground'} />
+                                    <span className={`text-sm font-bold ${theme === 'dark' ? 'text-foreground' : 'text-muted-foreground'}`}>Dark</span>
+                                    {theme === 'dark' && (
+                                        <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary animate-pulse" />
+                                    )}
+                                </button>
+
+                                {/* Legacy/System Mode */}
+                                <button
+                                    onClick={() => setTheme('legacy')}
+                                    className={`relative flex flex-col items-center justify-center gap-3 p-4 rounded-xl border-2 transition-all ${theme === 'legacy'
+                                        ? 'border-primary bg-primary/5 shadow-sm'
+                                        : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                                        }`}
+                                >
+                                    <Monitor size={24} className={theme === 'legacy' ? 'text-primary' : 'text-muted-foreground'} />
+                                    <span className={`text-sm font-bold ${theme === 'legacy' ? 'text-foreground' : 'text-muted-foreground'}`}>Legacy</span>
+                                    {theme === 'legacy' && (
+                                        <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary animate-pulse" />
+                                    )}
+                                </button>
+                            </div>
                         </div>
                     </div>
 

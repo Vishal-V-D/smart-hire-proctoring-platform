@@ -29,7 +29,6 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
 
     // Pages that MUST be light mode only (contestant-facing registration/lobby pages)
     const lightModeOnlyPaths = [
-        '/register',
         '/verify',
         '/otp',
         '/lobby',
