@@ -322,6 +322,30 @@ const AssessmentSetup: React.FC<AssessmentSetupProps> = ({ config, setConfig, on
                         {errors.description && <p className="text-xs text-red-500 mt-1 font-medium animate-in slide-in-from-top-1">{errors.description}</p>}
                     </div>
 
+                    <div className="shrink-0 mb-2">
+                        <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">
+                            Passing Score (%)
+                        </label>
+                        <div className="relative group">
+                            <input
+                                type="number"
+                                min="0"
+                                max="100"
+                                value={config.passPercentage}
+                                onChange={(e) => {
+                                    const val = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
+                                    setConfig({ ...config, passPercentage: val });
+                                }}
+                                className="w-full px-3 py-2.5 rounded-lg bg-background border border-border text-foreground focus:ring-2 focus:ring-primary/20 outline-none transition-all font-bold text-sm"
+                                placeholder="60"
+                            />
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground group-focus-within:text-primary transition-colors">
+                                %
+                            </div>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-1 px-1">Candidates must score at least this percentage to pass.</p>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4 shrink-0">
                         <div>
                             <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 flex items-center gap-1">

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
@@ -212,8 +212,7 @@ export default function ParticipantReportPage() {
     };
 
     const getVerdictColor = (status?: string) => {
-        const s = status?.toLowerCase();
-        switch (s) {
+        switch (status) {
             case 'passed': return 'text-green-600 bg-green-50 border-green-200';
             case 'failed': return 'text-red-600 bg-red-50 border-red-200';
             case 'disqualified': return 'text-red-800 bg-red-100 border-red-300';
@@ -349,8 +348,8 @@ export default function ParticipantReportPage() {
                                 key={section.id}
                                 onClick={() => toggleSection(section.id)}
                                 className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${isSectionVisible(section.id)
-                                    ? 'bg-green-50 text-green-700 hover:bg-green-100'
-                                    : 'bg-red-50 text-red-600 hover:bg-red-100'
+                                        ? 'bg-green-50 text-green-700 hover:bg-green-100'
+                                        : 'bg-red-50 text-red-600 hover:bg-red-100'
                                     }`}
                             >
                                 <span>{section.label}</span>
@@ -377,8 +376,8 @@ export default function ParticipantReportPage() {
                         <button
                             onClick={() => setIsLandscape(!isLandscape)}
                             className={`flex items-center gap-2 px-4 py-2 rounded-lg shadow transition-all ${isLandscape
-                                ? 'bg-blue-600 text-white hover:bg-blue-700'
-                                : 'bg-white border border-border hover:shadow-md'
+                                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                                    : 'bg-white border border-border hover:shadow-md'
                                 }`}
                         >
                             <RotateCcw size={18} className={isLandscape ? '' : 'rotate-90'} />
@@ -442,10 +441,10 @@ export default function ParticipantReportPage() {
                         <>
                             {/* Top Row: Participant Info + Session + Verdict side by side */}
                             <div className={`grid gap-3 mb-3 ${[isSectionVisible('participant'), isSectionVisible('session'), isSectionVisible('verdict')].filter(Boolean).length === 3
-                                ? 'grid-cols-3'
-                                : [isSectionVisible('participant'), isSectionVisible('session'), isSectionVisible('verdict')].filter(Boolean).length === 2
-                                    ? 'grid-cols-2'
-                                    : 'grid-cols-1'
+                                    ? 'grid-cols-3'
+                                    : [isSectionVisible('participant'), isSectionVisible('session'), isSectionVisible('verdict')].filter(Boolean).length === 2
+                                        ? 'grid-cols-2'
+                                        : 'grid-cols-1'
                                 }`}>
                                 {/* Participant Info */}
                                 {isSectionVisible('participant') ? (

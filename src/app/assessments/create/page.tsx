@@ -33,6 +33,7 @@ const NewAssessmentPage = () => {
         startDate: "",
         endDate: "",
         duration: 60,
+        passPercentage: 60,
         timeMode: 'section',
         globalTime: 60,
         proctoring: {
@@ -90,6 +91,7 @@ const NewAssessmentPage = () => {
                 startDate: assessment.startDate ? new Date(assessment.startDate).toISOString().slice(0, 16) : "",
                 endDate: assessment.endDate ? new Date(assessment.endDate).toISOString().slice(0, 16) : "",
                 duration: assessment.duration || 60,
+                passPercentage: assessment.passPercentage || 60,
                 timeMode: assessment.timeMode || 'section',
                 globalTime: assessment.globalTime || 60,
                 proctoring: {
@@ -297,6 +299,7 @@ const NewAssessmentPage = () => {
                 startDate: new Date(config.startDate).toISOString(),
                 endDate: new Date(config.endDate).toISOString(),
                 duration: sections.reduce((acc, s) => acc + (s.timeLimit || 0), 0),
+                passPercentage: config.passPercentage,
                 timeMode: 'section' as const,
                 globalTime: 0,
                 proctoringSettings: config.proctoring,
@@ -337,7 +340,7 @@ const NewAssessmentPage = () => {
                 || error.message
                 || 'An unexpected error occurred';
 
-            showToast(`Failed to save: ${errorMessage}`, 'error');
+            showToast(errorMessage, 'error');
         }
     };
 

@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AuthContext } from '@/components/AuthProviderClient';
 import { useNotifications } from '@/context/NotificationContext';
+import { contestService } from '@/api/contestService';
 import {
     LayoutDashboard,
     Shield,
@@ -20,7 +21,8 @@ import {
     Bell,
     Gem,
     Database,
-    PlusCircle
+    PlusCircle,
+    Building2
 } from 'lucide-react';
 // import { ThemeContext } from '@/context/ThemeContext'; // Removing unnecessary import
 
@@ -103,12 +105,29 @@ export default function AdminSidebar() {
         setTooltipTop(top);
     };
 
+    const [companyInfo, setCompanyInfo] = useState<any>(null);
+
+    React.useEffect(() => {
+        const fetchCompany = async () => {
+            try {
+                const res = await contestService.getCompanyDetails();
+                setCompanyInfo(res.data);
+            } catch (error) {
+                console.error("Failed to fetch company info in sidebar", error);
+            }
+        };
+        fetchCompany();
+    }, []);
+
+    const displayCompany = companyInfo || auth?.user?.company;
+
     const user = {
-        companyName: auth?.user?.company?.name || auth?.user?.companyName || auth?.user?.organizationName || "SmartHire",
+        companyName: displayCompany?.name || auth?.user?.companyName || auth?.user?.organizationName || "SmartHire",
+        companyWebsite: displayCompany?.website || auth?.user?.companyWebsite || "",
         adminName: auth?.user?.fullName || auth?.user?.username || "Admin",
         email: auth?.user?.email || "",
         avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(
-            auth?.user?.company?.name || auth?.user?.companyName || auth?.user?.organizationName || auth?.user?.fullName || "Admin"
+            displayCompany?.name || auth?.user?.companyName || auth?.user?.organizationName || auth?.user?.fullName || "Admin"
         )}&background=random`
     };
 
@@ -146,7 +165,7 @@ export default function AdminSidebar() {
                             <img src={user.avatar} alt="User" className="w-9 h-9 rounded-lg border border-sidebar-border shadow-sm shrink-0" />
                             <div className="flex flex-col min-w-0">
                                 <h3 className="font-bold text-sm text-sidebar-foreground truncate leading-tight" title={user.companyName}>{user.companyName}</h3>
-                                <div className="flex flex-col mt-0.5">
+                                <div className="flex flex-col mt-1">
                                     <span className="text-[11px] font-medium text-sidebar-foreground/80 truncate leading-tight">{user.adminName}</span>
                                     <span className="text-[10px] text-sidebar-foreground/50 truncate leading-tight" title={user.email}>{user.email}</span>
                                 </div>
@@ -203,6 +222,15 @@ export default function AdminSidebar() {
                             isCollapsed={isCollapsed}
                             onHover={handleHover}
                         />
+                        <NavItem
+                            icon={<Building2 />}
+                            text="Company Profile"
+                            href="/admin/company"
+                            active={pathname === '/admin/company'}
+                            isCollapsed={isCollapsed}
+                            onHover={handleHover}
+                        />
+
 
                         <NavItem
                             icon={<FileBarChart />}

@@ -39,6 +39,8 @@ export default function AdminSettings() {
     const auth = useContext(AuthContext);
     const { theme, setTheme } = useContext(ThemeContext);
     const [loading, setLoading] = useState(false);
+    const [companyInfo, setCompanyInfo] = useState<any>(null);
+    const [fetchingCompany, setFetchingCompany] = useState(false);
     const [showCurrentPassword, setShowCurrentPassword] = useState(false);
     const [showNewPassword, setShowNewPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -64,7 +66,29 @@ export default function AdminSettings() {
         }
     };
 
+    React.useEffect(() => {
+        const fetchCompany = async () => {
+            setFetchingCompany(true);
+            try {
+                const res = await contestService.getCompanyDetails();
+                console.log("🏢 Fetched Company Info:", res.data);
+                setCompanyInfo(res.data);
+            } catch (error) {
+                console.error("❌ Failed to fetch company info:", error);
+            } finally {
+                setFetchingCompany(false);
+            }
+        };
+        fetchCompany();
+    }, []);
+
     if (!auth?.user) return null;
+
+    const displayCompany = companyInfo || auth.user.company;
+    const companyName = displayCompany?.name || auth.user.companyName || auth.user.organizationName || 'N/A';
+    const companyWebsite = displayCompany?.website || auth.user.companyWebsite || (auth.user as any).website || 'N/A';
+    const companyDescription = displayCompany?.description || auth.user.companyDetails || 'No description provided.';
+    const companyIndustry = displayCompany?.industry || (auth.user as any).companyIndustry || 'N/A';
 
     return (
         <div className="p-8 space-y-8 animate-in fade-in duration-500 min-h-screen">
@@ -165,7 +189,7 @@ export default function AdminSettings() {
                             </div>
                             <div>
                                 <h3 className="font-bold text-foreground">Organization Details</h3>
-                                <p className="text-xs text-muted-foreground">{auth.user.company?.name || auth.user.organizationName || 'Start-up Plan'}</p>
+                                <p className="text-xs text-muted-foreground">{companyName}</p>
                             </div>
                         </div>
                         <div className="p-6 space-y-6">
@@ -175,7 +199,7 @@ export default function AdminSettings() {
                                     <label className="block text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">Company Name</label>
                                     <div className="flex items-center gap-3 p-3.5 bg-muted/30 rounded-xl border border-border text-foreground">
                                         <Building size={18} className="text-muted-foreground shrink-0" />
-                                        <span className="text-sm font-medium">{auth.user.company?.name || auth.user.organizationName || 'N/A'}</span>
+                                        <span className="text-sm font-medium">{companyName}</span>
                                     </div>
                                 </div>
                                 <div>
@@ -183,7 +207,7 @@ export default function AdminSettings() {
                                     <div className="flex items-center gap-3 p-3.5 bg-muted/30 rounded-xl border border-border text-foreground">
                                         <Monitor size={18} className="text-muted-foreground shrink-0" />
                                         <span className="text-sm truncate">
-                                            {auth.user.companyWebsite || (auth.user as any).website || 'N/A'}
+                                            {companyWebsite}
                                         </span>
                                     </div>
                                 </div>

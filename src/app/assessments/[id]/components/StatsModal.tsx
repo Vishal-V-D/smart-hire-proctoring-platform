@@ -187,7 +187,14 @@ const StatsModal = ({ isOpen, onClose, participants, stats, assessment }: StatsM
                                     <Award size={18} />
                                     <span className="text-xs font-bold">Pass Rate</span>
                                 </div>
-                                <span className="text-2xl font-black text-foreground">{stats?.passRate?.toFixed(0) || 0}%</span>
+                                <div className="flex flex-col">
+                                    <span className="text-2xl font-black text-foreground">{stats?.passRate?.toFixed(0) || 0}%</span>
+                                    {stats?.passPercentage && (
+                                        <span className="text-[10px] text-muted-foreground font-medium italic mt-0.5">
+                                            (Target: {stats.passPercentage}%)
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>

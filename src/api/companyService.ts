@@ -91,5 +91,12 @@ export const companyService = {
 
     getCompanyHistory: (companyId: string) =>
         axiosContestClient.get(`/companies/${companyId}/history`),
+
+    // 🆕 NEW: Company Details
+    getDetails: () =>
+        axiosContestClient.get("/companies/details"),
+
+    getCompanyById: (companyId: string) =>
+        axiosContestClient.get(`/companies/${companyId}`),
 };
 

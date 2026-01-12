@@ -368,4 +368,11 @@ export const contestService = {
             metadata: data.metadata
         }),
 
+    // 🏢 ------- COMPANY MANAGEMENT -------
+    getCompanyDetails: () =>
+        axiosContestClient.get("/companies/details"),
+
+    getCompanyById: (companyId: string) =>
+        axiosContestClient.get(`/companies/${companyId}`),
+
 };

@@ -42,6 +42,10 @@ interface User {
     companyName?: string;
     companyWebsite?: string;
     companyDetails?: string;
+    companyIndustry?: string;
+    companyContactEmail?: string;
+    companyContactPhone?: string;
+    companyStatus?: string;
     companyPermissions?: {
         createAssessment: boolean;
         deleteAssessment: boolean;
@@ -50,6 +54,12 @@ interface User {
     company?: {
         id: string;
         name: string;
+        description: string;
+        website: string;
+        industry: string;
+        contactEmail: string;
+        contactPhone: string;
+        status: string;
         permissions: {
             createAssessment: boolean;
             deleteAssessment: boolean;

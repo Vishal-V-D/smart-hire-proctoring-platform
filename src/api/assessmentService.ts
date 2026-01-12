@@ -10,6 +10,7 @@ export type CreateAssessmentData = {
     startDate: string;
     endDate: string;
     duration: number;
+    passPercentage?: number;
     timeMode: 'section' | 'global';
     globalTime: number;
     proctoringSettings: {

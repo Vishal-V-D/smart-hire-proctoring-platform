@@ -154,7 +154,8 @@ const AssessmentReportsTab = ({ assessmentId, assessment }: AssessmentReportsTab
     };
 
     const getVerdictBadge = (status: string) => {
-        switch (status) {
+        const s = status?.toUpperCase();
+        switch (s) {
             case 'PASSED': return 'bg-emerald-100 text-emerald-700';
             case 'FAILED': return 'bg-red-100 text-red-700';
             default: return 'bg-gray-100 text-gray-700';
@@ -269,7 +270,13 @@ const AssessmentReportsTab = ({ assessmentId, assessment }: AssessmentReportsTab
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
                     <QuickStat label="Candidates" value={stats.totalParticipants} color="bg-blue-500" icon={Users} />
                     <QuickStat label="Avg Score" value={`${Math.round(stats.averageScore)}%`} color="bg-violet-500" icon={BarChart3} />
-                    <QuickStat label="Pass Rate" value={`${Math.round(stats.passRate)}%`} color="bg-emerald-500" icon={CheckCircle} />
+                    <QuickStat
+                        label="Pass Rate"
+                        value={`${Math.round(stats.passRate)}%`}
+                        subtext={stats.passPercentage ? `(${stats.passPercentage}% floor)` : undefined}
+                        color="bg-emerald-500"
+                        icon={CheckCircle}
+                    />
                     <QuickStat label="Completed" value={stats.completed} subtext={`/ ${stats.totalParticipants}`} color="bg-amber-500" icon={Check} />
                 </div>
 

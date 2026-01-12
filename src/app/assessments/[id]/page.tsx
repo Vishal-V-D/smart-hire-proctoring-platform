@@ -194,13 +194,18 @@ const AssessmentDetailPage = () => {
     };
 
     const handleCsvUpload = async (file: File) => {
+        const { showToast } = await import('@/utils/toast');
         try {
             const response = await invitationService.uploadCsvInvites(assessmentId, file);
-            alert(response.data.message || 'Invitations processed successfully!');
+            showToast(response.data.message || 'Invitations processed successfully!', 'success');
             fetchInvitations();
             fetchInvitationStats();
         } catch (error: any) {
-            alert(error?.response?.data?.message || 'Failed to upload CSV invites');
+            const errorMessage = error.response?.data?.message
+                || error.response?.data?.error
+                || error.message
+                || 'Failed to upload CSV invites';
+            showToast(errorMessage, 'error');
         }
     };
 
@@ -209,6 +214,7 @@ const AssessmentDetailPage = () => {
     const handleSendInvite = async () => {
         if (!inviteEmail) return;
         setInviteLoading(true);
+        const { showToast } = await import('@/utils/toast');
         try {
             await invitationService.createInvitation({
                 assessmentId,
@@ -221,42 +227,63 @@ const AssessmentDetailPage = () => {
             setShowInviteModal(false);
             fetchInvitations();
             fetchInvitationStats();
-        } catch (error) {
-            alert('Failed to send invitation');
+            showToast('Invitation sent successfully', 'success');
+        } catch (error: any) {
+            const errorMessage = error.response?.data?.message
+                || error.response?.data?.error
+                || error.message
+                || 'Failed to send invitation';
+            showToast(errorMessage, 'error');
         } finally {
             setInviteLoading(false);
         }
     };
 
     const handleResendInvitation = async (id: string) => {
+        const { showToast } = await import('@/utils/toast');
         try {
             await invitationService.resendInvitation(id);
-            alert('Invitation resent!');
-        } catch (error) {
-            console.error('Failed to resend:', error);
+            showToast('Invitation resent successfully', 'success');
+        } catch (error: any) {
+            const errorMessage = error.response?.data?.message
+                || error.response?.data?.error
+                || error.message
+                || 'Failed to resend invitation';
+            showToast(errorMessage, 'error');
         }
     };
 
     const handleCancelInvitation = async (id: string) => {
         if (!confirm('Cancel this invitation?')) return;
+        const { showToast } = await import('@/utils/toast');
         try {
             await invitationService.cancelInvitation(id);
             fetchInvitations();
             fetchInvitationStats();
-        } catch (error) {
-            console.error('Failed to cancel:', error);
+            showToast('Invitation cancelled', 'success');
+        } catch (error: any) {
+            const errorMessage = error.response?.data?.message
+                || error.response?.data?.error
+                || error.message
+                || 'Failed to cancell invitation';
+            showToast(errorMessage, 'error');
         }
     };
 
     const handleDeleteInvitation = async (id: string) => {
         if (!confirm('Permanently delete this invitation? This action cannot be undone.')) return;
+        const { showToast } = await import('@/utils/toast');
         try {
             await invitationService.deleteInvitation(id);
             fetchInvitations();
             fetchInvitationStats();
-        } catch (error) {
-            console.error('Failed to delete:', error);
-            alert('Failed to delete invitation');
+            showToast('Invitation deleted', 'success');
+        } catch (error: any) {
+            const errorMessage = error.response?.data?.message
+                || error.response?.data?.error
+                || error.message
+                || 'Failed to delete invitation';
+            showToast(errorMessage, 'error');
         }
     };
 

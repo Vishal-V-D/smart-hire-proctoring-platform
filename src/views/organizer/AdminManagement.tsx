@@ -2,11 +2,13 @@
 'use client'
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
     FaUserShield, FaPlus, FaSearch, FaFilter, FaEllipsisV,
     FaTrashAlt, FaBan, FaRedo, FaLink, FaUserEdit,
     FaShieldAlt,
-    FaCheck
+    FaCheck,
+    FaHistory
 } from 'react-icons/fa';
 import { adminService, AdminBase, AdminStatus, AccessType } from '@/api/adminService';
 import { CreateAdminModal, EditAdminModal } from '@/components/organizer/AdminManagementModals';
@@ -14,6 +16,7 @@ import { showToast } from '@/utils/toast';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function AdminManagement() {
+    const router = useRouter();
     const [admins, setAdmins] = useState<AdminBase[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
@@ -257,6 +260,13 @@ export default function AdminManagement() {
                                                                     className="w-full px-4 py-2.5 text-left text-sm text-foreground hover:bg-muted flex items-center gap-3 transition-colors"
                                                                 >
                                                                     <FaUserEdit className="text-primary" /> Edit Permissions
+                                                                </button>
+
+                                                                <button
+                                                                    onClick={() => router.push(`/organizer/admins/${admin.id}/history`)}
+                                                                    className="w-full px-4 py-2.5 text-left text-sm text-foreground hover:bg-muted flex items-center gap-3 transition-colors"
+                                                                >
+                                                                    <FaHistory className="text-blue-500" /> View History
                                                                 </button>
 
                                                                 {admin.status === AdminStatus.PENDING && (

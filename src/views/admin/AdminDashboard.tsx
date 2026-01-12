@@ -19,16 +19,24 @@ import {
     FileText,
     Sparkles,
     Sun,
-    Moon
+    Moon,
+    Building2,
+    Globe,
+    Mail,
+    Settings,
+    User
 } from 'lucide-react';
 import Link from 'next/link';
 import { AuthContext } from '@/components/AuthProviderClient';
+import { useNotifications } from '@/context/NotificationContext';
+import { contestService } from '@/api/contestService';
 import { ThemeContext } from '@/context/ThemeContext';
 
 export default function AdminDashboard() {
     const auth = useContext(AuthContext);
     const { theme, toggleTheme } = useContext(ThemeContext);
     const [assessments, setAssessments] = useState<any[]>([]);
+    const [companyInfo, setCompanyInfo] = useState<any>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -43,7 +51,17 @@ export default function AdminDashboard() {
             }
         };
 
+        const fetchCompany = async () => {
+            try {
+                const res = await contestService.getCompanyDetails();
+                setCompanyInfo(res.data);
+            } catch (error) {
+                console.error("Failed to fetch company info in dashboard", error);
+            }
+        };
+
         fetchAssessments();
+        fetchCompany();
     }, []);
 
     const activeCount = assessments.filter(a => a.status === 'active' || a.status === 'published').length;
@@ -70,21 +88,36 @@ export default function AdminDashboard() {
 
                 <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
                     <div className="space-y-4 max-w-2xl">
-                        <div className="flex items-center gap-3">
-                            <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-sm">
-                                <Sparkles className="text-white" size={28} />
+                        <div className="flex flex-col gap-2">
+                            <div className="flex items-center gap-2">
+                                <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
+                                    <Building2 className="text-white" size={20} />
+                                </div>
+                                <span className="text-white/70 text-sm font-bold uppercase tracking-widest">
+                                    {companyInfo?.name || auth?.user?.companyName || auth?.user?.company?.name || auth?.user?.organizationName || 'Company Admin'}
+                                </span>
                             </div>
-                            <span className="px-3 py-1 bg-white/20 text-white text-xs font-bold rounded-full backdrop-blur-sm uppercase tracking-wider">
-                                Admin Portal
-                            </span>
+                            <h1 className="text-3xl md:text-5xl font-black text-white leading-tight">
+                                Welcome back, {auth?.user?.fullName || 'Admin'}! 👋
+                            </h1>
+                            <div className="flex flex-wrap items-center gap-3 mt-1">
+                                <span className="text-white/60 text-sm font-medium">Session Info:</span>
+                                <span className="px-2 py-0.5 bg-white/10 text-white/90 text-[11px] font-bold rounded-lg border border-white/10 backdrop-blur-sm flex items-center gap-1.5">
+                                    <User size={12} className="text-white/60" /> @{auth?.user?.username || 'admin'}
+                                </span>
+                                <span className="px-2 py-0.5 bg-white/10 text-white/90 text-[11px] font-bold rounded-lg border border-white/10 backdrop-blur-sm flex items-center gap-1.5 uppercase tracking-tighter">
+                                    <Shield size={12} className="text-white/60" /> {auth?.user?.role || 'Admin'}
+                                </span>
+                                <span className="px-2 py-0.5 bg-white/10 text-white/90 text-[11px] font-bold rounded-lg border border-white/10 backdrop-blur-sm flex items-center gap-1.5 overflow-hidden max-w-[200px] truncate">
+                                    <Mail size={12} className="text-white/60" /> {auth?.user?.email}
+                                </span>
+                            </div>
                         </div>
-                        <h1 className="text-3xl md:text-4xl font-black text-white leading-tight">
-                            Welcome back, {auth?.user?.fullName?.split(' ')[0] || 'Admin'}! 👋
-                        </h1>
-                        <p className="text-white/80 text-lg leading-relaxed">
-                            Monitor assessments, review participant reports, and track proctoring violations in real-time.
-                            Your dashboard provides a comprehensive overview of all assessment activities.
-                        </p>
+                        <div className="text-white/80 text-lg leading-relaxed max-w-xl">
+                            {typeof auth?.user?.companyDetails === 'string'
+                                ? auth.user.companyDetails
+                                : auth?.user?.company?.description || "Monitor assessments, review participant reports, and track proctoring violations in real-time."}
+                        </div>
                     </div>
 
                     <div className="flex flex-col gap-3 shrink-0">
@@ -105,6 +138,8 @@ export default function AdminDashboard() {
                     </div>
                 </div>
             </div>
+
+
 
             {/* Quick Actions / Features Overview */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
