@@ -31,7 +31,8 @@ import {
     Check,
     FileEdit,
     History as HistoryIcon,
-    User
+    User,
+    ArrowUpRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -90,6 +91,26 @@ export default function CompanyManagement() {
             return res.data.data || [];
         },
         enabled: assignModalData.isOpen
+    });
+
+    // Fetch Company Assessments (when modal is open)
+    const { data: companyAssessments = [], isLoading: isLoadingCompanyAssessments } = useQuery({
+        queryKey: ['companyAssessments', companyDetails?.id],
+        queryFn: async () => {
+            if (!companyDetails?.id) return [];
+            try {
+                const res = await assessmentService.getAssessmentsByCompany(companyDetails.id);
+                // Handle various response structures
+                if (Array.isArray(res.data)) return res.data;
+                if (res.data?.assessments && Array.isArray(res.data.assessments)) return res.data.assessments;
+                if (res.data?.data && Array.isArray(res.data.data)) return res.data.data;
+                return [];
+            } catch (error) {
+                console.error("Failed to fetch company assessments", error);
+                return [];
+            }
+        },
+        enabled: !!companyDetails?.id
     });
 
     const getQuestionCount = (assessment: any) => {
@@ -646,6 +667,58 @@ export default function CompanyManagement() {
                                                 </p>
                                             </div>
                                         </div>
+                                    </div>
+
+                                    {/* Linked Assessments Card */}
+                                    <div className="bg-card border border-border rounded-3xl p-8 shadow-sm">
+                                        <h3 className="text-lg font-bold flex items-center gap-2 mb-6 text-foreground">
+                                            <FileCode2 className="text-purple-500" size={20} />
+                                            Linked Assessments
+                                        </h3>
+
+                                        {isLoadingCompanyAssessments ? (
+                                            <div className="flex items-center justify-center py-8">
+                                                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                                            </div>
+                                        ) : companyAssessments.length > 0 ? (
+                                            <div className="space-y-3">
+                                                {companyAssessments.map((assessment: any) => (
+                                                    <div key={assessment.id} className="flex items-center justify-between p-4 rounded-2xl bg-muted/30 border border-border/50 hover:bg-muted/50 transition-all">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-600 border border-purple-200/20">
+                                                                <FileCode2 size={18} />
+                                                            </div>
+                                                            <div>
+                                                                <h4 className="font-bold text-sm text-foreground">{assessment.title}</h4>
+                                                                <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                                                                    <span>{assessment.totalQuestions || 0} Questions</span>
+                                                                    <span>•</span>
+                                                                    <span>{assessment.duration || 0} mins</span>
+                                                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ml-1 ${assessment.status === 'PUBLISHED' ? 'bg-green-500/10 text-green-600' : 'bg-muted text-muted-foreground'
+                                                                        }`}>
+                                                                        {assessment.status}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => router.push(`/assessments/${assessment.id}`)}
+                                                            className="p-2 hover:bg-background rounded-lg text-muted-foreground hover:text-primary transition-colors border border-transparent hover:border-border shadow-sm"
+                                                        >
+                                                            <ArrowUpRight size={16} />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="text-center py-8 px-4 rounded-2xl bg-muted/20 border border-border/50 border-dashed">
+                                                <div className="w-10 h-10 bg-muted/50 rounded-full flex items-center justify-center mx-auto mb-3 text-muted-foreground">
+                                                    <Layers size={18} />
+                                                </div>
+                                                <p className="text-sm font-medium text-foreground">No Assessments Assigned</p>
+                                                <p className="text-xs text-muted-foreground mt-1">This company hasn't created or been assigned any assessments yet.</p>
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* Contact Information Card */}

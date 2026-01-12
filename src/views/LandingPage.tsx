@@ -301,7 +301,7 @@ const AssessmentPlatformLandingPage = () => {
                             </>
                         ) : (
                             <a
-                                href={(user.role || '').toLowerCase() === 'organizer' ? '/dashboard' : (['admin', 'company'].includes((user.role || '').toLowerCase()) ? '/admin/dashboard' : '/contestant-dashboard')}
+                                href={(user.role || '').toLowerCase() === 'organizer' ? '/organizer' : (['admin', 'company'].includes((user.role || '').toLowerCase()) ? '/admin/dashboard' : '/contestant-dashboard')}
                                 className="flex items-center gap-2 bg-white text-black px-4 py-2 rounded-full text-sm font-bold hover:bg-zinc-400 transition-colors shadow-none"
                             >
                                 <span>Get Started</span>
@@ -426,7 +426,13 @@ const AssessmentPlatformLandingPage = () => {
                             <div className="flex flex-col sm:flex-row items-center gap-5">
                                 {/* Start Hiring Button - Primary CTA */}
                                 <a
-                                    href={!user ? "/login" : ((user.role || '').toLowerCase() === 'organizer' ? '/dashboard' : (['admin', 'company'].includes((user.role || '').toLowerCase()) ? '/admin/dashboard' : '/contestant-dashboard'))}
+                                    href={!user
+                                        ? "/login"
+                                        : ((user.role || '').toLowerCase() === 'organizer'
+                                            ? '/organizer'
+                                            : (['admin', 'company'].includes((user.role || '').toLowerCase())
+                                                ? '/admin/dashboard'
+                                                : '/contestant-dashboard'))}
                                     className="group relative px-8 py-4 bg-gradient-to-r from-cyan-500 to-purple-500 text-white text-base font-semibold rounded-xl overflow-hidden transition-all duration-300 hover:scale-105 hover:shadow-[0_0_30px_rgba(168,85,247,0.4)] active:scale-95"
                                 >
                                     {/* Shine effect on hover */}
@@ -464,10 +470,10 @@ const AssessmentPlatformLandingPage = () => {
 
                 {/* Bottom Fade */}
                 <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-zinc-950 to-transparent pointer-events-none"></div>
-            </section>
+            </section >
 
             {/* ================= 3. Partners Section (Logo Strip) ================= */}
-            <section className="py-10 border-y border-white/5 bg-black/40 backdrop-blur-sm">
+            < section className="py-10 border-y border-white/5 bg-black/40 backdrop-blur-sm" >
                 <div className="container mx-auto px-6 md:px-12">
                     <p className="text-center text-sm text-zinc-500 mb-6 uppercase tracking-wider">Trusted by engineering teams at</p>
                     <div className="flex flex-wrap justify-center md:justify-between items-center gap-8 opacity-50 grayscale hover:grayscale-0 hover:opacity-100 transition-all duration-500">
@@ -480,13 +486,13 @@ const AssessmentPlatformLandingPage = () => {
                         <span className="text-xl font-bold flex items-center gap-2 text-white">◆ Raycast</span>
                     </div>
                 </div>
-            </section>
+            </section >
 
 
             {/* ================= 5. Process Section (Assessment Engine) ================= */}
-            <section id="solutions" className="pt-24 pb-24 bg-black relative overflow-hidden transition-colors duration-500">
+            < section id="solutions" className="pt-24 pb-24 bg-black relative overflow-hidden transition-colors duration-500" >
                 {/* Background Radial Gradient */}
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[600px] bg-cyan-900/10 rounded-full blur-[120px] -z-10"></div>
+                < div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[600px] bg-cyan-900/10 rounded-full blur-[120px] -z-10" ></div >
 
                 <div className="container mx-auto px-4 md:px-8 text-center">
                     <SectionHeading title="Assessment Engine" subtitle="A fully automated, high-fidelity pipeline for technical hiring." />
@@ -506,11 +512,11 @@ const AssessmentPlatformLandingPage = () => {
                         ))}
                     </div>
                 </div>
-            </section>
+            </section >
 
 
             {/* ================= 4. Features & Insights (Bento Grid) ================= */}
-            <section id="product" className="py-24 relative z-10">
+            < section id="product" className="py-24 relative z-10" >
                 <div className="container mx-auto px-6 md:px-12">
                     <SectionHeading title="Actionable Candidate Insights" subtitle="Stop reviewing resumes. Start reviewing code. Make data-driven hiring decisions faster." />
 
@@ -611,16 +617,16 @@ const AssessmentPlatformLandingPage = () => {
                         </GlowCard>
                     </div>
                 </div>
-            </section>
+            </section >
 
             {/* ================= Library Section ================= */}
-            <LibrarySection />
+            < LibrarySection />
 
             {/* ================= Resource Section ================= */}
-            <ResourceSection />
+            < ResourceSection />
 
             {/* ================= 6. Security Section ================= */}
-            <section id="enterprise" className="py-24 relative z-10">
+            < section id="enterprise" className="py-24 relative z-10" >
                 <div className="container mx-auto px-6 md:px-12">
                     <SectionHeading title="Enterprise-Grade Assessment Integrity" subtitle="Ensure fair play and reliable results with advanced proctoring and secure infrastructure." />
 
@@ -648,11 +654,11 @@ const AssessmentPlatformLandingPage = () => {
                         </GlowCard>
                     </div>
                 </div>
-            </section>
+            </section >
 
 
             {/* ================= 7. Pricing Section ================= */}
-            <section id="pricing" className="py-24 bg-black/40 relative z-10 border-t border-white/5">
+            < section id="pricing" className="py-24 bg-black/40 relative z-10 border-t border-white/5" >
                 <div className="container mx-auto px-6 md:px-12">
                     <SectionHeading title="Flexible Plans for Every Team" subtitle="Scale your technical hiring from startups to large enterprises." />
 
@@ -697,11 +703,11 @@ const AssessmentPlatformLandingPage = () => {
                         </div>
                     </div>
                 </div>
-            </section>
+            </section >
 
 
             {/* ================= CTA & Footer ================= */}
-            <footer className="bg-zinc-950 pt-24 pb-12 border-t border-white/5 relative z-10">
+            < footer className="bg-zinc-950 pt-24 pb-12 border-t border-white/5 relative z-10" >
                 <div className="container mx-auto px-6 md:px-12 text-center mb-20">
                     <h2 className="text-4xl md:text-6xl font-bold mb-8 bg-clip-text text-transparent bg-gradient-to-b from-white to-zinc-600">
                         Ready to build your <br /> dream engineering team?
@@ -755,9 +761,9 @@ const AssessmentPlatformLandingPage = () => {
                 <div className="container mx-auto px-6 md:px-12 mt-12 text-center text-zinc-600 text-xs">
                     <p>© 2024 CodeAssess.io. All rights reserved.</p>
                 </div>
-            </footer>
+            </footer >
 
-        </div>
+        </div >
     );
 };
 

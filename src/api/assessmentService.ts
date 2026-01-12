@@ -177,6 +177,12 @@ export const assessmentService = {
     duplicateAssessment: (id: string) =>
         axiosContestClient.post(`/assessments/${id}/duplicate`),
 
+    /**
+     * Get assessments linked to a specific company (Organizer only)
+     */
+    getAssessmentsByCompany: (companyId: string) =>
+        axiosContestClient.get(`/assessments/company/${companyId}`),
+
     // ========== SECTION ENDPOINTS ==========
 
     /**
