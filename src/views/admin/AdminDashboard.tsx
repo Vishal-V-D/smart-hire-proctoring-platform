@@ -152,13 +152,22 @@ export default function AdminDashboard() {
                         <p className="text-sm text-muted-foreground">Click on any assessment to view detailed reports and monitoring</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-2 text-sm">
-                    <span className="px-3 py-1.5 bg-green-500/10 text-green-600 rounded-full font-bold text-xs">
-                        {activeCount} Active
-                    </span>
-                    <span className="px-3 py-1.5 bg-muted text-muted-foreground rounded-full font-bold text-xs">
-                        {assessments.length} Total
-                    </span>
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2 text-sm pr-4 border-r border-border">
+                        <span className="px-3 py-1.5 bg-green-500/10 text-green-600 rounded-full font-bold text-xs">
+                            {activeCount} Active
+                        </span>
+                        <span className="px-3 py-1.5 bg-muted text-muted-foreground rounded-full font-bold text-xs">
+                            {assessments.length} Total
+                        </span>
+                    </div>
+                    <Link
+                        href="/admin/assessments"
+                        className="flex items-center gap-2 text-sm font-bold text-primary hover:underline group/all"
+                    >
+                        View All Assessments
+                        <ArrowRight size={16} className="group-hover/all:translate-x-1 transition-transform" />
+                    </Link>
                 </div>
             </div>
 
@@ -184,7 +193,7 @@ export default function AdminDashboard() {
                     {assessments.map((a) => (
                         <Link
                             key={a.id}
-                            href={`/admin/assessments/${a.id}`}
+                            href="/admin/assessments"
                             className="group bg-card border border-border rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl hover:-translate-y-1 hover:border-primary/30 transition-all duration-300"
                         >
                             {/* Status ribbon */}
