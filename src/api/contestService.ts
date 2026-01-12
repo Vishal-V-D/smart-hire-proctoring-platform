@@ -250,8 +250,7 @@ export const contestService = {
     },
 
     // 🛠️ ------- CONTEST MANAGEMENT (EXTENDED) -------
-    createSecureContest: (data: ContestData) =>
-        axiosContestClient.post("/contests/secure", data),
+
 
     generateShareableLink: (contestId: string) =>
         axiosContestClient.post(`/contests/${contestId}/share-link`),
@@ -369,46 +368,4 @@ export const contestService = {
             metadata: data.metadata
         }),
 
-    // 🏆 ------- SECURE LEADERBOARD -------
-    getSecureLeaderboard: (contestId: string) =>
-        axiosContestClient.get(`/secure-leaderboard/${contestId}`),
-
-    getLeaderboardConfig: (contestId: string) =>
-        axiosContestClient.get(`/secure-leaderboard/${contestId}/config`),
-
-    toggleLeaderboardVisibility: (contestId: string, show: boolean) =>
-        axiosContestClient.put(`/secure-leaderboard/${contestId}/visibility`, { show }),
-
-    updateLeaderboardColumns: (contestId: string, columns: any) =>
-        axiosContestClient.put(`/secure-leaderboard/${contestId}/columns`, columns),
-
-    // 🔒 ------- SECURE CONTEST MANAGEMENT -------
-    listSecureContests: () =>
-        axiosContestClient.get('/secure-contests'),
-
-    getSecureContest: (contestId: string) =>
-        axiosContestClient.get(`/secure-contests/${contestId}`),
-
-    updateSecureContest: (contestId: string, data: any) =>
-        axiosContestClient.put(`/secure-contests/${contestId}`, data),
-
-    deleteSecureContest: (contestId: string) =>
-        axiosContestClient.delete(`/secure-contests/${contestId}`),
-
-    // ⏱️ ------- CONTEST TIMER -------
-    getContestTimer: (contestId: string) =>
-        axiosContestClient.get(`/contests/${contestId}/timer`),
-
-    startContestSession: (contestId: string) =>
-        axiosContestClient.post(`/contests/${contestId}/session/start`),
-
-    // 📝 ------- SECURE RESULTS MANAGEMENT -------
-    getSecureResult: (id: string) =>
-        axiosContestClient.get(`/secure-results/${id}`),
-
-    deleteSecureResult: (id: string) =>
-        axiosContestClient.delete(`/secure-results/${id}`),
-
-    updateSecureResult: (id: string, data: any) =>
-        axiosContestClient.put(`/secure-results/${id}`, data),
 };
