@@ -22,6 +22,7 @@ import {
     Bell,
     Building2
 } from 'lucide-react';
+import { useSidebar } from '@/context/SidebarContext';
 
 // --- Types ---
 type NavItemProps = {
@@ -90,12 +91,14 @@ const NavItem = ({ icon, text, href, active, badge, badgeColor, isCollapsed, onH
     );
 };
 
-// --- Main Sidebar Component ---
 export default function OrganizerSidebar() {
     const auth = useContext(AuthContext);
     const { unreadCount } = useNotifications();
     const pathname = usePathname();
-    const [isCollapsed, setIsCollapsed] = useState(false);
+
+    // Use the global sidebar context
+    const { isCollapsed, setCollapsed: setIsCollapsed } = useSidebar();
+
     const [hoveredText, setHoveredText] = useState<string | null>(null);
     const [tooltipTop, setTooltipTop] = useState<number | null>(null);
 
@@ -115,7 +118,7 @@ export default function OrganizerSidebar() {
             <aside
                 className={`
                     h-screen sticky top-0 bg-sidebar border-r border-sidebar-border flex flex-col justify-between transition-all duration-300 ease-in-out z-40 shadow-sm
-                    ${isCollapsed ? 'w-16' : 'w-64'}
+                    ${isCollapsed ? 'w-18' : 'w-64'}
                 `}
             >
                 <div className="flex flex-col flex-1 overflow-hidden">

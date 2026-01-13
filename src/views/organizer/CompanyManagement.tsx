@@ -40,7 +40,7 @@ export default function CompanyManagement() {
     const queryClient = useQueryClient();
     const router = useRouter();
     const [searchTerm, setSearchTerm] = useState('');
-    const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+    const [viewMode, setViewMode] = useState<'grid' | 'table'>('table');
 
     // Selection States
     const [selectedCompany, setSelectedCompany] = useState<Company | null>(null); // For deletion modal
@@ -249,10 +249,13 @@ export default function CompanyManagement() {
 
             {/* Content */}
             {isLoading ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {[1, 2, 3, 4, 5, 6].map(i => (
-                        <div key={i} className="h-48 bg-muted/20 animate-pulse rounded-2xl border border-border/50"></div>
-                    ))}
+                <div className="flex flex-col items-center justify-center py-32 bg-card rounded-3xl border border-border">
+                    <div className="relative">
+                        <div className="w-16 h-16 border-4 border-primary/20 rounded-full"></div>
+                        <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin absolute top-0 left-0"></div>
+                    </div>
+                    <p className="mt-6 text-foreground font-semibold">Loading Companies...</p>
+                    <p className="text-sm text-muted-foreground mt-1">Please wait while we fetch the data</p>
                 </div>
             ) : filteredCompanies.length === 0 ? (
                 <div className="text-center py-20 bg-card rounded-3xl border border-border border-dashed">
@@ -283,9 +286,11 @@ export default function CompanyManagement() {
                                             </div>
                                             <div>
                                                 <h3 className="font-bold text-foreground text-lg leading-tight">{company.name}</h3>
-                                                <a href={company.website} target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1 mt-0.5">
-                                                    <Globe size={10} /> {company.website.replace(/^https?:\/\//, '')}
-                                                </a>
+                                                {company.website && (
+                                                    <a href={company.website} target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1 mt-0.5">
+                                                        <Globe size={10} /> {company.website.replace(/^https?:\/\//, '')}
+                                                    </a>
+                                                )}
                                             </div>
                                         </div>
                                         <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${company.status === 'APPROVED' ? 'bg-green-500/10 text-green-600 border-green-200' :
@@ -365,7 +370,11 @@ export default function CompanyManagement() {
                             </thead>
                             <tbody className="divide-y divide-border/50">
                                 {filteredCompanies.map((company) => (
-                                    <tr key={company.id} className="hover:bg-muted/20 transition-colors group">
+                                    <tr
+                                        key={company.id}
+                                        onClick={() => router.push(`/organizer/companies/${company.id}`)}
+                                        className="hover:bg-muted/30 transition-colors group cursor-pointer"
+                                    >
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-10 h-10 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-600">
@@ -373,9 +382,11 @@ export default function CompanyManagement() {
                                                 </div>
                                                 <div>
                                                     <div className="font-bold text-foreground">{company.name}</div>
-                                                    <a href={company.website} target="_blank" className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1">
-                                                        {company.website.replace(/^https?:\/\//, '')}
-                                                    </a>
+                                                    {company.website && (
+                                                        <a href={company.website} target="_blank" className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1">
+                                                            {company.website.replace(/^https?:\/\//, '')}
+                                                        </a>
+                                                    )}
                                                 </div>
                                             </div>
                                         </td>
@@ -401,35 +412,50 @@ export default function CompanyManagement() {
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex items-center justify-end gap-2">
                                                 <button
-                                                    onClick={() => setAssignModalData({ company, isOpen: true })}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setAssignModalData({ company, isOpen: true });
+                                                    }}
                                                     className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors tooltip"
                                                     title="Assign Assessment"
                                                 >
                                                     <Briefcase size={16} />
                                                 </button>
                                                 <button
-                                                    onClick={() => openPermissionsModal(company)}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        openPermissionsModal(company);
+                                                    }}
                                                     className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors tooltip"
                                                     title="Manage Permissions"
                                                 >
                                                     <Lock size={16} />
                                                 </button>
                                                 <button
-                                                    onClick={() => handleViewHistory(company.id)}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleViewHistory(company.id);
+                                                    }}
                                                     className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors tooltip"
                                                     title="View History"
                                                 >
                                                     <HistoryIcon size={16} />
                                                 </button>
                                                 <button
-                                                    onClick={() => setCompanyDetails(company)}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        router.push(`/organizer/companies/${company.id}`);
+                                                    }}
                                                     className="p-2 text-muted-foreground hover:bg-muted rounded-lg transition-colors tooltip"
-                                                    title="View Company"
+                                                    title="View Company Details"
                                                 >
                                                     <Eye size={16} />
                                                 </button>
                                                 <button
-                                                    onClick={() => setSelectedCompany(company)}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setSelectedCompany(company);
+                                                    }}
                                                     className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors tooltip"
                                                     title="Delete Company"
                                                 >
@@ -649,15 +675,22 @@ export default function CompanyManagement() {
 
                                             <div className="space-y-1 md:col-span-2">
                                                 <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Website</label>
-                                                <a
-                                                    href={companyDetails.website}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="flex items-center gap-2 text-primary hover:underline text-base"
-                                                >
-                                                    <Globe size={16} />
-                                                    {companyDetails.website || 'No website provided'}
-                                                </a>
+                                                {companyDetails.website ? (
+                                                    <a
+                                                        href={companyDetails.website}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="flex items-center gap-2 text-primary hover:underline text-base"
+                                                    >
+                                                        <Globe size={16} />
+                                                        {companyDetails.website}
+                                                    </a>
+                                                ) : (
+                                                    <span className="text-muted-foreground flex items-center gap-2">
+                                                        <Globe size={16} className="opacity-50" />
+                                                        No website provided
+                                                    </span>
+                                                )}
                                             </div>
 
                                             <div className="space-y-1 md:col-span-2">

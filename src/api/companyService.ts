@@ -4,8 +4,8 @@ import { AdminBase } from "./adminService";
 export interface Company {
     id: string;
     name: string;
-    description: string;
-    website: string;
+    description?: string;
+    website?: string;
     industry: string;
     contactEmail: string;
     contactPhone: string;
@@ -21,8 +21,8 @@ export interface Company {
 
 export interface CompanyRegistrationData {
     companyName: string;
-    website: string;
-    details: string;
+    website?: string | null;
+    details?: string | null;
     contactEmail: string;
     contactPhone: string;
     adminName: string;
@@ -98,5 +98,8 @@ export const companyService = {
 
     getCompanyById: (companyId: string) =>
         axiosContestClient.get(`/companies/${companyId}`),
+
+    removeAdmin: (companyId: string, userId: string) =>
+        axiosContestClient.delete(`/companies/${companyId}/users/${userId}`),
 };
 

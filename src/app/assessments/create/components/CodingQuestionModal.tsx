@@ -20,7 +20,159 @@ interface CodingQuestionModalProps {
 }
 
 const CodingQuestionModal: React.FC<CodingQuestionModalProps> = ({ isOpen, onClose, onSave }) => {
-    const [activeTab, setActiveTab] = useState<'bank' | 'upload'>('bank');
+    const [activeTab, setActiveTab] = useState<'bank' | 'upload' | 'randomize'>('bank');
+    const [randomCount, setRandomCount] = useState(5);
+    const [randomDifficulty, setRandomDifficulty] = useState<'Easy' | 'Medium' | 'Hard' | ''>('');
+    const [randomTag, setRandomTag] = useState('');
+    const [isRandomizing, setIsRandomizing] = useState(false);
+
+    // ... existing state ...
+
+    // ... existing useEffects ...
+
+    // ... existing fetchTags, fetchProblems ...
+
+    const handleRandomize = async () => {
+        if (randomCount <= 0) return;
+        setIsRandomizing(true);
+        try {
+            // Fetch a larger pool to randomize from
+            const response = await codingQuestionService.listProblems({
+                skip: 0,
+                take: 100, // Fetch up to 100 to sample from
+                difficulty: randomDifficulty || undefined,
+                tags: randomTag ? [randomTag] : undefined
+            });
+
+            const pool = response.data.problems || [];
+
+            if (pool.length === 0) {
+                alert('No problems found matching your criteria.');
+                setIsRandomizing(false);
+                return;
+            }
+
+            // Shuffle
+            const shuffled = [...pool].sort(() => 0.5 - Math.random());
+            const selected = shuffled.slice(0, randomCount);
+
+            // Import
+            const importedQuestions: Question[] = selected.map(problem => ({
+                id: crypto.randomUUID(),
+                text: problem.title,
+                type: 'coding' as const,
+                codeStub: problem.starterCode?.python || problem.starterCode?.javascript || '',
+                problemId: problem.id,
+                problemData: problem
+            }));
+
+            onSave(importedQuestions);
+            onClose();
+
+        } catch (error) {
+            console.error("Randomize failed:", error);
+            alert("Failed to fetch random problems.");
+        } finally {
+            setIsRandomizing(false);
+        }
+    };
+
+    // ... handleJsonFileUpload, handleJsonUpload, handleSave ...
+
+    // ... getDifficultyColor ...
+
+    // ... Render ...
+
+    // In Tabs section:
+    /*
+        <button
+            onClick={() => setActiveTab('randomize')}
+            className={`flex-1 py-3 text-sm font-bold border-b-2 transition-colors flex items-center justify-center gap-2 ${activeTab === 'randomize' ? 'border-emerald-500 text-emerald-600 bg-emerald-500/5' : 'border-transparent text-muted-foreground hover:bg-muted/50'}`}
+        >
+            <Zap size={16} /> Randomize
+        </button>
+    */
+
+    // In Content section:
+    /*
+        {activeTab === 'randomize' && (
+             <div className="p-8 max-w-2xl mx-auto space-y-8">
+                 <div className="text-center space-y-2">
+                     <div className="w-16 h-16 bg-purple-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                         <Zap size={32} className="text-purple-600" />
+                     </div>
+                     <h3 className="text-xl font-bold">Random Problem Generator</h3>
+                     <p className="text-muted-foreground">Automatically select problems based on your criteria</p>
+                 </div>
+
+                 <div className="space-y-6 bg-card border border-border rounded-xl p-6 shadow-sm">
+                     <div className="space-y-2">
+                         <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Number of Problems</label>
+                         <div className="flex items-center gap-4">
+                             <input 
+                                 type="range" 
+                                 min="1" 
+                                 max="20" 
+                                 value={randomCount} 
+                                 onChange={(e) => setRandomCount(parseInt(e.target.value))}
+                                 className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-purple-600"
+                             />
+                             <div className="w-12 h-10 border border-border rounded-lg flex items-center justify-center font-bold text-lg bg-background">
+                                 {randomCount}
+                             </div>
+                         </div>
+                     </div>
+
+                     <div className="grid grid-cols-2 gap-4">
+                         <div className="space-y-2">
+                             <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Difficulty</label>
+                             <select
+                                 value={randomDifficulty}
+                                 onChange={(e) => setRandomDifficulty(e.target.value as any)}
+                                 className="w-full p-2.5 rounded-lg border border-border bg-background text-sm outline-none focus:border-purple-500 transition-colors"
+                             >
+                                 <option value="">Any Difficulty</option>
+                                 <option value="Easy">Easy</option>
+                                 <option value="Medium">Medium</option>
+                                 <option value="Hard">Hard</option>
+                             </select>
+                         </div>
+                         <div className="space-y-2">
+                             <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Topic Tag</label>
+                             <select
+                                 value={randomTag}
+                                 onChange={(e) => setRandomTag(e.target.value)}
+                                 className="w-full p-2.5 rounded-lg border border-border bg-background text-sm outline-none focus:border-purple-500 transition-colors"
+                             >
+                                 <option value="">Any Topic</option>
+                                 {availableTags.map(tag => (
+                                     <option key={tag.slug} value={tag.slug}>{tag.name}</option>
+                                 ))}
+                             </select>
+                         </div>
+                     </div>
+
+                     <button
+                         onClick={handleRandomize}
+                         disabled={isRandomizing}
+                         className="w-full py-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-purple-500/20 hover:shadow-purple-500/30 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                     >
+                         {isRandomizing ? (
+                             <>
+                                 <Loader2 size={20} className="animate-spin" />
+                                 Generating Selection...
+                             </>
+                         ) : (
+                             <>
+                                 <Zap size={20} fill="currentColor" />
+                                 Generate & Add Problems
+                             </>
+                         )}
+                     </button>
+                 </div>
+             </div>
+        )}
+    */
 
     // Problem Bank State
     const [problems, setProblems] = useState<CodingProblem[]>([]);
@@ -266,10 +418,90 @@ const CodingQuestionModal: React.FC<CodingQuestionModalProps> = ({ isOpen, onClo
                     >
                         <FileJson size={16} /> JSON Upload
                     </button>
+                    <button
+                        onClick={() => setActiveTab('randomize')}
+                        className={`flex-1 py-3 text-sm font-bold border-b-2 transition-colors flex items-center justify-center gap-2 ${activeTab === 'randomize' ? 'border-emerald-500 text-emerald-600 bg-emerald-500/5' : 'border-transparent text-muted-foreground hover:bg-muted/50'}`}
+                    >
+                        <Zap size={16} /> Randomize
+                    </button>
                 </div>
 
                 {/* Content */}
                 <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
+                    {activeTab === 'randomize' && (
+                        <div className="p-8 max-w-2xl mx-auto space-y-8">
+                            <div className="text-center space-y-2">
+                                <h3 className="text-xl font-bold">Random Problem Generator</h3>
+                                <p className="text-muted-foreground">Automatically select problems based on your criteria</p>
+                            </div>
+
+                            <div className="space-y-6 bg-card border border-border rounded-xl p-6 shadow-sm">
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Number of Problems</label>
+                                    <div className="flex items-center gap-4">
+                                        <input
+                                            type="range"
+                                            min="1"
+                                            max="20"
+                                            value={randomCount}
+                                            onChange={(e) => setRandomCount(parseInt(e.target.value))}
+                                            className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-purple-600"
+                                        />
+                                        <div className="w-12 h-10 border border-border rounded-lg flex items-center justify-center font-bold text-lg bg-background">
+                                            {randomCount}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Difficulty</label>
+                                        <select
+                                            value={randomDifficulty}
+                                            onChange={(e) => setRandomDifficulty(e.target.value as any)}
+                                            className="w-full p-2.5 rounded-lg border border-border bg-background text-sm outline-none focus:border-purple-500 transition-colors"
+                                        >
+                                            <option value="">Any Difficulty</option>
+                                            <option value="Easy">Easy</option>
+                                            <option value="Medium">Medium</option>
+                                            <option value="Hard">Hard</option>
+                                        </select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Topic Tag</label>
+                                        <select
+                                            value={randomTag}
+                                            onChange={(e) => setRandomTag(e.target.value)}
+                                            className="w-full p-2.5 rounded-lg border border-border bg-background text-sm outline-none focus:border-purple-500 transition-colors"
+                                        >
+                                            <option value="">Any Topic</option>
+                                            {availableTags.map(tag => (
+                                                <option key={tag.slug} value={tag.slug}>{tag.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <button
+                                    onClick={handleRandomize}
+                                    disabled={isRandomizing}
+                                    className="w-full py-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-purple-500/20 hover:shadow-purple-500/30 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                                >
+                                    {isRandomizing ? (
+                                        <>
+                                            <Loader2 size={20} className="animate-spin" />
+                                            Generating Selection...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Zap size={20} fill="currentColor" />
+                                            Generate & Add Problems
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    )}
                     {activeTab === 'bank' ? (
                         <div className="space-y-4 h-full flex flex-col">
                             {/* Filters */}

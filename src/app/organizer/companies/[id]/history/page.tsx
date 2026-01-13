@@ -154,16 +154,63 @@ export default function CompanyHistoryPage() {
                                         </div>
 
                                         <div className="text-foreground/80 leading-relaxed bg-background/50 p-4 rounded-xl border border-border/30 mb-4 text-sm">
-                                            {typeof (event.details || event.message) === 'object' ? (
-                                                <div className="space-y-2">
-                                                    <p className="font-medium text-primary/80">Detailed Change Log:</p>
-                                                    <pre className="text-[11px] bg-muted/50 p-3 rounded-lg overflow-x-auto border border-border/50 font-mono">
-                                                        {JSON.stringify(event.details || event.message, null, 2)}
-                                                    </pre>
-                                                </div>
-                                            ) : (
-                                                (event.details || event.message) || "Action successfully recorded by the platform's audit system."
-                                            )}
+                                            {(() => {
+                                                const data = event.details || event.message;
+                                                if (typeof data === 'object' && data !== null) {
+                                                    // Render object as formatted key-value pairs
+                                                    const renderValue = (value: any, depth = 0): React.ReactNode => {
+                                                        if (value === null || value === undefined) return <span className="text-muted-foreground italic">N/A</span>;
+                                                        if (typeof value === 'boolean') return <span className={value ? 'text-green-600' : 'text-red-500'}>{value ? 'Yes' : 'No'}</span>;
+                                                        if (typeof value === 'number') return <span className="font-mono text-primary">{value}</span>;
+                                                        if (typeof value === 'string') {
+                                                            // Check if it's a date
+                                                            if (/^\d{4}-\d{2}-\d{2}/.test(value)) {
+                                                                try {
+                                                                    return <span>{new Date(value).toLocaleString()}</span>;
+                                                                } catch { return value; }
+                                                            }
+                                                            return value;
+                                                        }
+                                                        if (Array.isArray(value)) {
+                                                            if (value.length === 0) return <span className="text-muted-foreground italic">Empty list</span>;
+                                                            return (
+                                                                <ul className="list-disc list-inside ml-2">
+                                                                    {value.map((item, i) => <li key={i}>{renderValue(item, depth + 1)}</li>)}
+                                                                </ul>
+                                                            );
+                                                        }
+                                                        if (typeof value === 'object') {
+                                                            return (
+                                                                <div className={depth > 0 ? 'ml-4 pl-3 border-l-2 border-border/50' : ''}>
+                                                                    {Object.entries(value).map(([k, v]) => (
+                                                                        <div key={k} className="py-1">
+                                                                            <span className="font-medium text-foreground capitalize">{k.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}: </span>
+                                                                            {renderValue(v, depth + 1)}
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            );
+                                                        }
+                                                        return String(value);
+                                                    };
+                                                    return (
+                                                        <div className="space-y-1">
+                                                            <p className="font-bold text-primary/80 mb-3 text-xs uppercase tracking-wider">Change Details</p>
+                                                            {Object.entries(data).map(([key, value]) => (
+                                                                <div key={key} className="flex flex-wrap gap-1 py-1.5 border-b border-border/20 last:border-0">
+                                                                    <span className="font-semibold text-foreground min-w-[120px] capitalize">
+                                                                        {key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}:
+                                                                    </span>
+                                                                    <span className="text-muted-foreground flex-1">
+                                                                        {renderValue(value)}
+                                                                    </span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    );
+                                                }
+                                                return data || "Action successfully recorded by the platform's audit system.";
+                                            })()}
                                         </div>
 
                                         <div className="flex items-center justify-between pt-4 border-t border-border/30">

@@ -5,6 +5,7 @@ import { AuthContext } from "@/components/AuthProviderClient";
 import OrganizerSidebar from "@/components/OrganizerSidebar";
 import AdminSidebar from "@/components/AdminSidebar";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { SidebarProvider } from "@/context/SidebarContext";
 
 interface SharedLayoutProps {
     children: React.ReactNode;
@@ -37,25 +38,27 @@ export default function SharedLayout({ children, permission }: SharedLayoutProps
         // The user said "Wrap them with the new guard".
 
         <div className="min-h-screen bg-background flex text-foreground font-sans">
-            {/* Render Sidebar based on Role */}
-            {/* Note: This assumes user is loaded. If loading, sidebar might flicker or not show. */}
-            {userRole === 'ORGANIZER' && <OrganizerSidebar />}
-            {(userRole === 'ADMIN' || userRole === 'COMPANY' || userRole === 'admin') && <AdminSidebar />}
+            <SidebarProvider>
+                {/* Render Sidebar based on Role */}
+                {/* Note: This assumes user is loaded. If loading, sidebar might flicker or not show. */}
+                {userRole === 'ORGANIZER' && <OrganizerSidebar />}
+                {(userRole === 'ADMIN' || userRole === 'COMPANY' || userRole === 'admin') && <AdminSidebar />}
 
-            <div className="flex-1 flex flex-col min-w-0">
-                <main className="flex-1 overflow-x-hidden">
-                    {/* The PermissionGuard can be used here or in the Page. The user suggested using it in the Route element. */}
-                    {/* If we put it here, we ensure access control at layout level for these routes. */}
-                    {permission ? (
-                        // Using the PermissionGuard component I created
-                        <PermissionGuardWrapper permission={permission}>
-                            {children}
-                        </PermissionGuardWrapper>
-                    ) : (
-                        children
-                    )}
-                </main>
-            </div>
+                <div className="flex-1 flex flex-col min-w-0">
+                    <main className="flex-1 overflow-x-hidden">
+                        {/* The PermissionGuard can be used here or in the Page. The user suggested using it in the Route element. */}
+                        {/* If we put it here, we ensure access control at layout level for these routes. */}
+                        {permission ? (
+                            // Using the PermissionGuard component I created
+                            <PermissionGuardWrapper permission={permission}>
+                                {children}
+                            </PermissionGuardWrapper>
+                        ) : (
+                            children
+                        )}
+                    </main>
+                </div>
+            </SidebarProvider>
         </div>
     );
 }

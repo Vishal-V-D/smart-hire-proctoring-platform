@@ -24,15 +24,23 @@ import { companyService } from "@/api/companyService";
 
 const partnerSchema = yup.object({
     companyName: yup.string().required("Company name is required"),
-    website: yup.string().url("Must be a valid URL").required("Website is required"),
-    details: yup.string().required("Company details are required"),
+    website: yup.string().transform((value) => (!value ? null : value)).url("Must be a valid URL").nullable().notRequired(),
+    details: yup.string().nullable().notRequired(),
     contactEmail: yup.string().email("Must be a valid email").required("Company contact email is required"),
     contactPhone: yup.string().required("Company contact phone is required"),
     adminName: yup.string().min(3, "Admin name must be at least 3 characters").required("Admin name is required"),
     adminEmail: yup.string().email("Must be a valid email").required("Admin email is required"),
 });
 
-type PartnerFormData = yup.InferType<typeof partnerSchema>;
+interface PartnerFormData {
+    companyName: string;
+    website?: string | null;
+    details?: string | null;
+    contactEmail: string;
+    contactPhone: string;
+    adminName: string;
+    adminEmail: string;
+}
 
 export default function PartnerSignup() {
     const [loading, setLoading] = useState(false);
@@ -43,7 +51,7 @@ export default function PartnerSignup() {
         handleSubmit,
         formState: { errors },
     } = useForm<PartnerFormData>({
-        resolver: yupResolver(partnerSchema),
+        resolver: yupResolver(partnerSchema) as any,
     });
 
     const onSubmit = async (data: PartnerFormData) => {
@@ -119,7 +127,7 @@ export default function PartnerSignup() {
                                 <FaGlobe className="absolute left-3.5 top-[14px] text-theme-secondary opacity-60" />
                                 <input
                                     type="url"
-                                    placeholder="Website URL"
+                                    placeholder="Website URL (Optional)"
                                     {...register("website")}
                                     className="w-full h-11 pl-10 pr-3 text-base border border-theme rounded-lg bg-theme-secondary text-theme-primary placeholder:text-theme-muted focus:outline-none focus:ring-2 focus:ring-[hsl(var(--color-accent))] focus:border-transparent transition-all"
                                 />
@@ -162,7 +170,7 @@ export default function PartnerSignup() {
                         <div className="relative">
                             <FaInfoCircle className="absolute left-3.5 top-3.5 text-theme-secondary opacity-60" />
                             <textarea
-                                placeholder="Tell us about your company..."
+                                placeholder="Tell us about your company... (Optional)"
                                 {...register("details")}
                                 className="w-full h-20 pl-10 pr-3 py-2.5 text-base border border-theme rounded-lg bg-theme-secondary text-theme-primary placeholder:text-theme-muted focus:outline-none focus:ring-2 focus:ring-[hsl(var(--color-accent))] focus:border-transparent transition-all resize-none"
                             />

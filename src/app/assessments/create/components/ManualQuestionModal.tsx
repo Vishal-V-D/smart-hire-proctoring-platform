@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle, PenTool, Upload, X, Code, Type, List, CheckSquare, Image as ImageIcon, Trash2, Database, Search, Filter, ChevronLeft, ChevronRight, Download, Archive, FileText } from 'lucide-react';
+import { CheckCircle, PenTool, Upload, X, Code, Type, List, CheckSquare, Image as ImageIcon, Trash2, Database, Search, Filter, ChevronLeft, ChevronRight, Download, Archive, FileText, Zap, Loader2 } from 'lucide-react';
 import { Question, SectionType, QuestionType } from '../types';
 import { questionBankService, QuestionBankQuestion, QuestionBankFilters, FilterOptions } from '@/api/questionBankService';
 
@@ -14,8 +14,13 @@ interface ManualQuestionModalProps {
 }
 
 const ManualQuestionModal: React.FC<ManualQuestionModalProps> = ({ isOpen, onClose, onSave, type, division, subdivision }) => {
-    const [activeTab, setActiveTab] = useState<'manual' | 'file' | 'bank'>('bank');
+    const [activeTab, setActiveTab] = useState<'manual' | 'file' | 'bank' | 'randomize'>('bank');
     const [qType, setQType] = useState<QuestionType>('single_choice');
+
+    // Randomize State
+    const [randomCount, setRandomCount] = useState(5);
+    const [randomDifficulty, setRandomDifficulty] = useState<'Easy' | 'Medium' | 'Hard' | ''>('');
+    const [isRandomizing, setIsRandomizing] = useState(false);
 
     // Question Bank State
     const [bankQuestions, setBankQuestions] = useState<QuestionBankQuestion[]>([]);
@@ -166,6 +171,62 @@ const ManualQuestionModal: React.FC<ManualQuestionModalProps> = ({ isOpen, onClo
             setBankQuestions([]);
         } finally {
             setIsLoadingBank(false);
+        }
+    };
+
+    const handleRandomize = async () => {
+        if (randomCount <= 0) return;
+        setIsRandomizing(true);
+        try {
+            // Determine type filter based on section
+            const questionTypeFilter = type === 'coding' ? 'coding' : undefined;
+
+            // Fetch a larger pool to randomize from
+            const response = await questionBankService.listQuestions({
+                page: 1,
+                limit: 100, // Fetch up to 100 to sample from
+                division: division || undefined,
+                subdivision: subdivision || undefined,
+                difficulty: randomDifficulty || undefined,
+                type: questionTypeFilter
+            });
+
+            const pool = response.data.questions || [];
+
+            if (pool.length === 0) {
+                alert('No questions found matching your criteria.');
+                setIsRandomizing(false);
+                return;
+            }
+
+            // Shuffle
+            const shuffled = [...pool].sort(() => 0.5 - Math.random());
+            const selected = shuffled.slice(0, randomCount);
+
+            console.log(`🎲 Randomly selected ${selected.length} questions from pool of ${pool.length}`);
+
+            // Import
+            const importedQuestions: Question[] = selected.map(bankQ => ({
+                id: crypto.randomUUID(),
+                text: bankQ.text || '',
+                image: bankQ.image || undefined,
+                type: bankQ.type,
+                options: bankQ.options || undefined,
+                correctAnswer: bankQ.correctAnswer || undefined,
+                marks: bankQ.marks || 1,
+                codeStub: (bankQ as any).codeStub || undefined,
+                problemData: (bankQ as any).problemData || (bankQ as any).data || undefined,
+                pseudocode: (bankQ as any).pseudocode || undefined
+            }));
+
+            onSave(importedQuestions);
+            onClose();
+
+        } catch (error) {
+            console.error("Randomize failed:", error);
+            alert("Failed to fetch random questions.");
+        } finally {
+            setIsRandomizing(false);
         }
     };
 
@@ -338,10 +399,94 @@ const ManualQuestionModal: React.FC<ManualQuestionModalProps> = ({ isOpen, onClo
                     >
                         <PenTool size={16} /> Manual Input
                     </button>
+                    <button
+                        onClick={() => setActiveTab('randomize')}
+                        className={`flex-1 py-3 text-sm font-bold border-b-2 transition-colors flex items-center justify-center gap-2 ${activeTab === 'randomize' ? 'border-primary text-primary bg-primary/5' : 'border-transparent text-muted-foreground hover:bg-muted/50'}`}
+                    >
+                        <Zap size={16} /> Randomize
+                    </button>
                 </div>
 
                 {/* Content */}
                 <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
+                    {activeTab === 'randomize' && (
+                        <div className="p-4 max-w-2xl mx-auto space-y-6">
+                            <div className="text-center space-y-2">
+                                <h3 className="text-xl font-bold">Random Question Generator</h3>
+                                <p className="text-muted-foreground">Automatically select {division || 'questions'} based on your criteria</p>
+                            </div>
+
+                            <div className="space-y-6 bg-card border border-border rounded-xl p-6 shadow-sm">
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Number of Questions</label>
+                                    <div className="flex items-center gap-4">
+                                        <input
+                                            type="range"
+                                            min="1"
+                                            max="50"
+                                            value={randomCount}
+                                            onChange={(e) => setRandomCount(parseInt(e.target.value))}
+                                            className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+                                        />
+                                        <div className="w-12 h-10 border border-border rounded-lg flex items-center justify-center font-bold text-lg bg-background">
+                                            {randomCount}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Difficulty</label>
+                                        <select
+                                            value={randomDifficulty}
+                                            onChange={(e) => setRandomDifficulty(e.target.value as any)}
+                                            className="w-full p-2.5 rounded-lg border border-border bg-background text-sm outline-none focus:border-primary transition-colors"
+                                        >
+                                            <option value="">Any Difficulty</option>
+                                            <option value="Easy">Easy</option>
+                                            <option value="Medium">Medium</option>
+                                            <option value="Hard">Hard</option>
+                                        </select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Subdivision</label>
+                                        <input
+                                            type="text"
+                                            value={subdivision || "Any Subdivision"}
+                                            disabled
+                                            className="w-full p-2.5 rounded-lg border border-border bg-muted/50 text-sm outline-none text-muted-foreground cursor-not-allowed"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="bg-muted/20 rounded-lg p-3 text-xs text-muted-foreground">
+                                    <p><strong>Note:</strong> This will select unique questions from the bank matching:
+                                        <br />• Division: {division || 'Any'}
+                                        <br />• Subdivision: {subdivision || 'Any'}
+                                        <br />• Type: {type === 'coding' ? 'Coding' : 'MCQ/Fill-in'}
+                                    </p>
+                                </div>
+
+                                <button
+                                    onClick={handleRandomize}
+                                    disabled={isRandomizing}
+                                    className="w-full py-4 bg-gradient-to-r from-primary to-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                                >
+                                    {isRandomizing ? (
+                                        <>
+                                            <Loader2 size={20} className="animate-spin" />
+                                            Generating Selection...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Zap size={20} fill="currentColor" />
+                                            Generate & Add Questions
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    )}
                     {activeTab === 'manual' ? (
                         <div className="space-y-6">
 
@@ -656,6 +801,26 @@ const ManualQuestionModal: React.FC<ManualQuestionModalProps> = ({ isOpen, onClo
                                         </div>
                                     </div>
 
+                                    {/* Division Filter */}
+                                    <div>
+                                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 block">Division</label>
+                                        <select
+                                            value={filters.division || ''}
+                                            onChange={(e) => {
+                                                const newDiv = e.target.value || undefined;
+                                                setFilters({ ...filters, division: newDiv, page: 1 });
+                                                // Refresh filter options for the new division context
+                                                fetchFilterOptions(newDiv);
+                                            }}
+                                            className="w-full bg-background border border-border rounded-lg py-2 px-3 text-sm focus:border-primary outline-none"
+                                        >
+                                            <option value="">All Divisions</option>
+                                            {filterOptions?.divisions?.map((div, idx) => (
+                                                <option key={idx} value={div}>{div}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
                                     {/* Subdivision Filter */}
                                     <div>
                                         <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 block">Subdivision</label>
@@ -759,15 +924,7 @@ const ManualQuestionModal: React.FC<ManualQuestionModalProps> = ({ isOpen, onClo
                                     </div>
                                 </div>
 
-                                {/* Active Filters Display */}
-                                {division && (
-                                    <div className="flex items-center gap-2 flex-wrap pt-2 border-t border-border">
-                                        <span className="text-[10px] font-bold text-muted-foreground">Auto-filtered:</span>
-                                        <span className="px-2 py-1 bg-primary/10 text-primary rounded-md text-[10px] font-bold">
-                                            {division}
-                                        </span>
-                                    </div>
-                                )}
+
                             </div>
 
                             {/* Questions List */}

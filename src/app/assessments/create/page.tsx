@@ -9,6 +9,7 @@ import AssessmentBuilder from './components/AssessmentBuilder';
 import { assessmentService } from '@/api/assessmentService';
 import { AuthContext } from '@/components/AuthProviderClient';
 import { useContext } from 'react';
+import { useSidebar } from '@/context/SidebarContext';
 
 // --- MAIN PAGE COMPONENT ---
 
@@ -20,6 +21,17 @@ const NewAssessmentPage = () => {
     const listPath = userRole === 'ADMIN' || userRole === 'COMPANY' || userRole === 'admin'
         ? '/admin/assessments'
         : '/organizer/assessments';
+
+    // Collapse Sidebar automatically when entering Builder
+    const { setCollapsed } = useSidebar();
+    useEffect(() => {
+        setCollapsed(true);
+        // Optional: Expand when leaving? 
+        // return () => setCollapsed(false); 
+        // But the user might want it to stay collapsed or return to default. 
+        // Usually better to leave it as user left it or reset if needed.
+        // User said "close once done do that bro", which likely means "close IT", not "re-open".
+    }, []);
 
     // --- STATE ---
     const [phase, setPhase] = useState<'setup' | 'builder'>('setup');

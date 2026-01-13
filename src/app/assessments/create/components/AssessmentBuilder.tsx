@@ -8,6 +8,7 @@ import CodingQuestionModal from './CodingQuestionModal';
 import CodingQuestionDisplay from './CodingQuestionDisplay';
 import TestCaseConfigModal from './TestCaseConfigModal';
 import PseudoCodeDisplay from '@/components/contestant/PseudoCodeDisplay';
+import { AssessmentBuilderSidebar } from './AssessmentBuilderSidebar';
 
 interface AssessmentBuilderProps {
     config: AssessmentConfig;
@@ -22,6 +23,7 @@ const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({ config, sections,
     const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
     const [selectedSubCategories, setSelectedSubCategories] = useState<Record<string, string[]>>({});
     const [lastAddedSectionId, setLastAddedSectionId] = useState<string | null>(null);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
     // Scroll to new section
     React.useEffect(() => {
@@ -575,7 +577,7 @@ const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({ config, sections,
 
     // --- MAIN BUILDER VIEW ---
     return (
-        <div className="w-full h-full flex overflow-hidden">
+        <div className="fixed inset-0 z-[100] bg-background flex w-full h-full overflow-hidden">
             <ManualQuestionModal
                 isOpen={isManualModalOpen}
                 onClose={() => setIsManualModalOpen(false)}
@@ -606,106 +608,22 @@ const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({ config, sections,
             />
 
             {/* Floating Categories Panel */}
-            <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.3, ease: "easeOut" }}
-                className="absolute top-6 left-6 z-30 w-[260px]"
-            >
-                <div className="relative bg-sidebar/90 backdrop-blur-2xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)] rounded-2xl overflow-hidden max-h-[calc(100vh-140px)] flex flex-col ring-1 ring-black/5 dark:ring-white/5">
-                    <div className="p-3 border-b border-border/50 flex items-center justify-between">
-                        <div>
-                            <h2 className="text-sm font-black flex items-center gap-2 text-foreground">
-                                <Layers size={16} className="text-primary" /> Builder
-                            </h2>
-                            <p className="text-[9px] text-muted-foreground font-medium">Select categories</p>
-                        </div>
-                    </div>
-
-                    {/* Quick Add Actions */}
-                    <div className="p-2">
-                        <button
-                            onClick={() => {
-                                const newId = Date.now().toString();
-                                setSections([...sections, {
-                                    id: newId,
-                                    title: "New Section",
-                                    description: "General questions section",
-                                    type: "technical",
-                                    questionCount: 5,
-                                    timeLimit: 15,
-                                    marksPerQuestion: 2,
-                                    difficulty: "Medium",
-                                    themeColor: "blue",
-                                    questions: [],
-                                    negativeMarking: 0,
-                                    enabledPatterns: []
-                                }]);
-                                setLastAddedSectionId(newId);
-                            }}
-                            className="w-full flex items-center justify-center gap-2 p-2 rounded-lg border border-dashed border-primary/30 bg-primary/5 hover:bg-primary/10 hover:border-primary/50 transition-all group active:scale-[0.98]"
-                        >
-                            <Plus size={14} className="text-primary group-hover:scale-110 transition-transform" />
-                            <span className="text-[11px] font-bold text-primary">Add New Section</span>
-                        </button>
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto p-2 pt-0 space-y-1 custom-scrollbar">
-                        {ASSESSMENT_CATEGORIES.map(category => (
-                            <div key={category.id} className={`rounded-lg transition-all duration-300 overflow-hidden ${expandedCategories.includes(category.id) ? 'bg-muted/30 pb-2' : 'hover:bg-accent/50'} border border-transparent ${expandedCategories.includes(category.id) ? 'border-border/50' : ''}`}>
-                                <button
-                                    onClick={() => toggleCategory(category.id)}
-                                    className="w-full p-2 flex items-center justify-between text-left"
-                                >
-                                    <div className="flex items-center gap-2">
-                                        <div className={`p-1.5 rounded-lg transition-colors ${expandedCategories.includes(category.id) ? category.badgeBg + ' ' + category.badgeText : 'bg-muted/50 text-muted-foreground'}`}>
-                                            <category.icon size={14} />
-                                        </div>
-                                        <span className={`font-bold text-[11px] ${expandedCategories.includes(category.id) ? 'text-foreground' : 'text-muted-foreground/90'}`}>{category.label}</span>
-                                    </div>
-                                    <ChevronDown size={12} className={`transition-transform duration-300 text-muted-foreground/70 ${expandedCategories.includes(category.id) ? 'rotate-180 text-foreground' : ''}`} />
-                                </button>
-
-                                <AnimatePresence>
-                                    {expandedCategories.includes(category.id) && (
-                                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                                            <div className="px-2 pb-1 space-y-1">
-                                                {category.subCategories.map(sub => {
-                                                    const isSelected = selectedSubCategories[category.id]?.includes(sub.id);
-                                                    return (
-                                                        <div key={sub.id} onClick={() => toggleSubCategory(category.id, sub.id)} className={`flex items-start gap-2 p-1.5 rounded-lg cursor-pointer transition-all group ${isSelected ? 'bg-primary/5' : 'hover:bg-background/80'}`}>
-                                                            <div className={`w-3 h-3 mt-0.5 rounded-[3px] border flex items-center justify-center transition-all ${isSelected ? 'bg-primary border-primary text-primary-foreground' : 'border-muted-foreground/30 group-hover:border-primary/50'}`}>
-                                                                {isSelected && <Check size={8} strokeWidth={4} />}
-                                                            </div>
-                                                            <div className="flex-1 min-w-0">
-                                                                <div className={`text-[10px] font-bold leading-none mb-0.5 ${isSelected ? 'text-primary' : 'text-foreground/80'}`}>{sub.label}</div>
-                                                                <div className="text-[8px] text-muted-foreground/60 leading-tight">{sub.description}</div>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })}
-
-                                                {/* Add Section Button */}
-                                                {selectedSubCategories[category.id]?.length > 0 && (
-                                                    <button
-                                                        onClick={() => handleAddSection(category.id, category.sectionType)}
-                                                        className="w-full py-2 mt-1 rounded-lg text-[9px] uppercase font-black flex items-center justify-center gap-1 text-white bg-primary hover:opacity-90 transition-all shadow-md shadow-primary/20 hover:shadow-primary/30 active:scale-[0.98] tracking-wide"
-                                                    >
-                                                        <Plus size={10} strokeWidth={3} /> Add {category.label}
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </motion.div>
+            {/* Floating Categories Panel */}
+            <AssessmentBuilderSidebar
+                sections={sections}
+                setSections={setSections}
+                setLastAddedSectionId={setLastAddedSectionId}
+                expandedCategories={expandedCategories}
+                toggleCategory={toggleCategory}
+                selectedSubCategories={selectedSubCategories}
+                toggleSubCategory={toggleSubCategory}
+                handleAddSection={handleAddSection}
+                isOpen={isSidebarOpen}
+                setIsOpen={setIsSidebarOpen}
+            />
 
             {/* RIGHT: Sections Editor - Now full width with left padding for floating panel */}
-            <div className="flex-1 flex flex-col bg-background/50 w-full overflow-hidden relative pl-[280px]">
+            <div className={`flex-1 flex flex-col bg-background/50 w-full overflow-hidden relative transition-all duration-300 ${isSidebarOpen ? 'pl-[380px]' : 'pl-6'}`}>
                 {sections.length === 0 ? (
                     <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-10 text-center relative overflow-hidden">
                         {/* Subtle Grid Pattern */}
@@ -1098,7 +1016,7 @@ const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({ config, sections,
 
                 {/* Main Footer */}
                 {/* Main Footer - Floating Style */}
-                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 w-full max-w-2xl px-4">
+                <div className="absolute bottom-6 right-8 z-30 w-auto">
                     <div className="bg-background/80 backdrop-blur-xl border border-border/50 shadow-2xl rounded-2xl p-2 flex items-center justify-between gap-4 ring-1 ring-black/5 dark:ring-white/5">
                         <button
                             onClick={onBack}

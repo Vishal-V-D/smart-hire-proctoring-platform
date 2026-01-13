@@ -258,9 +258,11 @@ function CompanyRequestsList({ requests, onApprove, onReject, onViewHistory }: {
                             </button>
                         </div>
                         <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                            <a href={company.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-primary transition-colors">
-                                <FaGlobe /> {company.website}
-                            </a>
+                            {company.website && (
+                                <a href={company.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-primary transition-colors">
+                                    <FaGlobe /> {company.website}
+                                </a>
+                            )}
                             <div className="flex items-center gap-1">
                                 <FaEnvelope /> {company.contactEmail}
                             </div>
