@@ -3,6 +3,7 @@ import { AssessmentConfig } from '../types';
 import { ArrowRight, Calendar, FileText, Shield, Video, Lock, Scan, Fingerprint, Info, Navigation, Copy, RotateCcw, X, ChevronLeft, ChevronRight, Layers, Clock } from 'lucide-react';
 import plagiarismService, { PlagiarismConfig } from '@/api/plagiarismService';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 
 interface AssessmentSetupProps {
     config: AssessmentConfig;
@@ -56,6 +57,7 @@ const ReportToggle = ({ label, isActive, onChange }: { label: string; isActive: 
 
 const AssessmentSetup: React.FC<AssessmentSetupProps> = ({ config, setConfig, onNext, isEditMode, assessmentId }) => {
     const [currentStep, setCurrentStep] = useState(0);
+    const router = useRouter();
     const totalSteps = 3;
 
     // Load saved step state
@@ -227,7 +229,15 @@ const AssessmentSetup: React.FC<AssessmentSetupProps> = ({ config, setConfig, on
             ...config,
             plagiarism: {
                 enabled: newEnabled,
-                config: plagiarismConfig,
+                config: {
+                    ...plagiarismConfig,
+                    reportConfig: newEnabled ? {
+                        includeSourceCode: true,
+                        includeMatches: true,
+                        includeAiAnalysis: true,
+                        includeVerdict: true
+                    } : plagiarismConfig.reportConfig
+                }
             }
         };
         setConfig(newConfig);
@@ -496,7 +506,21 @@ const AssessmentSetup: React.FC<AssessmentSetupProps> = ({ config, setConfig, on
                                 <span className="text-xs font-semibold text-muted-foreground">Global Enable</span>
                                 <div
                                     onClick={() => {
-                                        updateProctoring('enabled', !config.proctoring.enabled);
+                                        const newState = !config.proctoring.enabled;
+                                        const newProctoring = { ...config.proctoring, enabled: newState };
+
+                                        // If enabling globally, enable ALL individual settings by default
+                                        if (newState) {
+                                            Object.keys(newProctoring).forEach(k => {
+                                                if (typeof newProctoring[k as keyof typeof newProctoring] === 'boolean') {
+                                                    // @ts-ignore
+                                                    newProctoring[k] = true;
+                                                }
+                                            });
+                                            // Ensure tab limit is set if it was 0? (optional, lets leave numbers alone)
+                                        }
+
+                                        setConfig({ ...config, proctoring: newProctoring });
                                         if (errors.proctoring) setErrors({ ...errors, proctoring: '' });
                                     }}
                                     className={`w-12 h-6 rounded-full relative cursor-pointer transition-all duration-300 ${config.proctoring.enabled ? 'bg-primary shadow-md shadow-primary/20' : 'bg-muted border border-border hover:border-primary/50'}`}
@@ -618,7 +642,17 @@ const AssessmentSetup: React.FC<AssessmentSetupProps> = ({ config, setConfig, on
                 </div>
 
                 {/* Page Title */}
-                <div className="absolute  top-2 left-0 right-0 text-center z-20">
+                <div className="absolute top-4 left-4 z-50 md:left-8">
+                    <button
+                        onClick={() => router.back()}
+                        className="p-3 bg-background/80 backdrop-blur-md rounded-full shadow-sm border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-300 hover:scale-105 group"
+                        title="Go Back"
+                    >
+                        <ChevronLeft size={24} className="group-hover:-translate-x-0.5 transition-transform" />
+                    </button>
+                </div>
+
+                <div className="absolute top-2 left-0 right-0 text-center z-20 pointer-events-none">
                     <h1 className="text-xl md:text-2xl font-bold text-foreground tracking-tight">Create Assessment</h1>
                     <p className="text-xs text-muted-foreground mt-0.5">Configure your assessment details and settings</p>
                 </div>

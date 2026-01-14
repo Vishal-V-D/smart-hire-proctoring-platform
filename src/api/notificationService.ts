@@ -1,7 +1,7 @@
 import axios from 'axios';
 import Cookies from 'js-cookie';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://https://smart-hire-backend-t0ik.onrender.com/api';
 
 const getAuthHeaders = () => {
     const token = Cookies.get('token') || localStorage.getItem('token');

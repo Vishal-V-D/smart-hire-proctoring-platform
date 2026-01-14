@@ -9,17 +9,21 @@ import CodingQuestionDisplay from './CodingQuestionDisplay';
 import TestCaseConfigModal from './TestCaseConfigModal';
 import PseudoCodeDisplay from '@/components/contestant/PseudoCodeDisplay';
 import { AssessmentBuilderSidebar } from './AssessmentBuilderSidebar';
+import AssessmentPreview from './AssessmentPreview';
 
 interface AssessmentBuilderProps {
     config: AssessmentConfig;
     sections: AssessmentSection[];
     setSections: React.Dispatch<React.SetStateAction<AssessmentSection[]>>;
     onPublish: () => void;
+    onSaveDraft?: () => void;
     onBack: () => void;
     isEditMode?: boolean;
 }
 
-const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({ config, sections, setSections, onPublish, onBack, isEditMode }) => {
+
+const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({ config, sections, setSections, onPublish, onSaveDraft, onBack, isEditMode }) => {
+
     const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
     const [selectedSubCategories, setSelectedSubCategories] = useState<Record<string, string[]>>({});
     const [lastAddedSectionId, setLastAddedSectionId] = useState<string | null>(null);
@@ -332,246 +336,19 @@ const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({ config, sections,
         }
     };
 
-    // --- RENDER PREVIEW ---
+    // --- PREVIEW MODE ---
     if (isPreviewMode) {
         return (
-            <div className="flex-1 flex flex-col h-screen overflow-hidden bg-background relative w-full">
-                {/* Background Ambient Effects */}
-                <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-primary/5 via-primary/0 to-transparent pointer-events-none" />
-
-                <div className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-10 pb-32">
-                    <div className="max-w-5xl mx-auto space-y-10">
-                        {/* HEADER SECTION */}
-                        <div className="relative text-center space-y-8 py-8">
-                            <div className="space-y-4 relative z-10">
-                                <div className="inline-block relative">
-                                    <h2 className="text-4xl md:text-5xl font-black tracking-tighter text-foreground pb-2">{config.title || "Untitled Assessment"}</h2>
-                                    <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-24 h-1.5 bg-primary rounded-full opacity-80" />
-                                </div>
-                                <p className="text-sm text-muted-foreground max-w-xl mx-auto leading-relaxed font-medium">{config.description || "No description provided for this assessment."}</p>
-                            </div>
-
-                            {/* POWER METRICS - The "Power Mark" Display */}
-                            <div className="grid grid-cols-3 gap-6 max-w-3xl mx-auto pt-4">
-                                <div className="relative p-6 rounded-3xl bg-card border border-border/50 shadow-lg shadow-primary/5 overflow-hidden group hover:-translate-y-1 transition-transform duration-300">
-                                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary to-transparent opacity-50" />
-                                    <div className="relative z-10">
-                                        <div className="text-4xl font-black text-foreground tracking-tighter group-hover:scale-110 transition-transform duration-300 origin-center">{totalMarks}</div>
-                                        <div className="text-[10px] uppercase font-bold text-primary tracking-widest mt-1">Total Marks</div>
-                                    </div>
-                                </div>
-
-                                <div className="relative p-6 rounded-3xl bg-card border border-border/50 shadow-lg shadow-blue-500/5 overflow-hidden group hover:-translate-y-1 transition-transform duration-300">
-                                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-blue-500 to-transparent opacity-50" />
-                                    <div className="relative z-10">
-                                        <div className="text-4xl font-black text-foreground tracking-tighter group-hover:scale-110 transition-transform duration-300 origin-center flex items-center justify-center gap-1">
-                                            {totalTime}<span className="text-lg opacity-40 font-bold self-end mb-1">m</span>
-                                        </div>
-                                        <div className="text-[10px] uppercase font-bold text-blue-500 tracking-widest mt-1">Duration</div>
-                                    </div>
-                                </div>
-
-                                <div className="relative p-6 rounded-3xl bg-card border border-border/50 shadow-lg shadow-purple-500/5 overflow-hidden group hover:-translate-y-1 transition-transform duration-300">
-                                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-purple-500 to-transparent opacity-50" />
-                                    <div className="relative z-10">
-                                        <div className="text-4xl font-black text-foreground tracking-tighter group-hover:scale-110 transition-transform duration-300 origin-center">{totalQuestions}</div>
-                                        <div className="text-[10px] uppercase font-bold text-purple-500 tracking-widest mt-1">Questions</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="space-y-8">
-                            {/* Structure Overview Table */}
-                            <div className="space-y-4">
-                                <h3 className="font-bold text-xs uppercase tracking-wider text-foreground/70 flex items-center gap-2 px-1">
-                                    <Layers size={14} /> Structure Breakdown
-                                </h3>
-
-                                <div className="bg-card border border-border/60 rounded-2xl overflow-hidden shadow-sm ring-1 ring-black/5">
-                                    {/* Styled Header */}
-                                    <div className="bg-muted/30 border-b border-border/60 px-5 py-3">
-                                        <div className="grid grid-cols-12 gap-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                                            <div className="col-span-1 text-center">#</div>
-                                            <div className="col-span-5">Section Details</div>
-                                            <div className="col-span-2 text-center">Config</div>
-                                            <div className="col-span-2 text-center">Marks/Q</div>
-                                            <div className="col-span-2 text-right">Total</div>
-                                        </div>
-                                    </div>
-
-                                    {/* Styled Body */}
-                                    <div className="divide-y divide-border/30">
-                                        {sections.map((s, idx) => {
-                                            const colors = getColorClasses(s.themeColor || 'gray');
-                                            return (
-                                                <div key={s.id} className="grid grid-cols-12 gap-4 px-5 py-4 hover:bg-muted/20 transition-colors items-center group">
-                                                    {/* Index */}
-                                                    <div className="col-span-1 flex justify-center">
-                                                        <div className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold ${colors.badge} opacity-70 group-hover:opacity-100 transition-opacity`}>
-                                                            {idx + 1}
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Section Name */}
-                                                    <div className="col-span-5">
-                                                        <div className="font-bold text-sm text-foreground mb-1">{s.title}</div>
-                                                        <div className="flex items-center gap-2">
-                                                            <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider bg-secondary text-secondary-foreground`}>
-                                                                {s.type.replace('_', ' ')}
-                                                            </span>
-                                                            <span className={`text-[9px] font-bold ${colors.text}`}>
-                                                                {s.difficulty}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Config */}
-                                                    <div className="col-span-2 flex flex-col items-center justify-center gap-1">
-                                                        <div className="flex items-center gap-1.5 text-xs font-medium text-foreground">
-                                                            <FileText size={12} className="text-muted-foreground" /> {s.questions?.length || 0}
-                                                        </div>
-                                                        <div className="flex items-center gap-1.5 text-xs font-medium text-foreground">
-                                                            <Clock size={12} className="text-muted-foreground" /> {s.timeLimit}m
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Scoring Per Q */}
-                                                    <div className="col-span-2 text-center">
-                                                        <div className="text-sm font-bold text-foreground">{s.marksPerQuestion}</div>
-                                                    </div>
-
-                                                    {/* Total Section Marks */}
-                                                    <div className="col-span-2 text-right">
-                                                        <div className={`text-sm font-black ${colors.text}`}>
-                                                            {calculateSectionMarks(s)}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-
-                                    {/* Footer Summary */}
-                                    {sections.length > 0 && (
-                                        <div className="bg-muted/20 border-t border-border/60 px-6 py-4">
-                                            <div className="flex justify-between items-center">
-                                                <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Assessment Totals</span>
-                                                <div className="flex items-center gap-8">
-                                                    <div className="flex items-baseline gap-1.5">
-                                                        <span className="text-xs font-medium text-muted-foreground">Questions:</span>
-                                                        <span className="text-sm font-bold text-foreground">{totalQuestions}</span>
-                                                    </div>
-                                                    <div className="flex items-baseline gap-1.5">
-                                                        <span className="text-xs font-medium text-muted-foreground">Time:</span>
-                                                        <span className="text-sm font-bold text-foreground">{totalTime} min</span>
-                                                    </div>
-                                                    <div className="flex items-baseline gap-1.5">
-                                                        <span className="text-xs font-medium text-muted-foreground">Marks:</span>
-                                                        <span className="text-sm font-black text-primary">{totalMarks}</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Security & Settings - Moved Below */}
-                            <div className="space-y-4">
-                                <h3 className="font-bold text-xs uppercase tracking-wider text-foreground/70 flex items-center gap-2 px-1">
-                                    <Shield size={14} /> Security Configuration
-                                </h3>
-
-                                <div className="bg-card border border-border/60 rounded-2xl overflow-hidden shadow-sm ring-1 ring-black/5">
-                                    <div className={`p-5 border-b border-border/50 ${config.proctoring.enabled ? 'bg-emerald-500/5' : 'bg-destructive/5'}`}>
-                                        <div className="flex items-center justify-between mb-2">
-                                            <span className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Proctoring Mode</span>
-                                            {config.proctoring.enabled ? (
-                                                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500 text-white text-[10px] font-black uppercase tracking-wide shadow-sm shadow-emerald-500/20">
-                                                    <Shield size={10} className="fill-current" /> Enabled
-                                                </div>
-                                            ) : (
-                                                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-destructive text-white text-[10px] font-black uppercase tracking-wide shadow-sm shadow-destructive/20">
-                                                    Disabled
-                                                </div>
-                                            )}
-                                        </div>
-                                        <p className="text-[11px] text-muted-foreground leading-relaxed mt-3">
-                                            {config.proctoring.enabled
-                                                ? "Advanced AI monitoring is active. Candidates will be monitored for suspicious activity based on the rules below."
-                                                : "No active proctoring. Candidates can take the assessment without monitoring constraints."}
-                                        </p>
-                                    </div>
-
-                                    {config.proctoring.enabled && (
-                                        <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                            {[
-                                                // Monitoring
-                                                { label: 'Webcam Monitoring', val: config.proctoring.videoMonitoring },
-                                                { label: 'Image Proctoring', val: config.proctoring.imageMonitoring },
-                                                { label: 'Screen Recording', val: config.proctoring.screenRecording },
-                                                { label: 'Audio Monitoring', val: config.proctoring.audioMonitoring },
-                                                { label: 'Audio Recording', val: config.proctoring.audioRecording },
-
-                                                // AI Detection
-                                                { label: 'Person Detection', val: config.proctoring.personDetection },
-                                                { label: 'Object Detection', val: config.proctoring.objectDetection },
-                                                { label: 'Face Detection', val: config.proctoring.faceDetection },
-                                                { label: 'Eye Tracking', val: config.proctoring.eyeTracking },
-                                                { label: 'Noise Detection', val: config.proctoring.noiseDetection },
-
-                                                // Lockdown
-                                                { label: 'Force Fullscreen', val: config.proctoring.fullscreen },
-                                                { label: 'No Tab Switching', val: config.proctoring.tabSwitchLimit > 0, text: `${config.proctoring.tabSwitchLimit} allowed` },
-                                                { label: 'Block Copy/Paste', val: config.proctoring.disableCopyPaste },
-                                                { label: 'Block Ext. Monitor', val: config.proctoring.blockExternalMonitor },
-                                                { label: 'Block Right Click', val: config.proctoring.blockRightClick },
-
-                                                // Verification
-                                                { label: 'ID Verification', val: config.proctoring.verifyIDCard },
-                                                { label: 'Face Verification', val: config.proctoring.verifyFace },
-                                            ].map((item, idx) => (
-                                                <div key={idx} className={`flex items-center justify-between p-3 rounded-xl border transition-colors ${item.val ? 'bg-emerald-500/5 border-emerald-500/20 scale-[1.02] shadow-sm' : 'bg-muted/10 border-transparent opacity-60'}`}>
-                                                    <span className={`text-xs font-semibold ${item.val ? 'text-foreground' : 'text-muted-foreground'}`}>{item.label}</span>
-                                                    {item.val ? (
-                                                        <div className="flex items-center gap-1.5">
-                                                            {item.text && <span className="text-[10px] font-bold text-muted-foreground mr-1">{item.text}</span>}
-                                                            <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center text-white shadow-sm shadow-emerald-500/25">
-                                                                <Check size={10} strokeWidth={3} />
-                                                            </div>
-                                                        </div>
-                                                    ) : (
-                                                        <div className="w-2 h-2 rounded-full bg-border" />
-                                                    )}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Footer - Floating Style (Bottom Right) */}
-                <div className="absolute bottom-8 right-8 z-30 w-auto">
-                    <div className="bg-background/80 backdrop-blur-2xl border border-white/20 shadow-2xl rounded-2xl p-2 flex items-center gap-3 ring-1 ring-black/5 dark:ring-white/5">
-                        <button
-                            onClick={() => setIsPreviewMode(false)}
-                            className="text-muted-foreground hover:text-foreground hover:bg-muted/50 font-bold text-xs px-5 py-3 rounded-xl transition-all"
-                        >
-                            Back to Editor
-                        </button>
-                        <button
-                            onClick={onPublish}
-                            className="bg-primary text-primary-foreground px-8 py-3 rounded-xl font-bold hover:opacity-90 hover:scale-[1.02] transition-all flex items-center justify-center gap-2 shadow-xl shadow-primary/25 active:scale-[0.98]"
-                        >
-                            {isEditMode ? 'Update Assessment' : 'Publish Now'} <ArrowRight size={16} />
-                        </button>
-                    </div>
-                </div>
-            </div>
+            <AssessmentPreview
+                config={config}
+                sections={sections}
+                isEditMode={isEditMode || false}
+                onBack={() => setIsPreviewMode(false)}
+                onSaveDraft={onSaveDraft}
+                onPublish={onPublish}
+                onUpdateSection={updateSection as any}
+                onDeleteSection={deleteSection}
+            />
         );
     }
 
@@ -1030,6 +807,16 @@ const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({ config, sections,
                             <span className="flex items-center gap-1.5"><Clock size={14} /> {totalTime}m</span>
                             <span className="flex items-center gap-1.5"><span className="text-primary">★</span> {totalMarks} pts</span>
                         </div>
+
+                        {onSaveDraft && (
+                            <button
+                                onClick={onSaveDraft}
+                                className="text-muted-foreground hover:text-primary hover:bg-primary/5 font-bold text-xs px-4 py-3 rounded-xl transition-all flex items-center gap-2"
+                                title="Save Draft to Server"
+                            >
+                                <Save size={16} />
+                            </button>
+                        )}
 
                         <button
                             onClick={() => setIsPreviewMode(true)}

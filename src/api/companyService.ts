@@ -101,5 +101,9 @@ export const companyService = {
 
     removeAdmin: (companyId: string, userId: string) =>
         axiosContestClient.delete(`/companies/${companyId}/users/${userId}`),
+
+    // 🆕 NEW: Organizer adds admin directly to company
+    addAdminByOrganizer: (data: { companyId: string; adminName: string; adminEmail: string; }) =>
+        axiosContestClient.post("/companies/add-admin-by-organizer", data),
 };
 

@@ -19,7 +19,8 @@ import {
     AlertCircle,
     Copy,
     List,
-    LayoutGrid
+    LayoutGrid,
+    Eraser
 } from 'lucide-react';
 import { assessmentService, AssessmentStatus } from '@/api/assessmentService';
 
@@ -54,6 +55,65 @@ const MyAssessmentsPage = () => {
 
     const fetchAssessments = async () => {
         setIsLoading(true);
+
+        // --- SPECIAL HANDLING FOR DRAFTS (LOCAL STORAGE) ---
+        if (statusFilter === 'DRAFT') {
+            try {
+                const localItems: Assessment[] = [];
+                // Check if window is defined (client-side)
+                if (typeof window !== 'undefined') {
+                    const keys = Object.keys(localStorage).filter(k => k.startsWith('assessment_draft_'));
+
+                    keys.forEach(key => {
+                        try {
+                            const raw = localStorage.getItem(key);
+                            if (!raw) return;
+                            const parsed = JSON.parse(raw);
+                            const data = parsed.data; // { config, sections }
+                            const timestamp = parsed.timestamp;
+
+                            // Use the localStorage key as the unique ID to prevent collisions
+                            // e.g., 'assessment_draft_new' or 'assessment_draft_uuid'
+
+                            // Only include if it has some data
+                            if (data && (data.config || data.sections?.length > 0)) {
+                                localItems.push({
+                                    id: key, // Use full key as ID
+                                    title: data.config?.title || 'Untitled Draft',
+                                    description: data.config?.description || 'Local unsaved draft',
+                                    status: 'DRAFT',
+                                    totalSections: data.sections?.length || 0,
+                                    totalQuestions: data.sections?.reduce((acc: number, s: any) => acc + (s.questions?.length || 0), 0) || 0,
+                                    totalMarks: 0,
+                                    totalTime: data.config?.duration || 0,
+                                    startDate: new Date().toISOString(),
+                                    endDate: new Date().toISOString(),
+                                    createdAt: timestamp || new Date().toISOString(),
+                                });
+                            }
+                        } catch (e) {
+                            console.error("Error parsing local draft", key, e);
+                        }
+                    });
+                }
+
+                // Sort by newest first
+                const filtered = localItems.filter(item =>
+                    item.title.toLowerCase().includes(searchQuery.toLowerCase())
+                ).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+                setAssessments(filtered);
+                setPagination({ page: 1, limit: 10, total: filtered.length, totalPages: 1 });
+            } catch (err) {
+                console.error("Failed to load local drafts", err);
+                setAssessments([]);
+            } finally {
+                setIsLoading(false);
+            }
+            return;
+        }
+
+        // --- REGULAR BACKEND API ---
         try {
             const response = await assessmentService.listAssessments({
                 page: pagination.page,
@@ -63,8 +123,18 @@ const MyAssessmentsPage = () => {
                 sortBy: 'createdAt',
                 order: 'desc'
             });
-            setAssessments(response.data.data || []);
-            setPagination(response.data.pagination || { page: 1, limit: 10, total: 0, totalPages: 0 });
+
+            // Handle potentially different response structures (admin vs organizer endpoints sometimes differ)
+            const items = response.data.data || response.data.assessments || [];
+
+            // Normalize status to Uppercase to ensure UI consistency
+            const normalizedItems = items.map((item: any) => ({
+                ...item,
+                status: item.status ? item.status.toUpperCase() : 'DRAFT'
+            }));
+
+            setAssessments(normalizedItems);
+            setPagination(response.data.pagination || { page: 1, limit: 10, total: items.length, totalPages: 1 });
         } catch (error) {
             console.error('Failed to fetch assessments:', error);
             setAssessments([]);
@@ -74,6 +144,21 @@ const MyAssessmentsPage = () => {
     };
 
     const handleDelete = async (id: string) => {
+        // Handle Local Draft Deletion
+        if (statusFilter === 'DRAFT') {
+            try {
+                // ID is now the localStorage key itself (e.g., 'assessment_draft_new')
+                localStorage.removeItem(id);
+                fetchAssessments(); // Refresh list
+                setShowDeleteModal(false);
+                setSelectedAssessment(null);
+            } catch (error) {
+                console.error('Failed to delete local draft:', error);
+            }
+            return;
+        }
+
+        // Handle Backend Deletion
         try {
             await assessmentService.deleteAssessment(id);
             fetchAssessments();
@@ -105,10 +190,20 @@ const MyAssessmentsPage = () => {
         }
     };
 
+    const clearAllDrafts = () => {
+        if (confirm('Are you sure you want to clear all local drafts? This cannot be undone.')) {
+            const keys = Object.keys(localStorage).filter(k => k.startsWith('assessment_draft_'));
+            keys.forEach(k => localStorage.removeItem(k));
+            alert(`${keys.length} local drafts cleared.`);
+        }
+    };
+
     const getStatusBadge = (status: AssessmentStatus) => {
         switch (status) {
             case 'DRAFT':
-                return 'bg-amber-500/10 text-amber-600 border-amber-500/20';
+                return 'bg-slate-500/10 text-slate-500 border-slate-500/20'; // Gray for Draft
+            case 'READY':
+                return 'bg-blue-500/10 text-blue-600 border-blue-500/20'; // Blue for Ready
             case 'PUBLISHED':
                 return 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20';
             case 'ARCHIVED':
@@ -155,34 +250,53 @@ const MyAssessmentsPage = () => {
                             />
                         </div>
 
-                        <select
-                            value={statusFilter}
-                            onChange={(e) => setStatusFilter(e.target.value as AssessmentStatus | '')}
-                            className="bg-muted/30 border border-border rounded-xl py-2.5 px-4 text-sm focus:border-primary/50 outline-none transition-all cursor-pointer hover:bg-muted/50"
-                        >
-                            <option value="">All Status</option>
-                            <option value="DRAFT">Draft</option>
-                            <option value="PUBLISHED">Published</option>
-                            <option value="ARCHIVED">Archived</option>
-                        </select>
+                        <div className="flex items-center p-1 bg-muted/30 rounded-xl border border-border overflow-x-auto no-scrollbar">
+                            {[
+                                { id: '', label: 'All' },
+                                { id: 'DRAFT', label: 'Drafts' },
+                                { id: 'READY', label: 'Ready' },
+                                { id: 'PUBLISHED', label: 'Published' },
+                                { id: 'ARCHIVED', label: 'Archived' }
+                            ].map((status) => (
+                                <button
+                                    key={status.id}
+                                    onClick={() => setStatusFilter(status.id as AssessmentStatus | '')}
+                                    className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${statusFilter === status.id
+                                        ? 'bg-background text-foreground shadow-sm'
+                                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                                        }`}
+                                >
+                                    {status.label}
+                                </button>
+                            ))}
+                        </div>
                     </div>
 
                     {/* View Controls */}
-                    <div className="flex items-center gap-2 bg-muted/30 p-1 rounded-xl border border-border">
+                    <div className="flex items-center gap-3">
                         <button
-                            onClick={() => setViewMode('list')}
-                            className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                            title="List View"
+                            onClick={clearAllDrafts}
+                            className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors border border-transparent hover:border-destructive/20"
+                            title="Clear All Local Drafts"
                         >
-                            <List size={18} />
+                            <Eraser size={18} />
                         </button>
-                        <button
-                            onClick={() => setViewMode('grid')}
-                            className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                            title="Grid View"
-                        >
-                            <LayoutGrid size={18} />
-                        </button>
+                        <div className="flex items-center gap-2 bg-muted/30 p-1 rounded-xl border border-border">
+                            <button
+                                onClick={() => setViewMode('list')}
+                                className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                                title="List View"
+                            >
+                                <List size={18} />
+                            </button>
+                            <button
+                                onClick={() => setViewMode('grid')}
+                                className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                                title="Grid View"
+                            >
+                                <LayoutGrid size={18} />
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -201,13 +315,13 @@ const MyAssessmentsPage = () => {
                         animate={{ opacity: 1, y: 0 }}
                         className="flex flex-col items-center justify-center py-32 border-2 border-dashed border-border rounded-3xl bg-card/50"
                     >
-                        <div className="p-6 bg-muted/50 rounded-full mb-6 relative group cursor-pointer" onClick={() => router.push('/organizer/new-assessment')}>
+                        <div className="p-6 bg-muted/50 rounded-full mb-6 relative group cursor-pointer" onClick={() => router.push('/assessments/create')}>
                             <div className="absolute inset-0 bg-primary/20 rounded-full animate-ping opacity-20 group-hover:opacity-40" />
                             <Shield size={48} className="text-muted-foreground group-hover:text-primary transition-colors" />
                         </div>
                         <h3 className="text-xl font-bold text-foreground mb-2">No assessments found</h3>
                         <p className="text-muted-foreground mb-8 text-center max-w-sm">
-                            Get started by creating your first assessment. It only takes a few minutes.
+                            {searchQuery || statusFilter ? "Try adjusting your filters." : "Get started by creating your first assessment."}
                         </p>
                         <button
                             onClick={() => router.push('/assessments/create')}
@@ -243,8 +357,23 @@ const MyAssessmentsPage = () => {
                                             {assessments.map((assessment) => (
                                                 <tr
                                                     key={assessment.id}
+                                                    // List view row click
                                                     className="hover:bg-muted/30 transition-colors cursor-pointer"
-                                                    onClick={() => router.push(`/assessments/${assessment.id}`)}
+                                                    onClick={() => {
+                                                        if (assessment.status === 'DRAFT') {
+                                                            // ID is 'assessment_draft_...'
+                                                            // We need to extract the real UUID or 'new'
+                                                            const realId = assessment.id.replace('assessment_draft_', '');
+
+                                                            if (realId === 'new') {
+                                                                router.push('/assessments/create');
+                                                            } else {
+                                                                router.push(`/assessments/create?edit=${realId}`);
+                                                            }
+                                                        } else {
+                                                            router.push(`/assessments/${assessment.id}`);
+                                                        }
+                                                    }}
                                                 >
                                                     <td className="py-3 px-4">
                                                         <div className="flex items-center gap-3">
@@ -289,22 +418,24 @@ const MyAssessmentsPage = () => {
                                                     </td>
                                                     <td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
                                                         <div className="flex items-center justify-end gap-1">
-                                                            <button
-                                                                onClick={() => router.push(`/assessments/${assessment.id}`)}
-                                                                className="p-2 hover:bg-primary/10 text-primary rounded-lg transition-colors"
-                                                                title="View"
-                                                            >
-                                                                <Eye size={16} />
-                                                            </button>
-                                                            {assessment.status !== 'PUBLISHED' && (
+                                                            {assessment.status === 'DRAFT' || assessment.status === 'READY' ? (
                                                                 <button
-                                                                    onClick={() => router.push(`/organizer/new-assessment?edit=${assessment.id}`)}
+                                                                    onClick={() => router.push(`/assessments/create?edit=${assessment.id}`)}
                                                                     className="p-2 hover:bg-blue-500/10 text-blue-500 rounded-lg transition-colors"
                                                                     title="Edit"
                                                                 >
                                                                     <Edit size={16} />
                                                                 </button>
+                                                            ) : (
+                                                                <button
+                                                                    onClick={() => router.push(`/assessments/${assessment.id}`)}
+                                                                    className="p-2 hover:bg-primary/10 text-primary rounded-lg transition-colors"
+                                                                    title="View"
+                                                                >
+                                                                    <Eye size={16} />
+                                                                </button>
                                                             )}
+
                                                             <button
                                                                 onClick={() => handleDuplicate(assessment.id)}
                                                                 className="p-2 hover:bg-muted text-muted-foreground hover:text-foreground rounded-lg transition-colors"
@@ -345,8 +476,21 @@ const MyAssessmentsPage = () => {
                                         initial={{ opacity: 0, y: 20 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ delay: index * 0.05 }}
+                                        // Grid view item click
                                         className="group bg-card border border-border rounded-2xl p-6 hover:shadow-xl hover:border-primary/50 transition-all cursor-pointer relative overflow-hidden"
-                                        onClick={() => router.push(`/assessments/${assessment.id}`)}
+                                        onClick={() => {
+                                            if (assessment.status === 'DRAFT') {
+                                                const realId = assessment.id.replace('assessment_draft_', '');
+
+                                                if (realId === 'new') {
+                                                    router.push('/assessments/create');
+                                                } else {
+                                                    router.push(`/assessments/create?edit=${realId}`);
+                                                }
+                                            } else {
+                                                router.push(`/assessments/${assessment.id}`);
+                                            }
+                                        }}
                                     >
                                         <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
                                             <Eye className="text-muted-foreground" size={20} />
@@ -354,8 +498,9 @@ const MyAssessmentsPage = () => {
 
                                         <div className="flex items-start justify-between mb-4">
                                             <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold ${assessment.status === 'PUBLISHED' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/10' :
-                                                assessment.status === 'ARCHIVED' ? 'bg-slate-100 text-slate-600 dark:bg-slate-500/10' :
-                                                    'bg-amber-100 text-amber-600 dark:bg-amber-500/10'
+                                                assessment.status === 'READY' ? 'bg-blue-100 text-blue-600 dark:bg-blue-500/10' :
+                                                    assessment.status === 'ARCHIVED' ? 'bg-slate-100 text-slate-600 dark:bg-slate-500/10' :
+                                                        'bg-slate-100 text-slate-500 dark:bg-slate-500/10' // Draft
                                                 }`}>
                                                 {assessment.title.charAt(0).toUpperCase()}
                                             </div>
@@ -436,7 +581,9 @@ const MyAssessmentsPage = () => {
                                     <AlertCircle className="text-destructive" size={24} />
                                 </div>
                                 <div className="flex-1">
-                                    <h3 className="text-lg font-bold text-foreground mb-1">Delete Assessment?</h3>
+                                    <h3 className="text-lg font-bold text-foreground mb-1">
+                                        {statusFilter === 'DRAFT' ? "Delete Draft?" : "Delete Assessment?"}
+                                    </h3>
                                     <p className="text-sm text-muted-foreground">
                                         This action cannot be undone.
                                     </p>
@@ -461,7 +608,7 @@ const MyAssessmentsPage = () => {
                                     onClick={() => handleDelete(selectedAssessment.id)}
                                     className="px-4 py-2 rounded-xl bg-destructive text-destructive-foreground hover:opacity-90 transition-all text-sm font-bold shadow-lg shadow-destructive/20"
                                 >
-                                    Delete Assessment
+                                    {statusFilter === 'DRAFT' ? "Delete Draft" : "Delete Assessment"}
                                 </button>
                             </div>
                         </motion.div>

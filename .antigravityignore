@@ -1,0 +1,14 @@
+# Build output
+.next/
+node_modules/
+dist/
+
+# Large documentation files
+*.md
+!README.md
+
+# Git
+.git/
+
+# Logs
+*.log

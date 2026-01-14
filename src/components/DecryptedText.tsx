@@ -30,6 +30,7 @@ export default function DecryptedText({
     parentClassName = '',
     encryptedClassName = '',
     animateOn = 'hover',
+    animateInterval, // Extract this prop so it doesn't get spread to DOM
     ...props
 }: any) {
     const [displayText, setDisplayText] = useState(text);
@@ -180,9 +181,9 @@ export default function DecryptedText({
         };
     }, [animateOn, hasAnimated]);
 
-    // Looping logic - if props.animateInterval is present
+    // Looping logic - if animateInterval is present
     useEffect(() => {
-        if (!props.animateInterval || props.animateInterval <= 0) return;
+        if (!animateInterval || animateInterval <= 0) return;
 
         const loopInterval = setInterval(() => {
             if (!isScrambling) {
@@ -193,10 +194,10 @@ export default function DecryptedText({
                     setIsHovering(true);
                 }, 100);
             }
-        }, props.animateInterval);
+        }, animateInterval);
 
         return () => clearInterval(loopInterval);
-    }, [props.animateInterval, isScrambling]);
+    }, [animateInterval, isScrambling]);
 
 
 

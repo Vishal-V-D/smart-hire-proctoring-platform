@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { showToast } from '@/utils/toast';
+import AddAdminToCompanyModal from '@/components/organizer/AddAdminToCompanyModal';
 
 export default function CompanyDetailsPage() {
     const router = useRouter();
@@ -57,6 +58,9 @@ export default function CompanyDetailsPage() {
     const [showAssignModal, setShowAssignModal] = useState(false);
     const [selectedAssessmentId, setSelectedAssessmentId] = useState<string>('');
     const [assessmentSearch, setAssessmentSearch] = useState('');
+
+    // Add Admin Modal State
+    const [showAddAdminModal, setShowAddAdminModal] = useState(false);
 
     // Fetch Company Details
     const { data: company, isLoading: isLoadingCompany } = useQuery({
@@ -160,6 +164,21 @@ export default function CompanyDetailsPage() {
         },
         onError: () => {
             showToast('Failed to assign assessment', 'error');
+        }
+    });
+
+    // Add Admin Mutation
+    const addAdminMutation = useMutation({
+        mutationFn: (data: { adminName: string; adminEmail: string }) =>
+            companyService.addAdminByOrganizer({ companyId, ...data }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['company', companyId] });
+            showToast('Admin added successfully! Setup email sent.', 'success');
+            setShowAddAdminModal(false);
+        },
+        onError: (error: any) => {
+            const message = error.response?.data?.message || 'Failed to add admin';
+            showToast(message, 'error');
         }
     });
 
@@ -391,11 +410,18 @@ export default function CompanyDetailsPage() {
                             transition={{ delay: 0.2 }}
                             className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden"
                         >
-                            <div className="p-6 border-b border-border bg-muted/20">
+                            <div className="p-6 border-b border-border bg-muted/20 flex items-center justify-between">
                                 <h3 className="text-lg font-bold flex items-center gap-2 text-foreground">
                                     <Users className="text-purple-500" size={20} />
                                     Admin Users ({company.users?.length || 0})
                                 </h3>
+                                <button
+                                    onClick={() => setShowAddAdminModal(true)}
+                                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white font-semibold rounded-lg transition-all shadow-md hover:shadow-lg text-sm"
+                                >
+                                    <Plus size={16} />
+                                    Add Admin
+                                </button>
                             </div>
 
                             {company.users && company.users.length > 0 ? (
@@ -977,6 +1003,17 @@ export default function CompanyDetailsPage() {
                     </div>
                 )}
             </AnimatePresence>
+
+            {/* Add Admin Modal */}
+            <AddAdminToCompanyModal
+                isOpen={showAddAdminModal}
+                onClose={() => setShowAddAdminModal(false)}
+                onSubmit={async (data) => {
+                    await addAdminMutation.mutateAsync(data);
+                }}
+                companyName={company?.name || ''}
+                isLoading={addAdminMutation.isPending}
+            />
         </div>
     );
 }

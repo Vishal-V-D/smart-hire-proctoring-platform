@@ -3,7 +3,7 @@ import { io, Socket } from 'socket.io-client';
 
 // Define the socket URL - standardizing on port 4000 as per user request
 // In production this should come from env variables
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:4000';
+const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'https://smart-hire-backend-t0ik.onrender.com';
 
 class SocketService {
     private socket: Socket | null = null;

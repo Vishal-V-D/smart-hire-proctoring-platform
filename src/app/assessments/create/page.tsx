@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AssessmentConfig, AssessmentSection } from './types';
 import AssessmentSetup from './components/AssessmentSetup';
@@ -10,13 +10,18 @@ import { assessmentService } from '@/api/assessmentService';
 import { AuthContext } from '@/components/AuthProviderClient';
 import { useContext } from 'react';
 import { useSidebar } from '@/context/SidebarContext';
+import { Loader2, Check, AlertCircle } from 'lucide-react';
+import { useLocalDraft } from '@/hooks/useLocalDraft';
 
 // --- MAIN PAGE COMPONENT ---
 
 const NewAssessmentPage = () => {
+    const router = useRouter();
     const searchParams = useSearchParams();
     const editId = searchParams.get('edit'); // If present, we're editing
+    const isFresh = searchParams.get('fresh') === 'true';
     const auth = useContext(AuthContext);
+
     const userRole = auth?.user?.role?.toUpperCase();
     const listPath = userRole === 'ADMIN' || userRole === 'COMPANY' || userRole === 'admin'
         ? '/admin/assessments'
@@ -80,6 +85,289 @@ const NewAssessmentPage = () => {
 
     const [sections, setSections] = useState<AssessmentSection[]>([]);
 
+    // Use Ref for ID to avoid stale closures
+    const savedIdRef = React.useRef<string | null>(editId);
+
+    // Refs for latest data to be accessible by interval
+    const configRef = React.useRef(config);
+    const sectionsRef = React.useRef(sections);
+
+    const [isSaving, setIsSaving] = useState(false);
+    const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+    const [saveError, setSaveError] = useState<string | null>(null);
+    const [lastSaved, setLastSaved] = useState<Date | null>(null);
+
+    // Track intentional save to prevent browser warning
+    const isIntentionalSaveRef = React.useRef(false);
+
+    // Track last saved data to detect changes
+    const lastSavedDataRef = React.useRef<{
+        config: AssessmentConfig;
+        sections: AssessmentSection[];
+    } | null>(null);
+
+    // Helper function to clear ALL assessment drafts from localStorage
+    const clearAllAssessmentDrafts = () => {
+        const keys = Object.keys(localStorage);
+        const draftKeys = keys.filter(key => key.startsWith('assessment_draft_'));
+        draftKeys.forEach(key => {
+            localStorage.removeItem(key);
+            console.log('🧹 Cleared draft:', key);
+        });
+        console.log(`🧹 Cleared ${draftKeys.length} assessment draft(s) from localStorage`);
+    };
+
+    // Sync refs with state
+    useEffect(() => {
+        configRef.current = config;
+        sectionsRef.current = sections;
+        if (editId) {
+            savedIdRef.current = editId;
+        }
+    }, [config, sections, editId]);
+
+    // --- LOCAL DRAFT HOOK ---
+    // Auto-save to LocalStorage (debounced) whenever config/sections change
+    // Key uses editId if available, else 'new'
+    const draftKey = `assessment_draft_${editId || 'new'}`;
+    const { loadDraft, clearDraft, lastSaved: lastLocalSave } = useLocalDraft(draftKey, { config, sections }, !!(config.title && config.startDate && config.endDate), 500);
+
+    // --- RESTORE DRAFT ON MOUNT ---
+    useEffect(() => {
+        // If "fresh" start is requested, clear the 'new' draft (if no editId) and don't restore
+        if (isFresh && !editId) {
+            console.log("🧹 Fresh start requested. Clearing stale draft.");
+            clearDraft();
+
+            // Remove 'fresh' from URL so subsequent refreshes work normally (restore user's work)
+            const newUrl = new URL(window.location.href);
+            newUrl.searchParams.delete('fresh');
+            window.history.replaceState({}, '', newUrl.toString());
+            return;
+        }
+
+        // Only attempt restore if we are NOT editing an existing published assessment (or we check timestamps)
+        // For now, let's restore if we find a draft and we are in "create new" mode OR if the draft is for this specific ID.
+
+        const draft = loadDraft();
+        if (draft) {
+            const { data, timestamp } = draft;
+
+            // formatting helper
+            const timeStr = new Date(timestamp).toLocaleTimeString();
+
+            // Simple logic: If we are creating new (no editId), restore immediately.
+            // If editing, maybe we should ask? For now, we'll restore if it seems valid.
+            // We can check if config has title.
+            if (data.config && data.sections) {
+                console.log("📥 Restoring local draft from", timeStr);
+                const shouldRestore = !editId || confirm(`Found a local unsaved draft from ${timeStr}. Restore it?`);
+
+                if (shouldRestore) {
+                    setConfig(data.config);
+                    setSections(data.sections);
+                    import('@/utils/toast').then(({ showToast }) => {
+                        showToast(`Restored draft from ${timeStr}`, 'info');
+                    });
+                }
+            }
+
+        }
+    }, [editId, isFresh]); // Run once on mount (or when ID changes)
+
+    // Update last saved visual based on LocalStorage save
+    useEffect(() => {
+        if (lastLocalSave) {
+            setLastSaved(lastLocalSave);
+            setSaveStatus('saved');
+            // Reset to idle after 2s
+            const timer = setTimeout(() => setSaveStatus('idle'), 2000);
+            return () => clearTimeout(timer);
+        }
+    }, [lastLocalSave]);
+
+    // --- SAVE ON EXIT ---
+    useEffect(() => {
+        // Removing auto-save on unload to prevent backend spam.
+        // LocalStorage handles crash recovery.
+        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            if (isIntentionalSaveRef.current) return;
+            // If dirty, browser will show generic warning if we set returnValue
+            // We rely on LocalStorage which is already saved.
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, []);
+
+    // --- MANUAL SAVE DRAFT FUNCTION ---
+    const saveProgressToBackend = async () => {
+        // Read from REFS to get latest data
+        const currentId = savedIdRef.current;
+        const currentConfig = configRef.current;
+        const currentSections = sectionsRef.current;
+
+        if (currentConfig.title.trim().length < 3) {
+            const { showToast } = await import('@/utils/toast');
+            showToast("Please enter a title before saving.", 'warning');
+            return;
+        }
+
+        if (isSaving) return;
+
+        setIsSaving(true);
+        setSaveStatus('saving');
+        setSaveError(null);
+        try {
+            // Transform sections
+            const transformedSections = currentSections.map((section, index) => {
+                // Separate coding questions from regular questions
+                const codingQuestions = (section.questions || []).filter(q => q.type === 'coding' && q.problemId);
+                const regularQuestions = (section.questions || []).filter(q => !(q.type === 'coding' && q.problemId));
+
+                return {
+                    id: section.id,
+                    title: section.title || "Untitled Section",
+                    description: section.description || "",
+                    type: section.type || 'aptitude',
+                    questionCount: section.questionCount || 0,
+                    marksPerQuestion: section.marksPerQuestion || 1,
+                    timeLimit: section.timeLimit || 0,
+                    negativeMarking: section.negativeMarking || 0,
+                    difficulty: section.difficulty || 'Medium',
+                    enabledPatterns: section.enabledPatterns || [],
+                    themeColor: section.themeColor || '#6366f1',
+                    orderIndex: index,
+
+                    // All questions (including coding)
+                    questions: (section.questions || []).map((q, qIndex) => {
+                        const marks = q.marks ?? section.marksPerQuestion ?? 1;
+                        return {
+                            id: q.id,
+                            text: q.text || "",
+                            image: q.image || undefined,
+                            type: q.type || 'single_choice',
+                            options: q.options || [],
+                            correctAnswer: q.correctAnswer || undefined,
+                            explanation: (q as any).explanation || "",
+                            pseudocode: (q as any).pseudocode || "",
+                            division: (q as any).division || undefined,
+                            subdivision: (q as any).subdivision || undefined,
+                            topic: (q as any).topic || undefined,
+                            difficulty: (q as any).difficulty || 'Medium',
+                            tags: (q as any).tags || [],
+                            codeStub: q.codeStub || undefined,
+                            problemId: q.problemId || undefined,
+                            marks: marks,
+                            orderIndex: qIndex
+                        };
+                    }),
+
+                    // Coding questions (sent separately as 'problems')
+                    problems: codingQuestions.map((q, qIndex) => {
+                        const marks = q.marks ?? section.marksPerQuestion ?? 1;
+                        return {
+                            id: q.sectionProblemId || undefined, // SectionProblem UUID for updates (preserve history)
+                            problemId: q.problemId, // Required: UUID of the coding problem
+                            marks: marks,
+                            orderIndex: qIndex,
+                            testCaseConfig: q.testCaseConfig || undefined
+                        };
+                    })
+                };
+            });
+
+            const assessmentData = {
+                title: currentConfig.title.trim(),
+                description: currentConfig.description?.trim() || '',
+                startDate: currentConfig.startDate ? new Date(currentConfig.startDate).toISOString() : new Date().toISOString(),
+                endDate: currentConfig.endDate ? new Date(currentConfig.endDate).toISOString() : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+                duration: currentSections.reduce((acc, s) => acc + (s.timeLimit || 0), 0) || 60,
+                passPercentage: currentConfig.passPercentage,
+                timeMode: 'section' as const,
+                globalTime: 0,
+                proctoringSettings: currentConfig.proctoring,
+                navigationSettings: currentConfig.navigation,
+                sections: transformedSections
+            };
+
+            console.log('📤 [AUTO-SAVE] Sending assessment data:', {
+                title: assessmentData.title,
+                sectionsCount: transformedSections.length,
+                sections: transformedSections.map(s => ({
+                    title: s.title,
+                    type: s.type,
+                    questionsCount: s.questions.length,
+                    problemsCount: s.problems?.length || 0
+                }))
+            });
+
+            let response;
+            if (currentId) {
+                // UPDATE existing draft
+                response = await assessmentService.updateAssessment(currentId, assessmentData);
+                console.log('📝 Updated draft:', currentId);
+            } else {
+                // CREATE new draft
+                response = await assessmentService.createAssessment(assessmentData);
+                // Robust ID extraction
+                const newId = response.data?.id || response.data?.assessment?.id || response.data?.data?.id;
+
+                if (newId) {
+                    savedIdRef.current = newId;
+                    console.log('📝 Created new draft:', newId);
+
+                    // Update URL silently so refresh doesn't duplicate
+                    const newUrl = new URL(window.location.href);
+                    newUrl.searchParams.set('edit', newId);
+                    window.history.replaceState({}, '', newUrl.toString());
+                }
+            }
+
+            setSaveStatus('saved');
+            // setLastSaved(new Date()); // Handled by LC hook mostly, but this confirms backend sync
+            const { showToast } = await import('@/utils/toast');
+            showToast("Draft saved to cloud!", 'success');
+
+            // Clear local draft as we are in sync
+            clearDraft();
+
+            // Store snapshot of saved data for change detection
+            lastSavedDataRef.current = {
+                config: { ...currentConfig },
+                sections: JSON.parse(JSON.stringify(currentSections))
+            };
+        } catch (error: any) {
+            console.error('❌ Auto-save failed:', error);
+            setSaveStatus('error');
+
+            // Robust error message extraction
+            let msg = 'Failed to save draft';
+
+            if (error?.response?.data) {
+                const data = error.response.data;
+                if (data.message) {
+                    msg = Array.isArray(data.message) ? data.message.join(', ') : data.message;
+                } else if (data.error) {
+                    msg = typeof data.error === 'string' ? data.error : JSON.stringify(data.error);
+                } else if (typeof data === 'string') {
+                    msg = data;
+                }
+            } else if (error.message) {
+                msg = error.message;
+            }
+
+            setSaveError(msg);
+
+            // Show toast for the error
+            const { showToast } = await import('@/utils/toast');
+            showToast(msg, 'error');
+
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
     // --- EFFECT: Fetch existing assessment if editing ---
     useEffect(() => {
         if (editId) {
@@ -138,35 +426,59 @@ const NewAssessmentPage = () => {
 
             // Populate sections from assessment data
             if (assessment.sections && assessment.sections.length > 0) {
-                const loadedSections: AssessmentSection[] = assessment.sections.map((s: any) => ({
-                    id: s.id,
-                    title: s.title || "",
-                    description: s.description || "",
-                    type: s.type || 'aptitude',
-                    questionCount: s.questionCount || 0,
-                    marksPerQuestion: s.marksPerQuestion || 1,
-                    timeLimit: s.timeLimit || 30,
-                    negativeMarking: s.negativeMarking || 0,
-                    difficulty: s.difficulty || 'Medium',
-                    themeColor: s.themeColor || '#6366f1',
-                    enabledPatterns: s.enabledPatterns || [],
-                    orderIndex: s.orderIndex || 0,
-                    questions: (s.questions || []).map((q: any) => ({
+                const loadedSections: AssessmentSection[] = assessment.sections.map((s: any) => {
+                    // Map regular questions
+                    const regularQuestions = (s.questions || []).map((q: any) => ({
                         id: q.id,
                         text: q.text || "",
                         image: q.image || undefined,
                         type: q.type || 'single_choice',
                         options: q.options || [],
                         correctAnswer: q.correctAnswer,
+                        explanation: q.explanation || "",
+                        pseudocode: q.pseudocode || "",
+                        division: q.division || undefined,
+                        subdivision: q.subdivision || undefined,
+                        topic: q.topic || undefined,
+                        difficulty: q.difficulty || 'Medium',
+                        tags: q.tags || [],
                         codeStub: q.codeStub || undefined,
-                        marks: q.marks || 1,
+                        marks: q.marks ?? 1,
                         orderIndex: q.orderIndex || 0,
-                        problemId: q.problemId || undefined,
-                        problemData: q.problemData || undefined,
-                        sectionProblemId: q.sectionProblemId || undefined, // For test case configuration
-                        testCaseConfig: q.testCaseConfig || undefined, // For test case configuration
-                    }))
-                }));
+                    }));
+
+                    // Map coding problems (from separate 'problems' array)
+                    const codingProblems = (s.problems || []).map((p: any) => ({
+                        id: p.id, // This is the question ID in frontend
+                        type: 'coding' as const,
+                        text: p.problem?.title || p.problemData?.title || "Coding Problem",
+                        problemId: p.problemId, // UUID of the coding problem
+                        sectionProblemId: p.id, // SectionProblem UUID (for updates)
+                        problemData: p.problem || p.problemData || undefined,
+                        marks: p.marks ?? 1,
+                        orderIndex: p.orderIndex || 0,
+                        testCaseConfig: p.testCaseConfig || undefined,
+                    }));
+
+                    // Merge both arrays and sort by orderIndex
+                    const allQuestions = [...regularQuestions, ...codingProblems].sort((a, b) => a.orderIndex - b.orderIndex);
+
+                    return {
+                        id: s.id,
+                        title: s.title || "",
+                        description: s.description || "",
+                        type: s.type || 'aptitude',
+                        questionCount: s.questionCount || 0,
+                        marksPerQuestion: s.marksPerQuestion || 1,
+                        timeLimit: s.timeLimit || 30,
+                        negativeMarking: s.negativeMarking || 0,
+                        difficulty: s.difficulty || 'Medium',
+                        themeColor: s.themeColor || '#6366f1',
+                        enabledPatterns: s.enabledPatterns || [],
+                        orderIndex: s.orderIndex || 0,
+                        questions: allQuestions
+                    };
+                });
                 setSections(loadedSections);
             }
 
@@ -246,63 +558,81 @@ const NewAssessmentPage = () => {
         }
 
         try {
+            // Mark this as intentional save to prevent browser warning
+            isIntentionalSaveRef.current = true;
+
             console.log("📤 Publishing Assessment:", { config, sections, isEditMode });
 
             // Show loading toast
             const { showToast } = await import('@/utils/toast');
-            showToast(isEditMode ? 'Updating assessment...' : 'Creating assessment...', 'info');
+
+            // Determine if we are updating (either Edit Mode OR we have auto-saved already)
+            const targetId = editId || savedIdRef.current;
+            const isUpdating = !!targetId;
+
+            showToast(isUpdating ? 'Updating assessment...' : 'Creating assessment...', 'info');
 
             // Transform sections to match backend API format
-            const transformedSections = sections.map((section, index) => ({
-                id: section.id, // Include ID for update
-                title: section.title,
-                description: section.description,
-                type: section.type,
-                questionCount: section.questionCount,
-                marksPerQuestion: section.marksPerQuestion,
-                timeLimit: section.timeLimit,
-                negativeMarking: section.negativeMarking,
-                difficulty: section.difficulty,
-                enabledPatterns: section.enabledPatterns || [],
-                themeColor: section.themeColor,
-                orderIndex: index,
-                questions: (section.questions || []).map((q, qIndex) => {
-                    // marks = user-set in assessment builder, else section default
-                    // IMPORTANT: When adding problems, do NOT copy problem's original marks
-                    const marks = q.marks ?? section.marksPerQuestion;
+            const transformedSections = sections.map((section, index) => {
+                // Separate coding questions for the 'problems' array (legacy/specific handling)
+                const codingQuestions = (section.questions || []).filter(q => q.type === 'coding' && q.problemId);
 
-                    // For coding questions, send only problemId and testCaseConfig
-                    if (q.type === 'coding' && q.problemId) {
+                // IMPORTANT: For CREATION, we must pass coding questions in the main 'questions' array too
+                // The backend likely expects them there to create the initial link.
+                // We keep them in 'problems' as well for updates/metadata.
+                const allQuestions = section.questions || [];
+
+                return {
+                    id: section.id, // Include ID for update
+                    title: section.title,
+                    description: section.description,
+                    type: section.type,
+                    questionCount: section.questionCount,
+                    marksPerQuestion: section.marksPerQuestion,
+                    timeLimit: section.timeLimit,
+                    negativeMarking: section.negativeMarking,
+                    difficulty: section.difficulty,
+                    enabledPatterns: section.enabledPatterns || [],
+                    themeColor: section.themeColor,
+                    orderIndex: index,
+
+                    // All questions (including coding)
+                    questions: allQuestions.map((q, qIndex) => {
+                        const marks = q.marks ?? section.marksPerQuestion;
                         return {
                             id: q.id,
-                            type: 'coding' as const,
-                            problemId: q.problemId,
+                            text: q.text,
+                            image: q.image || undefined,
+                            type: q.type,
+                            options: q.options || undefined,
+                            correctAnswer: q.correctAnswer || undefined,
+                            explanation: (q as any).explanation || undefined,
+                            pseudocode: (q as any).pseudocode || undefined,
+                            division: (q as any).division || undefined,
+                            subdivision: (q as any).subdivision || undefined,
+                            topic: (q as any).topic || undefined,
+                            difficulty: (q as any).difficulty || undefined,
+                            tags: (q as any).tags || undefined,
+                            codeStub: q.codeStub || undefined,
+                            problemId: q.problemId || undefined, // Include problemId for coding questions
+                            marks: marks,
+                            orderIndex: qIndex
+                        };
+                    }),
+
+                    // Coding questions (sent separately as 'problems' for testCaseConfig and update support)
+                    problems: codingQuestions.map((q, qIndex) => {
+                        const marks = q.marks ?? section.marksPerQuestion;
+                        return {
+                            id: q.sectionProblemId || undefined, // SectionProblem UUID for updates (preserve history)
+                            problemId: q.problemId, // Required: UUID of the coding problem
                             marks: marks,
                             orderIndex: qIndex,
                             testCaseConfig: q.testCaseConfig || undefined
                         };
-                    }
-                    // For MCQ and other types, send full data with ALL fields
-                    return {
-                        id: q.id,
-                        text: q.text,
-                        image: q.image || undefined,
-                        type: q.type,
-                        options: q.options || undefined,
-                        correctAnswer: q.correctAnswer || undefined,
-                        explanation: (q as any).explanation || undefined,
-                        pseudocode: (q as any).pseudocode || undefined,  // ✅ CRITICAL: Include pseudocode
-                        division: (q as any).division || undefined,
-                        subdivision: (q as any).subdivision || undefined,
-                        topic: (q as any).topic || undefined,
-                        difficulty: (q as any).difficulty || undefined,
-                        tags: (q as any).tags || undefined,
-                        codeStub: q.codeStub || undefined,
-                        marks: marks,
-                        orderIndex: qIndex
-                    };
-                })
-            }));
+                    })
+                };
+            });
 
             // Prepare assessment data - ensure dates are properly formatted
             const assessmentData = {
@@ -322,19 +652,29 @@ const NewAssessmentPage = () => {
             console.log("📦 Transformed Assessment Data:", assessmentData);
 
             let response;
-            if (isEditMode && editId) {
-                // UPDATE existing assessment
-                response = await assessmentService.updateAssessment(editId, assessmentData);
+            if (isUpdating && targetId) {
+                // UPDATE existing assessment (or draft)
+                response = await assessmentService.updateAssessment(targetId, assessmentData);
                 console.log("✅ Assessment updated successfully:", response.data);
                 showToast('Assessment updated successfully!', 'success');
+
+                // Clear ALL assessment drafts from localStorage
+                clearAllAssessmentDrafts();
+
                 setTimeout(() => {
-                    window.location.href = `${listPath}/${editId}`; // Or just listPath if detail view differs
+                    // If true edit mode, maybe go to details? For now, list page is safe default for both flow.
+                    // Or follow existing pattern:
+                    window.location.href = listPath;
                 }, 1000);
             } else {
-                // CREATE new assessment
+                // CREATE new assessment (fallback)
                 response = await assessmentService.createAssessment(assessmentData);
                 console.log("✅ Assessment created successfully:", response.data);
                 showToast('Assessment created successfully!', 'success');
+
+                // Clear ALL assessment drafts from localStorage to prevent stale data
+                clearAllAssessmentDrafts();
+
                 // Navigate to assessment list page after creation
                 console.log("📍 Navigating to assessment list page");
                 setTimeout(() => {
@@ -346,11 +686,24 @@ const NewAssessmentPage = () => {
             console.error("❌ Failed to save assessment:", error);
             const { showToast } = await import('@/utils/toast');
 
-            // Extract error message from response
-            const errorMessage = error.response?.data?.message
-                || error.response?.data?.error
-                || error.message
-                || 'An unexpected error occurred';
+            // Robust error message extraction
+            let errorMessage = 'An unexpected error occurred';
+
+            if (error?.response?.data) {
+                const data = error.response.data;
+                // Check if message is directly in data
+                if (data.message) {
+                    errorMessage = Array.isArray(data.message) ? data.message.join(', ') : data.message;
+                } else if (data.error) {
+                    // Sometimes error is the field
+                    errorMessage = typeof data.error === 'string' ? data.error : JSON.stringify(data.error);
+                } else if (typeof data === 'string') {
+                    // Sometimes the body is just a string
+                    errorMessage = data;
+                }
+            } else if (error.message) {
+                errorMessage = error.message;
+            }
 
             showToast(errorMessage, 'error');
         }
@@ -386,6 +739,35 @@ const NewAssessmentPage = () => {
 
             {/* MAIN CONTAINER */}
             <div className={`relative w-full h-full flex flex-col z-10 perspective-[1000px] ${phase === 'setup' ? 'px-0 md:px-4 py-6' : 'px-0'}`}>
+
+                {/* SAVE STATUS INDICATOR */}
+                <div className="absolute top-4 right-4 z-50 flex items-center gap-2 px-3 py-1.5 bg-background/80 backdrop-blur-md border border-border rounded-full shadow-sm text-xs font-medium text-muted-foreground transition-all hover:bg-background/90">
+                    {saveStatus === 'saving' && (
+                        <>
+                            <Loader2 className="animate-spin text-primary" size={12} />
+                            <span className="text-primary">Saving...</span>
+                        </>
+                    )}
+                    {saveStatus === 'saved' && (
+                        <>
+                            <Check size={12} className="text-emerald-500" />
+                            <span className="text-emerald-600">Saved {lastSaved?.toLocaleTimeString()}</span>
+                        </>
+                    )}
+                    {saveStatus === 'error' && (
+                        <div className="flex items-center gap-2 text-destructive" title={saveError || 'Save Failed'}>
+                            <AlertCircle size={12} />
+                            <span>{saveError || 'Save Failed'}</span>
+                        </div>
+                    )}
+                    {saveStatus === 'idle' && !lastSaved && (
+                        <span className="text-muted-foreground/50">Draft - Unsaved</span>
+                    )}
+                    {saveStatus === 'idle' && lastSaved && (
+                        <span className="text-muted-foreground/70">Saved {lastSaved.toLocaleTimeString()}</span>
+                    )}
+                </div>
+
                 <AnimatePresence mode='wait'>
                     {phase === 'setup' ? (
                         <motion.div
@@ -418,6 +800,7 @@ const NewAssessmentPage = () => {
                                 setSections={setSections}
                                 onBack={() => setPhase('setup')}
                                 onPublish={handlePublish}
+                                onSaveDraft={saveProgressToBackend}
                                 isEditMode={isEditMode}
                             />
                         </motion.div>

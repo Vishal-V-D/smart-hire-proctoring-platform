@@ -2,7 +2,7 @@
 
 import axiosContestClient from "./axiosContestClient";
 
-export type AssessmentStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+export type AssessmentStatus = 'DRAFT' | 'READY' | 'PUBLISHED' | 'ARCHIVED';
 
 export type CreateAssessmentData = {
     title: string;
@@ -137,7 +137,8 @@ export const assessmentService = {
      * Get all assessments for the logged-in organizer
      */
     listAssessments: (params?: AssessmentListParams) => {
-        const query = new URLSearchParams(params as any).toString();
+        const cleanParams = params ? Object.fromEntries(Object.entries(params).filter(([_, v]) => v !== undefined && v !== null && v !== '')) : {};
+        const query = new URLSearchParams(cleanParams as any).toString();
         return axiosContestClient.get(`/assessments${query ? `?${query}` : ''}`);
     },
 
@@ -259,7 +260,8 @@ export const assessmentService = {
      * Get all submissions for an assessment
      */
     getSubmissions: (assessmentId: string, params?: { page?: number; limit?: number; status?: string }) => {
-        const query = new URLSearchParams(params as any).toString();
+        const cleanParams = params ? Object.fromEntries(Object.entries(params).filter(([_, v]) => v !== undefined && v !== null && v !== '')) : {};
+        const query = new URLSearchParams(cleanParams as any).toString();
         return axiosContestClient.get<{
             success: boolean;
             submissions: SubmissionReport[];
@@ -301,7 +303,8 @@ export const assessmentService = {
      * Query params: page, limit, types (comma-separated), sessionId, since
      */
     getViolations: (assessmentId: string, params?: ViolationsQueryParams) => {
-        const query = new URLSearchParams(params as any).toString();
+        const cleanParams = params ? Object.fromEntries(Object.entries(params).filter(([_, v]) => v !== undefined && v !== null && v !== '')) : {};
+        const query = new URLSearchParams(cleanParams as any).toString();
         return axiosContestClient.get<{
             success: boolean;
             violations: Violation[];
@@ -344,7 +347,8 @@ export const assessmentService = {
      * Query params: page, limit, status, sortBy, sortOrder, search
      */
     getParticipantReports: (assessmentId: string, params?: ReportsQueryParams) => {
-        const query = new URLSearchParams(params as any).toString();
+        const cleanParams = params ? Object.fromEntries(Object.entries(params).filter(([_, v]) => v !== undefined && v !== null && v !== '')) : {};
+        const query = new URLSearchParams(cleanParams as any).toString();
         return axiosContestClient.get<ReportsResponse>(
             `/admin/assessments/${assessmentId}/reports${query ? `?${query}` : ''}`
         );

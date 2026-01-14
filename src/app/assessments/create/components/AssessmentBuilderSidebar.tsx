@@ -2,10 +2,11 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import { Layers, Plus, ChevronDown, Check, LayoutTemplate, Box, ChevronLeft, ChevronRight, GripVertical, Trash2, Briefcase, Code, Database, Sparkles, Brain, Server, Terminal, FileCode2, Pen, CheckCircle2, X, Hash, Dices, Cloud, Copy, Clock } from 'lucide-react';
-import { AssessmentConfig, AssessmentSection, SectionType } from '../types';
+import { AssessmentConfig, AssessmentSection, SectionType, QuestionType } from '../types';
 import { ASSESSMENT_CATEGORIES } from './utils';
 import { getSectionDefaults } from './utils';
-import { questionBankService } from '@/api/questionBankService';
+import { questionBankService, FilterOptions } from '@/api/questionBankService';
+import { codingQuestionService } from '@/api/codingQuestionService';
 
 interface AssessmentBuilderSidebarProps {
     sections: AssessmentSection[];
@@ -179,7 +180,47 @@ export const AssessmentBuilderSidebar: React.FC<AssessmentBuilderSidebarProps> =
     const [activeTab, setActiveTab] = useState<'library' | 'layouts' | 'structure'>('library');
     const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
     const [showRandomModal, setShowRandomModal] = useState(false);
-    const [randomConfig, setRandomConfig] = useState({ sections: 3, questions: 10 });
+    const [randomConfig, setRandomConfig] = useState({
+        sections: 3,
+        questions: 10,
+        difficulty: '' as 'Easy' | 'Medium' | 'Hard' | '',
+        division: '',
+        topic: '', // subdivision
+        type: '' as QuestionType | '',
+        tags: [] as string[]
+    });
+    const [filterOptions, setFilterOptions] = useState<FilterOptions | null>(null);
+    const [dynamicSubdivisions, setDynamicSubdivisions] = useState<string[]>([]);
+
+    // Fetch filter options when modal opens
+    React.useEffect(() => {
+        if (showRandomModal && !filterOptions) {
+            questionBankService.getFilterOptions().then(res => {
+                setFilterOptions(res.data);
+                setDynamicSubdivisions(res.data.subdivisions);
+            }).catch(console.error);
+        }
+    }, [showRandomModal, filterOptions]);
+
+    // Dynamic filtering for Subdivisions based on Division
+    React.useEffect(() => {
+        if (randomConfig.division?.toLowerCase() === 'coding') {
+            // Fetch coding topics from codingQuestionService
+            codingQuestionService.getTags().then(res => {
+                if (res.data.success && res.data.tags) {
+                    setDynamicSubdivisions(res.data.tags);
+                }
+            }).catch(console.error);
+        } else if (randomConfig.division) {
+            // If a division is selected, fetch specific subdivisions (and tags potentially)
+            questionBankService.getFilterOptions(randomConfig.division).then(res => {
+                setDynamicSubdivisions(res.data.subdivisions);
+            }).catch(console.error);
+        } else if (filterOptions) {
+            // Reset to all if no division selected
+            setDynamicSubdivisions(filterOptions.subdivisions);
+        }
+    }, [randomConfig.division, filterOptions]);
 
     const scrollToSection = (id: string) => {
         const element = document.getElementById(`section-${id}`);
@@ -218,12 +259,45 @@ export const AssessmentBuilderSidebar: React.FC<AssessmentBuilderSidebarProps> =
 
             // Fetch a large pool of questions once to avoid too many requests, or fetch per section?
             // Fetching a larger pool is better for randomness.
-            const response = await questionBankService.listQuestions({
-                limit: 100, // Fetch a large pool
-                page: 1
-            });
+            // Fetch a large pool of questions based on selected filters
+            // IF Coding division is selected, use the Coding Question Service
+            let allQuestions: any[] = [];
 
-            const allQuestions = response.data.questions || [];
+            if (randomConfig.division?.toLowerCase() === 'coding') {
+                // Slugify topic for API if present (Coding Service expects slugs)
+                const topicSlug = randomConfig.topic ? randomConfig.topic.toLowerCase().replace(/\s+/g, '-') : undefined;
+
+                const response = await codingQuestionService.listProblems({
+                    take: 100,
+                    skip: 0,
+                    difficulty: randomConfig.difficulty || undefined,
+                    tags: topicSlug ? [topicSlug] : (randomConfig.tags.length > 0 ? randomConfig.tags : undefined)
+                });
+
+                // Map CodingProblems to the Question structure used by the builder
+                allQuestions = (response.data.problems || []).map(p => ({
+                    id: p.id, // Use original ID temporarily or new? Downstream we gen new ID.
+                    text: p.title, // Title becomes text for coding Qs
+                    type: 'coding',
+                    codeStub: p.starterCode?.python || p.starterCode?.javascript,
+                    problemId: p.id,
+                    problemData: p,
+                    topic: p.topicTags?.[0]?.name || 'Coding', // Use first tag as topic
+                    tags: p.topicTags?.map(t => t.name)
+                }));
+            } else {
+                // Standard Question Bank
+                const response = await questionBankService.listQuestions({
+                    limit: 100,
+                    page: 1,
+                    division: randomConfig.division || undefined,
+                    subdivision: randomConfig.topic || undefined,
+                    difficulty: randomConfig.difficulty || undefined,
+                    type: randomConfig.type || undefined,
+                    tags: randomConfig.tags.length > 0 ? randomConfig.tags : undefined
+                });
+                allQuestions = response.data.questions || [];
+            }
 
             if (allQuestions.length === 0) {
                 alert("No questions found in the Question Bank to generate from.");
@@ -323,7 +397,7 @@ export const AssessmentBuilderSidebar: React.FC<AssessmentBuilderSidebarProps> =
                 } as AssessmentSection);
             }
 
-            setSections(newSections);
+            setSections(prev => [...prev, ...newSections]);
             setLastAddedSectionId(newSections[0].id);
             setShowRandomModal(false);
             setActiveTab('structure');
@@ -544,6 +618,75 @@ export const AssessmentBuilderSidebar: React.FC<AssessmentBuilderSidebarProps> =
                                                     className="flex-1 h-1.5 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary ml-2"
                                                 />
                                                 <span className="w-8 text-center text-xs font-bold text-primary">{randomConfig.questions}</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-3 pt-2 border-t border-primary/10">
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-bold text-muted-foreground uppercase">Difficulty</label>
+                                                <select
+                                                    value={randomConfig.difficulty}
+                                                    onChange={(e) => setRandomConfig(prev => ({ ...prev, difficulty: e.target.value as any }))}
+                                                    className="w-full p-2 rounded-lg bg-background/50 border border-primary/10 text-xs outline-none focus:border-primary/40"
+                                                >
+                                                    <option value="">Any Difficulty</option>
+                                                    <option value="Easy">Easy</option>
+                                                    <option value="Medium">Medium</option>
+                                                    <option value="Hard">Hard</option>
+                                                </select>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-bold text-muted-foreground uppercase">Type</label>
+                                                <select
+                                                    value={randomConfig.type}
+                                                    onChange={(e) => setRandomConfig(prev => ({ ...prev, type: e.target.value as any }))}
+                                                    className="w-full p-2 rounded-lg bg-background/50 border border-primary/10 text-xs outline-none focus:border-primary/40"
+                                                >
+                                                    <option value="">Any Type</option>
+                                                    <option value="single_choice">MCQ (Single)</option>
+                                                    <option value="multiple_choice">MCQ (Multi)</option>
+                                                    <option value="fill_in_the_blank">Fill in Blanks</option>
+                                                </select>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-bold text-muted-foreground uppercase">Division</label>
+                                                <select
+                                                    value={randomConfig.division}
+                                                    onChange={(e) => setRandomConfig(prev => ({ ...prev, division: e.target.value }))}
+                                                    className="w-full p-2 rounded-lg bg-background/50 border border-primary/10 text-xs outline-none focus:border-primary/40"
+                                                >
+                                                    <option value="">Any Division</option>
+                                                    <option value="coding">Coding</option>
+                                                    {filterOptions?.divisions?.filter(d => d.toLowerCase() !== 'coding').map((div, i) => (
+                                                        <option key={i} value={div}>{div}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-bold text-muted-foreground uppercase">Subdivision</label>
+                                                <select
+                                                    value={randomConfig.topic}
+                                                    onChange={(e) => setRandomConfig(prev => ({ ...prev, topic: e.target.value }))}
+                                                    className="w-full p-2 rounded-lg bg-background/50 border border-primary/10 text-xs outline-none focus:border-primary/40"
+                                                >
+                                                    <option value="">Any Subdivision</option>
+                                                    {dynamicSubdivisions.map((sub, i) => (
+                                                        <option key={i} value={sub}>{sub}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div className="col-span-2 space-y-1">
+                                                <label className="text-[10px] font-bold text-muted-foreground uppercase">Tag (Optional)</label>
+                                                <select
+                                                    value={randomConfig.tags[0] || ''}
+                                                    onChange={(e) => setRandomConfig(prev => ({ ...prev, tags: e.target.value ? [e.target.value] : [] }))}
+                                                    className="w-full p-2 rounded-lg bg-background/50 border border-primary/10 text-xs outline-none focus:border-primary/40"
+                                                >
+                                                    <option value="">Any Tag</option>
+                                                    {filterOptions?.tags?.map((tag, i) => (
+                                                        <option key={i} value={tag}>{tag}</option>
+                                                    ))}
+                                                </select>
                                             </div>
                                         </div>
 
