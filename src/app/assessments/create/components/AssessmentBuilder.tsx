@@ -192,7 +192,8 @@ const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({ config, sections,
                 'aptitude': 'Aptitude',
                 'technical': 'Technical',
                 'coding': 'Coding',
-                'subjective': 'Subjective'
+                'subjective': 'Subjective',
+                'sql': 'SQL'
             };
 
             division = sectionTypeToDivision[section.type] || section.type.charAt(0).toUpperCase() + section.type.slice(1);

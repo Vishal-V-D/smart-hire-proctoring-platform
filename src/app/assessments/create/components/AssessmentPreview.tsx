@@ -4,51 +4,16 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowRight, Save, Layers, Shield, Check, FileText, CheckCircle, Clock, X, Edit3 } from 'lucide-react';
 
-interface Section {
-    id: string;
-    title: string;
-    type: 'aptitude' | 'technical' | 'coding' | 'subjective';
-    difficulty: string;
-    timeLimit: number;
-    marksPerQuestion: number;
-    questions?: any[];
-    themeColor?: string;
-}
-
-interface AssessmentConfig {
-    title: string;
-    description: string;
-    duration: number;
-    proctoring: {
-        enabled: boolean;
-        videoMonitoring: boolean;
-        screenRecording: boolean;
-        audioMonitoring: boolean;
-        audioRecording: boolean;
-        imageMonitoring: boolean;
-        faceDetection: boolean;
-        personDetection: boolean;
-        eyeTracking: boolean;
-        objectDetection: boolean;
-        noiseDetection: boolean;
-        fullscreen: boolean;
-        disableCopyPaste: boolean;
-        blockRightClick: boolean;
-        blockExternalMonitor: boolean;
-        tabSwitchLimit: number;
-        verifyIDCard: boolean;
-        verifyFace: boolean;
-    };
-}
+import { AssessmentConfig, AssessmentSection } from '../types';
 
 interface AssessmentPreviewProps {
     config: AssessmentConfig;
-    sections: Section[];
+    sections: AssessmentSection[];
     isEditMode: boolean;
     onBack: () => void;
     onSaveDraft?: () => void;
     onPublish: () => void;
-    onUpdateSection?: (sectionId: string, updates: Partial<Section>) => void;
+    onUpdateSection?: (sectionId: string, updates: Partial<AssessmentSection>) => void;
     onDeleteSection?: (sectionId: string) => void;
 }
 
@@ -82,7 +47,7 @@ export default function AssessmentPreview({
         return colorMap[color] || colorMap.gray;
     };
 
-    const calculateSectionMarks = (section: Section) => {
+    const calculateSectionMarks = (section: AssessmentSection) => {
         return (section.questions?.length || 0) * section.marksPerQuestion;
     };
 

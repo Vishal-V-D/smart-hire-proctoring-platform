@@ -673,9 +673,14 @@ function SQLPageContent() {
                         {/* Input Tables - Database Schema */}
                         {problem?.inputTables && (() => {
                             try {
-                                const tables = typeof problem.inputTables === 'string'
+                                let tables = typeof problem.inputTables === 'string'
                                     ? JSON.parse(problem.inputTables)
                                     : problem.inputTables;
+
+                                // Support single table object by wrapping in array for robust rendering
+                                if (tables && !Array.isArray(tables) && typeof tables === 'object') {
+                                    tables = [tables];
+                                }
 
                                 if (!Array.isArray(tables)) {
                                     return null;
