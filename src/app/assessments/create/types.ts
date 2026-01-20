@@ -73,7 +73,7 @@ export interface PlagiarismConfig {
 
 
 // Define Question Types
-export type QuestionType = 'single_choice' | 'multiple_choice' | 'fill_in_the_blank' | 'coding';
+export type QuestionType = 'single_choice' | 'multiple_choice' | 'fill_in_the_blank' | 'coding' | 'sql';
 
 export interface Question {
     id: string;

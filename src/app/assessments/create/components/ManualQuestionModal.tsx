@@ -318,6 +318,7 @@ const ManualQuestionModal: React.FC<ManualQuestionModalProps> = ({ isOpen, onClo
             case 'single_choice': return <List size={16} />;
             case 'multiple_choice': return <CheckSquare size={16} />;
             case 'fill_in_the_blank': return <Type size={16} />;
+            case 'sql': return <Database size={16} />;
         }
     };
 

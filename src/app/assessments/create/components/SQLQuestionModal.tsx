@@ -111,7 +111,7 @@ const SQLQuestionModal: React.FC<SQLQuestionModalProps> = ({ isOpen, onClose, on
 
             const response = await sqlQuestionService.listQuestions(filtersToUse);
             setSqlQuestions(response.data.questions || []);
-            setSqlTotal(response.data.total || 0);
+            setSqlTotal(response.data.pagination?.total || 0);
         } catch (error) {
             console.error("Failed to fetch SQL questions:", error);
             // Fallback or empty state handled by UI

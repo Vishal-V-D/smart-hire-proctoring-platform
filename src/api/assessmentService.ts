@@ -63,7 +63,7 @@ export type QuestionData = {
     id?: string; // For updates
     text?: string; // Optional for coding questions with problemId
     image?: string;
-    type: 'single_choice' | 'multiple_choice' | 'fill_in_the_blank' | 'coding';
+    type: 'single_choice' | 'multiple_choice' | 'fill_in_the_blank' | 'coding' | 'sql';
     options?: string[];
     correctAnswer?: string | string[];
     codeStub?: string;
