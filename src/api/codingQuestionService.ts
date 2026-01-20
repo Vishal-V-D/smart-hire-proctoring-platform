@@ -19,6 +19,9 @@ export type LanguageCode = {
     'c++'?: string;
     java?: string;
     javascript?: string;
+    sql?: string;
+    mysql?: string;
+    postgresql?: string;
 };
 
 export type CodingProblem = {

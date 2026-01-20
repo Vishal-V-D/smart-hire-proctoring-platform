@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { WifiOff, Wifi, AlertTriangle } from 'lucide-react';
+import { WifiOff, Wifi, AlertTriangle, X } from 'lucide-react';
 
 export default function NetworkMonitor() {
     const [status, setStatus] = useState<'online' | 'offline' | 'poor'>('online');
     const [details, setDetails] = useState<string>('');
+    const [isDismissed, setIsDismissed] = useState(false);
 
     useEffect(() => {
         // Initial status
@@ -37,6 +38,7 @@ export default function NetworkMonitor() {
     const handleOnline = () => {
         console.log('🌐 Network is ONLINE');
         setStatus('online');
+        setIsDismissed(false); // Reset dismiss state when connection improves
         // Re-check quality
         const connection = (navigator as any).connection;
         if (connection) {
@@ -47,6 +49,7 @@ export default function NetworkMonitor() {
     const handleOffline = () => {
         console.log('❌ Network is OFFLINE');
         setStatus('offline');
+        setIsDismissed(false); // Reset dismiss state on offline
     };
 
     const updateConnectionQuality = (connection: any) => {
@@ -65,6 +68,7 @@ export default function NetworkMonitor() {
         if (effectiveType === 'slow-2g' || effectiveType === '2g' || (rtt && rtt > 500) || (downlink && downlink < 1)) {
             setStatus('poor');
             setDetails(`Signal: ${effectiveType?.toUpperCase() || 'Weak'} (${downlink} Mbps)`);
+            setIsDismissed(false); // Show warning again if connection degrades
         } else {
             setStatus('online');
         }
@@ -93,7 +97,7 @@ export default function NetworkMonitor() {
         );
     }
 
-    if (status === 'poor') {
+    if (status === 'poor' && !isDismissed) {
         return (
             <div className="fixed top-0 left-0 right-0 z-[9999] bg-amber-500 text-white px-4 py-2 flex items-center justify-center gap-3 shadow-md animate-in slide-in-from-top duration-300">
                 <AlertTriangle className="w-4 h-4" />
@@ -103,6 +107,14 @@ export default function NetworkMonitor() {
                 <span className="text-xs bg-white/20 px-2 py-0.5 rounded ml-auto sm:ml-0">
                     Proctoring Active
                 </span>
+                <button
+                    onClick={() => setIsDismissed(true)}
+                    className="ml-2 p-1 hover:bg-white/20 rounded transition-colors"
+                    aria-label="Dismiss warning"
+                    title="Dismiss warning"
+                >
+                    <X className="w-4 h-4" />
+                </button>
             </div>
         );
     }

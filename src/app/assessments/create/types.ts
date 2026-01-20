@@ -2,7 +2,7 @@ import { LucideIcon } from "lucide-react";
 
 export type Step = 'details' | 'settings' | 'questions' | 'preview';
 
-export type SectionType = 'aptitude' | 'technical' | 'coding' | 'subjective';
+export type SectionType = 'aptitude' | 'technical' | 'coding' | 'subjective' | 'sql';
 export type Difficulty = 'Easy' | 'Medium' | 'Hard' | 'Adaptive';
 
 export interface AssessmentConfig {

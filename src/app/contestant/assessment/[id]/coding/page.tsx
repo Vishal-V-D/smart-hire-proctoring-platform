@@ -432,6 +432,11 @@ function CodingPageContent() {
             if (nextSection.type === 'coding') {
                 // Stay on coding page but refresh/update params
                 router.push(`/contestant/assessment/${assessmentId}/coding?section=${nextIndex}`);
+            } else if (nextSection.type === 'sql') {
+                // Navigate to SQL page
+                localStorage.setItem(`navigation_intent_${assessmentId}`, 'navigated_to_sql');
+                console.log("➡️ [CodingPage] Navigating to SQL Page:", nextSection.title);
+                router.push(`/contestant/assessment/${assessmentId}/sql?section=${nextIndex}`);
             } else {
                 // Go back to MCQ page - set navigation intent flag and include section parameter
                 localStorage.setItem(`navigation_intent_${assessmentId}`, 'navigated_to_mcq');

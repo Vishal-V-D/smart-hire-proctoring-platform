@@ -47,7 +47,7 @@ export type CreateAssessmentData = {
 export type AssessmentSectionData = {
     title: string;
     description: string;
-    type: 'aptitude' | 'technical' | 'coding' | 'subjective';
+    type: 'aptitude' | 'technical' | 'coding' | 'subjective' | 'sql';
     questionCount: number;
     marksPerQuestion: number;
     timeLimit: number;

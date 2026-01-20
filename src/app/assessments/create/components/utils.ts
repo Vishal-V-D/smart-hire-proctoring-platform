@@ -104,18 +104,18 @@ export const ASSESSMENT_CATEGORIES: AssessmentCategory[] = [
         id: 'sql_questions',
         label: 'SQL Questions',
         icon: Database,
-        color: 'blue',
-        gradient: 'from-blue-500 to-cyan-500',
-        sectionType: 'technical',
-        expandedBorder: 'border-blue-500/50',
-        expandedBg: 'bg-gradient-to-br from-blue-500/5 via-transparent to-transparent',
-        expandedShadow: 'shadow-lg shadow-blue-500/10',
-        selectedBorder: 'border-blue-500/50',
-        selectedBg: 'bg-blue-500/10',
-        checkboxBorder: 'border-blue-500',
-        checkboxBg: 'bg-blue-500',
-        badgeBg: 'bg-blue-500/20',
-        badgeText: 'text-blue-600 dark:text-blue-400',
+        color: 'cyan',
+        gradient: 'from-cyan-500 to-blue-500',
+        sectionType: 'sql',
+        expandedBorder: 'border-cyan-500/50',
+        expandedBg: 'bg-gradient-to-br from-cyan-500/5 via-transparent to-transparent',
+        expandedShadow: 'shadow-lg shadow-cyan-500/10',
+        selectedBorder: 'border-cyan-500/50',
+        selectedBg: 'bg-cyan-500/10',
+        checkboxBorder: 'border-cyan-500',
+        checkboxBg: 'bg-cyan-500',
+        badgeBg: 'bg-cyan-500/20',
+        badgeText: 'text-cyan-600 dark:text-cyan-400',
         subCategories: [
             { id: 'sql_basic', label: 'SQL', icon: Database, description: 'Queries, Joins, Procedures' }
         ]
@@ -167,6 +167,16 @@ export const getSectionDefaults = (type: SectionType): Omit<AssessmentSection, '
             questionCount: 1,
             marksPerQuestion: 10,
             enabledPatterns: ['essay']
+        };
+        case 'sql': return {
+            ...common,
+            title: 'SQL Challenge',
+            description: 'Database Queries',
+            questionCount: 3,
+            marksPerQuestion: 10,
+            timeLimit: 25,
+            enabledPatterns: ['sql'],
+            themeColor: 'cyan'
         };
         default: return { ...common, title: 'Section', description: '', questions: [] };
     }

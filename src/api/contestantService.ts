@@ -58,6 +58,9 @@ export type AssessmentSection = {
     duration: number;
     type: string;
     orderIndex: number;
+    questions?: any[];
+    problems?: any[];
+    sqlQuestions?: any[];
 };
 
 export type AssessmentQuestion = {

@@ -19,6 +19,7 @@ import {
     AlertCircle
 } from 'lucide-react';
 import CodingQuestionDisplay from '@/app/assessments/create/components/CodingQuestionDisplay';
+import SQLQuestionDisplay from '@/components/organizer/questions/SQLQuestionDisplay';
 
 // Helper functions for icons/colors
 const getQuestionTypeIcon = (type: string) => {
@@ -70,6 +71,7 @@ type Section = {
     orderIndex: number;
     questions: Question[];
     problems?: any[];
+    sqlQuestions?: any[];
 };
 
 interface OverviewTabProps {
@@ -204,7 +206,9 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ assessment }) => {
                                             <span className="text-sm font-black text-foreground">
                                                 {section.type === 'coding' || (section.problems && section.problems.length > 0)
                                                     ? `${section.problems?.length || 0} Problems`
-                                                    : `${section.questions?.length || 0} Questions`}
+                                                    : section.sqlQuestions && section.sqlQuestions.length > 0
+                                                        ? `${section.sqlQuestions.length} SQL Questions`
+                                                        : `${section.questions?.length || 0} Questions`}
                                             </span>
                                             <span className="text-[10px] font-bold text-muted-foreground uppercase">{section.timeLimit} Minutes</span>
                                         </div>
@@ -237,7 +241,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ assessment }) => {
                                                 }
                                             `}</style>
 
-                                            {(!section.questions?.length && (!section.problems || section.problems.length === 0)) ? (
+                                            {(!section.questions?.length && (!section.problems || section.problems.length === 0) && (!section.sqlQuestions || section.sqlQuestions.length === 0)) ? (
                                                 <div className="flex flex-col items-center py-10 text-muted-foreground bg-muted/20 rounded-xl border border-dashed border-border">
                                                     <AlertCircle size={24} className="mb-2 opacity-20" />
                                                     <p className="text-sm font-medium">This section is currently empty</p>
@@ -268,6 +272,26 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ assessment }) => {
                                                             </div>
                                                         );
                                                     })}
+
+                                                    {/* SQL Questions */}
+                                                    {section.sqlQuestions?.map((sqlQuestion: any, sIndex: number) => (
+                                                        <div key={sqlQuestion.id || sIndex} className="bg-muted/30 rounded-2xl p-4 border border-border/50">
+                                                            <div className="flex items-center gap-2 mb-3">
+                                                                <div className="flex items-center justify-center w-8 h-8 bg-amber-500/10 text-amber-600 rounded-lg font-black text-xs shrink-0 border border-amber-500/20">
+                                                                    {sIndex + 1}
+                                                                </div>
+                                                                <span className="text-xs font-black text-amber-600 bg-amber-500/10 px-2.5 py-1 rounded-full uppercase">
+                                                                    SQL Question
+                                                                </span>
+                                                                <span className="text-xs font-black text-primary ml-auto bg-primary/10 px-2.5 py-1 rounded-full">
+                                                                    {sqlQuestion.marks || section.marksPerQuestion || 0} MARKS
+                                                                </span>
+                                                            </div>
+                                                            <div className="bg-card rounded-xl border border-border p-4">
+                                                                <SQLQuestionDisplay question={sqlQuestion} />
+                                                            </div>
+                                                        </div>
+                                                    ))}
 
                                                     {/* Regular Questions */}
                                                     {section.questions && section.type !== 'coding' && section.questions.map((question: Question, qIndex: number) => (

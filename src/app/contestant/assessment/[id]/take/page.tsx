@@ -42,14 +42,16 @@ export default function TakeAssessmentPage() {
         staleTime: 5 * 60 * 1000,
     });
 
-    // 2. Sections
-    const { data: sectionsData, isLoading: sectionsLoading } = useQuery({
+    // 2. Sections with Error Handling
+    const { data: sectionsData, isLoading: sectionsLoading, error: sectionsError } = useQuery({
         queryKey: ['sections', assessmentId],
         queryFn: async () => {
             const res = await contestantService.getSections(assessmentId);
             return res.data;
         },
         staleTime: Infinity, // Sections structure unlikely to change during exam
+        retry: 3, // Retry 3 times on failure
+        retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
     });
 
     const sections = sectionsData?.sections || ([] as AssessmentSection[]);
@@ -74,11 +76,11 @@ export default function TakeAssessmentPage() {
         console.log("🔄 [TakePage] URL section changed:", urlSectionIndex);
     }, [urlSectionIndex]);
 
-    // 3. Questions (Fetched per section)
+    // 3. Questions (Fetched per section) with Error Handling
     const currentSection = sections[currentSectionIndex];
     const currentSectionId = currentSection?.id;
 
-    const { data: questionsRes, isLoading: questionsLoading } = useQuery({
+    const { data: questionsRes, isLoading: questionsLoading, error: questionsError } = useQuery({
         queryKey: ['questions', assessmentId, currentSectionId],
         queryFn: async () => {
             if (!currentSectionId) return { questions: [], problems: [] };
@@ -87,6 +89,8 @@ export default function TakeAssessmentPage() {
         },
         enabled: !!currentSectionId && currentSection?.type !== 'coding',
         staleTime: 5 * 60 * 1000, // Cache for 5 mins
+        retry: 3, // Retry 3 times on failure
+        retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
     });
 
     const questions: AssessmentQuestion[] = questionsRes?.questions || [];
@@ -95,18 +99,39 @@ export default function TakeAssessmentPage() {
     // Loading State
     const loading = sectionsLoading || (!!currentSectionId && currentSection?.type !== 'coding' && questionsLoading);
 
-    // Prefetching Next Section
+    // Enhanced Prefetching: Prefetch Next Section AND Next+1 Section for smoother transitions
     useEffect(() => {
-        if (sections.length > 0 && currentSectionIndex < sections.length - 1) {
-            const nextSec = sections[currentSectionIndex + 1];
-            if (nextSec && nextSec.id) {
-                queryClient.prefetchQuery({
-                    queryKey: ['questions', assessmentId, nextSec.id],
-                    queryFn: async () => {
-                        const res = await contestantService.getQuestions(assessmentId, nextSec.id);
-                        return res.data;
-                    }
-                });
+        if (sections.length > 0) {
+            // Prefetch next section
+            if (currentSectionIndex < sections.length - 1) {
+                const nextSec = sections[currentSectionIndex + 1];
+                if (nextSec?.id && nextSec.type !== 'coding') {
+                    queryClient.prefetchQuery({
+                        queryKey: ['questions', assessmentId, nextSec.id],
+                        queryFn: async () => {
+                            console.log('🔮 [Prefetch] Prefetching next section:', nextSec.title);
+                            const res = await contestantService.getQuestions(assessmentId, nextSec.id);
+                            return res.data;
+                        },
+                        staleTime: 5 * 60 * 1000,
+                    });
+                }
+            }
+
+            // Prefetch next+1 section for even smoother experience
+            if (currentSectionIndex < sections.length - 2) {
+                const nextNextSec = sections[currentSectionIndex + 2];
+                if (nextNextSec?.id && nextNextSec.type !== 'coding') {
+                    queryClient.prefetchQuery({
+                        queryKey: ['questions', assessmentId, nextNextSec.id],
+                        queryFn: async () => {
+                            console.log('🔮 [Prefetch] Prefetching next+1 section:', nextNextSec.title);
+                            const res = await contestantService.getQuestions(assessmentId, nextNextSec.id);
+                            return res.data;
+                        },
+                        staleTime: 5 * 60 * 1000,
+                    });
+                }
             }
         }
     }, [currentSectionIndex, sections, assessmentId, queryClient]);
@@ -229,6 +254,18 @@ export default function TakeAssessmentPage() {
             return;
         }
 
+        // Check for SQL section - by type, title, division, or presence of sqlQuestions
+        const hasSqlQuestions = sec.sqlQuestions && sec.sqlQuestions.length > 0;
+        const titleContainsSql = sec.title?.toLowerCase().includes('sql');
+        const divisionIsSql = (sec as any).division?.toLowerCase() === 'sql';
+
+        if (sec.type === 'sql' || hasSqlQuestions || titleContainsSql || divisionIsSql) {
+            console.warn("⚠️ [TakePage] Redirecting to SQL Page:", sec.title, { type: sec.type, hasSqlQuestions, titleContainsSql, divisionIsSql });
+            router.push(`/contestant/assessment/${assessmentId}/sql?section=${currentSectionIndex}`);
+            return;
+        }
+
+
         console.log("✅ [TakePage] Staying on MCQ page for section:", sec.title);
     }, [currentSectionIndex, sections, sectionsLoading, assessmentId, router, startSectionTimer, isStateLoaded, lockedSectionIndices]);
 
@@ -341,12 +378,25 @@ export default function TakeAssessmentPage() {
                 console.log("➡️ [TakePage] Navigating to Coding Page:", nextSection.title);
                 router.push(`/contestant/assessment/${assessmentId}/coding?section=${nextIndex}`);
                 return;
-            } else {
-                // Stay on MCQ Page, navigate to next section using URL
-                setIsNavigating(true);
-                console.log("📄 [TakePage] Moving to next MCQ section via URL:", nextSection.title);
-                router.push(`/contestant/assessment/${assessmentId}/take?section=${nextIndex}`);
             }
+
+            // Check for SQL section - by type, title, or division
+            const nextTitleContainsSql = nextSection.title?.toLowerCase().includes('sql');
+            const nextDivisionIsSql = (nextSection as any).division?.toLowerCase() === 'sql';
+
+            if (nextSection.type === 'sql' || nextTitleContainsSql || nextDivisionIsSql) {
+                // Navigate to SQL Page with section parameter
+                setIsNavigating(true);
+                localStorage.setItem(`navigation_intent_${assessmentId}`, 'navigated_to_sql');
+                console.log("➡️ [TakePage] Navigating to SQL Page:", nextSection.title);
+                router.push(`/contestant/assessment/${assessmentId}/sql?section=${nextIndex}`);
+                return;
+            }
+
+            // Stay on MCQ Page, navigate to next section using URL
+            setIsNavigating(true);
+            console.log("📄 [TakePage] Moving to next MCQ section via URL:", nextSection.title);
+            router.push(`/contestant/assessment/${assessmentId}/take?section=${nextIndex}`);
         } else {
             // Finished Assessment check
             setShowSubmitConfirm(true);
@@ -458,6 +508,34 @@ export default function TakeAssessmentPage() {
 
     const [isNavigating, setIsNavigating] = useState(false); // Helper for section transition loader
 
+    // Error State Display
+    if (sectionsError || questionsError) {
+        return (
+            <div className={`h-screen flex items-center justify-center ${bg}`}>
+                <div className="max-w-md p-8 rounded-2xl bg-red-500/10 border border-red-500/20 backdrop-blur-sm">
+                    <div className="flex items-center gap-3 mb-4">
+                        <AlertTriangle className="w-8 h-8 text-red-500" />
+                        <h2 className="text-xl font-bold text-red-500">Failed to Load Assessment</h2>
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-6">
+                        {sectionsError ? 'Could not load assessment sections. ' : 'Could not load questions. '}
+                        Please check your internet connection and try again.
+                    </p>
+                    <button
+                        onClick={() => {
+                            queryClient.invalidateQueries({ queryKey: ['sections', assessmentId] });
+                            queryClient.invalidateQueries({ queryKey: ['questions', assessmentId] });
+                            window.location.reload();
+                        }}
+                        className="w-full py-3 bg-red-500 text-white rounded-lg font-medium hover:bg-red-600 transition-colors"
+                    >
+                        Retry
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     if (loading || !currentSection) {
         return (
             <div className={`h-screen flex items-center justify-center ${bg}`}>
@@ -468,17 +546,40 @@ export default function TakeAssessmentPage() {
 
     return (
         <div className={`h-screen flex flex-col overflow-hidden ${bg} ${textPrimary} relative`}>
-            {/* Navigation Loader Overlay */}
+            {/* Enhanced Navigation Loader Overlay with Section Type Info */}
             <AnimatePresence>
                 {isNavigating && (
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[99999] bg-black/20 backdrop-blur-[2px] flex flex-col items-center justify-center gap-3"
+                        transition={{ duration: 0.2 }}
+                        className="fixed inset-0 z-[99999] bg-gradient-to-br from-black/30 via-black/20 to-black/30 backdrop-blur-sm flex flex-col items-center justify-center gap-4"
                     >
-                        <div className="w-12 h-12 border-4 border-[#0f62fe] border-t-transparent rounded-full animate-spin shadow-lg" />
-                        <span className="text-white font-bold text-sm bg-black/50 px-3 py-1 rounded-full backdrop-blur-md">Loading Section...</span>
+                        <motion.div
+                            initial={{ scale: 0.8, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            transition={{ delay: 0.1, type: "spring", stiffness: 200 }}
+                            className="relative"
+                        >
+                            <div className="w-16 h-16 border-4 border-[#0f62fe]/30 border-t-[#0f62fe] rounded-full animate-spin" />
+                            <div className="absolute inset-0 w-16 h-16 border-4 border-transparent border-b-[#0f62fe]/50 rounded-full animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1s' }} />
+                        </motion.div>
+                        <motion.div
+                            initial={{ y: 10, opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            transition={{ delay: 0.2 }}
+                            className="flex flex-col items-center gap-2"
+                        >
+                            <span className="text-white font-bold text-base bg-black/60 px-5 py-2 rounded-full backdrop-blur-md shadow-lg">
+                                Loading Section...
+                            </span>
+                            {isNavigatingToNextSection && currentSectionIndex < sections.length - 1 && (
+                                <span className="text-white/80 text-sm bg-black/40 px-4 py-1.5 rounded-full backdrop-blur-sm">
+                                    {sections[currentSectionIndex + 1]?.title}
+                                </span>
+                            )}
+                        </motion.div>
                     </motion.div>
                 )}
             </AnimatePresence>

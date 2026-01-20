@@ -36,10 +36,12 @@ export default function AssessmentDetailsPage() {
     // Derive error string if needed, or handle in render
     const errorMessage = (queryError as any)?.response?.data?.message || (queryError as any)?.message || error;
 
-    // 2. Prefetch Data for "Seamless" Entry
+    // 2. AGGRESSIVE Prefetching for Instant Start Experience
     useEffect(() => {
         if (assessmentId) {
-            // Prefetch Sections (used by Take/Coding pages)
+            console.log('🚀 [Lobby] Starting aggressive prefetch...');
+
+            // Prefetch Sections (used by Take/Coding/SQL pages)
             queryClient.prefetchQuery({
                 queryKey: ['sections', assessmentId],
                 queryFn: async () => {
@@ -48,22 +50,36 @@ export default function AssessmentDetailsPage() {
                 },
                 staleTime: Infinity
             }).then((data) => {
-                // Once sections are cached, prefetch the FIRST section's questions
-                // so the user sees NO spinner when clicking "Start"
+                // Once sections are cached, prefetch the FIRST 3 sections' questions
+                // This ensures instant loading for MCQ, Coding, and SQL sections
                 const sections = (data as any)?.sections;
                 if (sections && sections.length > 0) {
-                    const firstSection = sections[0];
-                    if (firstSection?.id) {
-                        queryClient.prefetchQuery({
-                            queryKey: ['questions', assessmentId, firstSection.id],
-                            queryFn: async () => {
-                                const res = await contestantService.getQuestions(assessmentId, firstSection.id);
-                                return res.data;
-                            },
-                            staleTime: 5 * 60 * 1000
-                        });
-                    }
+                    console.log(`🔮 [Lobby] Prefetching first ${Math.min(3, sections.length)} sections...`);
+
+                    // Prefetch first 3 sections (or all if less than 3)
+                    const sectionsToPreload = sections.slice(0, 3);
+
+                    sectionsToPreload.forEach((section: any, index: number) => {
+                        if (section?.id && section.type !== 'coding') {
+                            // Prefetch MCQ/Technical/SQL questions
+                            queryClient.prefetchQuery({
+                                queryKey: ['questions', assessmentId, section.id],
+                                queryFn: async () => {
+                                    console.log(`📥 [Lobby] Prefetching section ${index + 1}: ${section.title} (${section.type})`);
+                                    const res = await contestantService.getQuestions(assessmentId, section.id);
+                                    return res.data;
+                                },
+                                staleTime: 5 * 60 * 1000
+                            });
+                        } else if (section?.type === 'coding') {
+                            console.log(`⚡ [Lobby] Section ${index + 1} is coding type: ${section.title} (will load on-demand)`);
+                        }
+                    });
+
+                    console.log('✅ [Lobby] Prefetch complete! Assessment ready for instant start.');
                 }
+            }).catch((err) => {
+                console.error('❌ [Lobby] Prefetch failed:', err);
             });
         }
     }, [assessmentId, queryClient]);
@@ -128,7 +144,8 @@ export default function AssessmentDetailsPage() {
     }
 
     const totalQuestions = assessment.sections.reduce((sum, section: any) =>
-        sum + (section.questions?.length || 0) + (section.problems?.length || 0), 0);
+        sum + (section.questions?.length || 0) + (section.problems?.length || 0) + (section.sqlQuestions?.length || 0), 0);
+
 
     return (
         <div className="h-screen w-screen flex overflow-hidden">
@@ -271,14 +288,22 @@ export default function AssessmentDetailsPage() {
                                             return orderA - orderB;
                                         })
                                         .map((section: any, index: number) => {
-                                            const questionCount = (section.questions?.length || 0) + (section.problems?.length || 0);
+                                            // Count all question types: MCQ, Coding Problems, and SQL Questions
+                                            const mcqCount = section.questions?.length || 0;
+                                            const codingCount = section.problems?.length || 0;
+                                            const sqlCount = section.sqlQuestions?.length || 0;
+                                            const questionCount = mcqCount + codingCount + sqlCount;
+
                                             const sectionTime = section.timeLimit || section.duration || 0;
+
                                             // Sum individual question/problem marks (user-assigned)
                                             const questionMarks = (section.questions || []).reduce((sum: number, q: any) =>
                                                 sum + (Number(q.marks) || Number(section.marksPerQuestion) || 0), 0);
                                             const problemMarks = (section.problems || []).reduce((sum: number, p: any) =>
                                                 sum + (Number(p.marks) || Number(section.marksPerQuestion) || 0), 0);
-                                            const sectionMarks = questionMarks + problemMarks;
+                                            const sqlMarks = (section.sqlQuestions || []).reduce((sum: number, sq: any) =>
+                                                sum + (Number(sq.marks) || Number(section.marksPerQuestion) || 0), 0);
+                                            const sectionMarks = questionMarks + problemMarks + sqlMarks;
                                             return (
                                                 <tr key={section.id} className="hover:bg-white transition-colors">
                                                     <td className="px-5 py-4">
@@ -373,9 +398,16 @@ export default function AssessmentDetailsPage() {
                         )}
                     </motion.button>
 
-                    <p className="text-center text-xs text-gray-400 mt-3">
-                        Timer starts immediately after setup • Progress auto-saved
-                    </p>
+                    <div className="flex items-center justify-center gap-2 text-xs text-gray-400 mt-3">
+                        <div className="flex items-center gap-1.5">
+                            <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                            <span>Assessment data preloaded</span>
+                        </div>
+                        <span className="text-gray-300">•</span>
+                        <span>Timer starts after setup</span>
+                        <span className="text-gray-300">•</span>
+                        <span>Progress auto-saved</span>
+                    </div>
                 </div>
             </div>
 

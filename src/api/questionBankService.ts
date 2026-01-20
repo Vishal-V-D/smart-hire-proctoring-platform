@@ -8,7 +8,7 @@ export type QuestionBankQuestion = {
     id: string;
     text: string;
     image?: string;
-    type: 'single_choice' | 'multiple_choice' | 'fill_in_the_blank' | 'coding';
+    type: 'single_choice' | 'multiple_choice' | 'fill_in_the_blank' | 'coding' | 'sql';
     options?: string[];
     correctAnswer?: string | string[];
     explanation?: string;
@@ -22,6 +22,13 @@ export type QuestionBankQuestion = {
     section?: string | null;
     createdAt: string;
     updatedAt: string;
+    // SQL Specific Fields
+    inputTables?: string;   // JSON string
+    expectedResult?: string; // JSON string
+    expectedQuery?: string;
+    hint?: string;
+    dialect?: string;
+    schemaSetup?: string;
 };
 
 export type FilterOptions = {
@@ -30,7 +37,7 @@ export type FilterOptions = {
     topics: string[];
     tags: string[];
     difficulties: ('Easy' | 'Medium' | 'Hard')[];
-    types: ('single_choice' | 'multiple_choice' | 'fill_in_the_blank' | 'coding')[];
+    types: ('single_choice' | 'multiple_choice' | 'fill_in_the_blank' | 'coding' | 'sql')[];
 };
 
 export type QuestionBankFilters = {
@@ -40,7 +47,7 @@ export type QuestionBankFilters = {
     topic?: string;
     tags?: string[];
     difficulty?: 'Easy' | 'Medium' | 'Hard';
-    type?: 'single_choice' | 'multiple_choice' | 'fill_in_the_blank' | 'coding';
+    type?: 'single_choice' | 'multiple_choice' | 'fill_in_the_blank' | 'coding' | 'sql';
     search?: string;
     page?: number;
     limit?: number;
@@ -154,6 +161,18 @@ export const questionBankService = {
         if (subdivision) formData.append('subdivision', subdivision);
         if (topic) formData.append('topic', topic);
         return axiosContestClient.post(`${API_BASE}/upload/csv`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+    },
+
+    // Bulk upload questions from Excel (.xls, .xlsx)
+    uploadExcel: (file: File, division?: string, subdivision?: string, topic?: string) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        if (division) formData.append('division', division);
+        if (subdivision) formData.append('subdivision', subdivision);
+        if (topic) formData.append('topic', topic);
+        return axiosContestClient.post(`${API_BASE}/upload/excel`, formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
         });
     },

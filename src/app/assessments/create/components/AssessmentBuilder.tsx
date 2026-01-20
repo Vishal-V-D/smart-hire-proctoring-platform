@@ -5,7 +5,9 @@ import { AssessmentConfig, AssessmentSection, Question, SectionType, QuestionTyp
 import { ASSESSMENT_CATEGORIES, getSectionDefaults } from './utils';
 import ManualQuestionModal from './ManualQuestionModal';
 import CodingQuestionModal from './CodingQuestionModal';
+import SQLQuestionModal from './SQLQuestionModal';
 import CodingQuestionDisplay from './CodingQuestionDisplay';
+import SQLQuestionDisplay from '@/components/organizer/questions/SQLQuestionDisplay';
 import TestCaseConfigModal from './TestCaseConfigModal';
 import PseudoCodeDisplay from '@/components/contestant/PseudoCodeDisplay';
 import { AssessmentBuilderSidebar } from './AssessmentBuilderSidebar';
@@ -44,6 +46,7 @@ const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({ config, sections,
     // Modal State
     const [isManualModalOpen, setIsManualModalOpen] = useState(false);
     const [isCodingModalOpen, setIsCodingModalOpen] = useState(false);
+    const [isSQLModalOpen, setIsSQLModalOpen] = useState(false);
     const [manualModalType, setManualModalType] = useState<SectionType>('aptitude');
     const [targetSectionId, setTargetSectionId] = useState<string | null>(null);
     const [modalDivision, setModalDivision] = useState<string | undefined>(undefined);
@@ -143,8 +146,38 @@ const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({ config, sections,
             return;
         }
 
-        // Extract division and subdivision from section for context
+        // Special handling for SQL sections - Open specific SQL Modal
+        // We need to check the section details to be sure, as the type might be 'technical'
         const section = sections.find(s => s.id === sectionId);
+        if (section) {
+            if (section.title.toLowerCase().includes('sql') || section.description.toLowerCase().includes('sql')) {
+                console.log('📍 Detected SQL Section - Opening SQL Modal');
+
+                // Determine Division/Subdivision for SQL
+                const division = 'Coding';
+                let subdivision = 'SQL';
+
+                // Try to extract more specific subdivision from description
+                const descMatch = section.description.split(',')[0].trim();
+                if (descMatch && !descMatch.toLowerCase().includes('sql')) {
+                    // If description has something other than just "SQL" (e.g. "MySQL, Advanced"), use it?
+                    // Actually, let's trust the description acts as subdivision often.
+                    subdivision = descMatch;
+                } else if (section.description.toLowerCase().includes('sql')) {
+                    // If description says "SQL Questions", stick to "SQL" or extract if needed
+                    subdivision = 'SQL';
+                }
+
+                setModalDivision(division);
+                setModalSubdivision(subdivision);
+                setTargetSectionId(sectionId);
+                setIsSQLModalOpen(true);
+                return;
+            }
+        }
+
+        // Extract division and subdivision from section for context
+        // const section = sections.find(s => s.id === sectionId); // checking... variable hoisted
         if (section) {
             console.log('📍 Section found:', section);
             console.log('📍 Section title:', section.title);
@@ -228,6 +261,7 @@ const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({ config, sections,
         }
         setIsManualModalOpen(false);
         setIsCodingModalOpen(false);
+        setIsSQLModalOpen(false);
     };
 
     const deleteQuestion = (sectionId: string, questionId: string) => {
@@ -368,6 +402,15 @@ const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({ config, sections,
                 isOpen={isCodingModalOpen}
                 onClose={() => setIsCodingModalOpen(false)}
                 onSave={handleSaveQuestion}
+            />
+
+            <SQLQuestionModal
+                isOpen={isSQLModalOpen}
+                onClose={() => setIsSQLModalOpen(false)}
+                onSave={handleSaveQuestion}
+                division={modalDivision}
+                subdivision={modalSubdivision}
+                sectionId={targetSectionId || ''}
             />
 
             <TestCaseConfigModal
@@ -746,8 +789,13 @@ const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({ config, sections,
                                                                                     </div>
                                                                                 )}
 
-                                                                                {/* CODING QUESTION - Use modular display component */}
-                                                                                {q.type === 'coding' && q.problemData && (
+                                                                                {/* SQL QUESTION - Use SQL display component */}
+                                                                                {q.type === 'coding' && q.problemData && q.problemData.dialect && (
+                                                                                    <SQLQuestionDisplay question={q.problemData} />
+                                                                                )}
+
+                                                                                {/* CODING QUESTION - Use modular display component (exclude SQL) */}
+                                                                                {q.type === 'coding' && q.problemData && !q.problemData.dialect && (
                                                                                     <CodingQuestionDisplay
                                                                                         problem={q.problemData}
                                                                                         questionNumber={qIdx + 1}

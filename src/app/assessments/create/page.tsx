@@ -221,9 +221,19 @@ const NewAssessmentPage = () => {
         try {
             // Transform sections
             const transformedSections = currentSections.map((section, index) => {
-                // Separate coding questions from regular questions
-                const codingQuestions = (section.questions || []).filter(q => q.type === 'coding' && q.problemId);
-                const regularQuestions = (section.questions || []).filter(q => !(q.type === 'coding' && q.problemId));
+                // Separate coding questions from regular questions (excluding SQL)
+                const codingQuestions = (section.questions || []).filter(q => q.type === 'coding' && q.problemId && q.pseudocode !== 'SQL Query');
+
+                // Identify SQL questions
+                // Identify SQL questions
+                const sqlQuestions = (section.questions || []).filter(q => q.pseudocode === 'SQL Query' || (q as any).subdivision === 'SQL' || (q as any).division === 'SQL');
+
+                const regularQuestions = (section.questions || []).filter(q =>
+                    !(q.type === 'coding' && q.problemId) &&
+                    q.pseudocode !== 'SQL Query' &&
+                    (q as any).subdivision !== 'SQL' &&
+                    (q as any).division !== 'SQL'
+                );
 
                 return {
                     id: section.id,
@@ -239,8 +249,8 @@ const NewAssessmentPage = () => {
                     themeColor: section.themeColor || '#6366f1',
                     orderIndex: index,
 
-                    // All questions (including coding)
-                    questions: (section.questions || []).map((q, qIndex) => {
+                    // Standard questions (MCQ, Fill-in-blank) ONLY
+                    questions: regularQuestions.map((q, qIndex) => {
                         const marks = q.marks ?? section.marksPerQuestion ?? 1;
                         return {
                             id: q.id,
@@ -257,7 +267,7 @@ const NewAssessmentPage = () => {
                             difficulty: (q as any).difficulty || 'Medium',
                             tags: (q as any).tags || [],
                             codeStub: q.codeStub || undefined,
-                            problemId: q.problemId || undefined,
+                            // problemId: undefined for regular questions
                             marks: marks,
                             orderIndex: qIndex
                         };
@@ -272,6 +282,15 @@ const NewAssessmentPage = () => {
                             marks: marks,
                             orderIndex: qIndex,
                             testCaseConfig: q.testCaseConfig || undefined
+                        };
+                    }),
+
+                    // SQL questions
+                    sqlQuestions: sqlQuestions.map((q, qIndex) => {
+                        const marks = q.marks ?? section.marksPerQuestion ?? 1;
+                        return {
+                            sqlQuestionId: q.problemId, // Using problemId as the SQL Question ID
+                            marks: marks
                         };
                     })
                 };
@@ -298,7 +317,8 @@ const NewAssessmentPage = () => {
                     title: s.title,
                     type: s.type,
                     questionsCount: s.questions.length,
-                    problemsCount: s.problems?.length || 0
+                    problemsCount: s.problems?.length || 0,
+                    sqlQuestionsCount: s.sqlQuestions?.length || 0
                 }))
             });
 
@@ -575,12 +595,22 @@ const NewAssessmentPage = () => {
             // Transform sections to match backend API format
             const transformedSections = sections.map((section, index) => {
                 // Separate coding questions for the 'problems' array (legacy/specific handling)
-                const codingQuestions = (section.questions || []).filter(q => q.type === 'coding' && q.problemId);
+                // Exclude SQL questions from 'problems' array
+                const codingQuestions = (section.questions || []).filter(q => q.type === 'coding' && q.problemId && q.pseudocode !== 'SQL Query');
 
-                // IMPORTANT: For CREATION, we must pass coding questions in the main 'questions' array too
-                // The backend likely expects them there to create the initial link.
-                // We keep them in 'problems' as well for updates/metadata.
-                const allQuestions = section.questions || [];
+                // Identify SQL questions
+                // Identify SQL questions
+                const sqlQuestions = (section.questions || []).filter(q => q.pseudocode === 'SQL Query' || (q as any).subdivision === 'SQL' || (q as any).division === 'SQL');
+
+                // Identify regular questions (MCQ, etc) - exclude Coding and SQL
+                // Note: The variable 'allQuestions' was previously encompassing everything. 
+                // Now strict:
+                const regularQuestions = (section.questions || []).filter(q =>
+                    !(q.type === 'coding' && q.problemId) &&
+                    q.pseudocode !== 'SQL Query' &&
+                    (q as any).subdivision !== 'SQL' &&
+                    (q as any).division !== 'SQL'
+                );
 
                 return {
                     id: section.id, // Include ID for update
@@ -596,8 +626,8 @@ const NewAssessmentPage = () => {
                     themeColor: section.themeColor,
                     orderIndex: index,
 
-                    // All questions (including coding)
-                    questions: allQuestions.map((q, qIndex) => {
+                    // Regular questions only (MCQ, Fill-in-blank)
+                    questions: regularQuestions.map((q, qIndex) => {
                         const marks = q.marks ?? section.marksPerQuestion;
                         return {
                             id: q.id,
@@ -614,7 +644,7 @@ const NewAssessmentPage = () => {
                             difficulty: (q as any).difficulty || undefined,
                             tags: (q as any).tags || undefined,
                             codeStub: q.codeStub || undefined,
-                            problemId: q.problemId || undefined, // Include problemId for coding questions
+                            // problemId: q.problemId || undefined, // NOT included here based on strict requirements
                             marks: marks,
                             orderIndex: qIndex
                         };
@@ -629,6 +659,15 @@ const NewAssessmentPage = () => {
                             marks: marks,
                             orderIndex: qIndex,
                             testCaseConfig: q.testCaseConfig || undefined
+                        };
+                    }),
+
+                    // SQL Questions
+                    sqlQuestions: sqlQuestions.map((q, qIndex) => {
+                        const marks = q.marks ?? section.marksPerQuestion ?? 1;
+                        return {
+                            sqlQuestionId: q.problemId,
+                            marks: marks
                         };
                     })
                 };
@@ -656,10 +695,11 @@ const NewAssessmentPage = () => {
                 // UPDATE existing assessment (or draft)
                 response = await assessmentService.updateAssessment(targetId, assessmentData);
                 console.log("✅ Assessment updated successfully:", response.data);
-                showToast('Assessment updated successfully!', 'success');
 
-                // Clear ALL assessment drafts from localStorage
+                // Clear ALL assessment drafts from localStorage IMMEDIATELY after successful API call
                 clearAllAssessmentDrafts();
+
+                showToast('Assessment updated successfully!', 'success');
 
                 setTimeout(() => {
                     // If true edit mode, maybe go to details? For now, list page is safe default for both flow.
@@ -670,10 +710,11 @@ const NewAssessmentPage = () => {
                 // CREATE new assessment (fallback)
                 response = await assessmentService.createAssessment(assessmentData);
                 console.log("✅ Assessment created successfully:", response.data);
-                showToast('Assessment created successfully!', 'success');
 
-                // Clear ALL assessment drafts from localStorage to prevent stale data
+                // Clear ALL assessment drafts from localStorage IMMEDIATELY after successful API call
                 clearAllAssessmentDrafts();
+
+                showToast('Assessment created successfully!', 'success');
 
                 // Navigate to assessment list page after creation
                 console.log("📍 Navigating to assessment list page");
@@ -681,6 +722,7 @@ const NewAssessmentPage = () => {
                     window.location.href = listPath;
                 }, 1000);
             }
+
 
         } catch (error: any) {
             console.error("❌ Failed to save assessment:", error);

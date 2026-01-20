@@ -13,8 +13,9 @@ function AssessmentLayoutContent({ children }: { children: React.ReactNode }) {
     const [isMounted, setIsMounted] = useState(false);
 
     const isCodingPage = pathname?.includes('/coding');
+    const isSqlPage = pathname?.includes('/sql');
     const isTakePage = pathname?.includes('/take');
-    const shouldShowProctoring = isCodingPage || isTakePage;
+    const shouldShowProctoring = isCodingPage || isTakePage || isSqlPage;
 
     // Handle client-side only localStorage access
     useEffect(() => {
@@ -42,7 +43,7 @@ function AssessmentLayoutContent({ children }: { children: React.ReactNode }) {
                     key="proctoring-overlay" // Stable key to prevent remounting
                     settings={assessment.proctoringSettings}
                     assessmentId={assessment.id}
-                    hideCamera={isCodingPage}
+                    hideCamera={isCodingPage || isSqlPage}
                     storedPhotoUrl={storedPhotoUrl}
                 />
             )}

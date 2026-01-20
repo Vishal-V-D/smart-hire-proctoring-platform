@@ -7,6 +7,7 @@ import { ASSESSMENT_CATEGORIES } from './utils';
 import { getSectionDefaults } from './utils';
 import { questionBankService, FilterOptions } from '@/api/questionBankService';
 import { codingQuestionService } from '@/api/codingQuestionService';
+import { sqlQuestionService } from '@/api/sqlQuestionService';
 
 interface AssessmentBuilderSidebarProps {
     sections: AssessmentSection[];
@@ -101,6 +102,7 @@ const PREDEFINED_LAYOUTS = [
             { type: 'technical', title: 'Frontend (React/Angular)', count: 10, time: 15 },
             { type: 'technical', title: 'Backend (Node/Django)', count: 10, time: 15 },
             { type: 'technical', title: 'Database Design', count: 5, time: 10 },
+            { type: 'sql', title: 'SQL Query Writing', count: 2, time: 20 },
             { type: 'coding', title: 'Full Stack Problem', count: 1, time: 45 },
         ]
     },
@@ -124,6 +126,7 @@ const PREDEFINED_LAYOUTS = [
         sections: [
             { type: 'technical', title: 'System Design', count: 10, time: 20 },
             { type: 'technical', title: 'Database Optimization', count: 10, time: 15 },
+            { type: 'sql', title: 'SQL Queries & Optimization', count: 2, time: 25 },
             { type: 'technical', title: 'API Security', count: 5, time: 10 },
             { type: 'coding', title: 'Backend Logic / API', count: 1, time: 45 }
         ]
@@ -136,8 +139,22 @@ const PREDEFINED_LAYOUTS = [
         sections: [
             { type: 'technical', title: 'Statistics & Probability', count: 15, time: 20 },
             { type: 'technical', title: 'SQL & Data Modeling', count: 10, time: 20 },
+            { type: 'sql', title: 'Data Analysis with SQL', count: 3, time: 30 },
             { type: 'technical', title: 'Machine Learning Basics', count: 10, time: 15 },
             { type: 'coding', title: 'Python Data Manipulation', count: 1, time: 30 }
+        ]
+    },
+    {
+        id: 'database_engineer',
+        title: 'Database Engineer',
+        icon: Database,
+        description: 'SQL, Database Design & Optimization',
+        sections: [
+            { type: 'technical', title: 'Database Fundamentals', count: 10, time: 15 },
+            { type: 'technical', title: 'Indexing & Performance', count: 10, time: 15 },
+            { type: 'sql', title: 'Basic SQL Queries', count: 2, time: 20 },
+            { type: 'sql', title: 'Complex Joins & Subqueries', count: 2, time: 25 },
+            { type: 'sql', title: 'Query Optimization', count: 1, time: 30 }
         ]
     },
     {
@@ -211,6 +228,13 @@ export const AssessmentBuilderSidebar: React.FC<AssessmentBuilderSidebarProps> =
                     setDynamicSubdivisions(res.data.tags);
                 }
             }).catch(console.error);
+        } else if (randomConfig.division?.toLowerCase() === 'sql') {
+            // Fetch SQL topics from sqlQuestionService
+            sqlQuestionService.getFilters().then(res => {
+                if (res.data.success && res.data.filters) {
+                    setDynamicSubdivisions(res.data.filters.topics || res.data.filters.subdivisions || []);
+                }
+            }).catch(console.error);
         } else if (randomConfig.division) {
             // If a division is selected, fetch specific subdivisions (and tags potentially)
             questionBankService.getFilterOptions(randomConfig.division).then(res => {
@@ -254,98 +278,200 @@ export const AssessmentBuilderSidebar: React.FC<AssessmentBuilderSidebarProps> =
 
         try {
             const newSections: AssessmentSection[] = [];
-            const types: SectionType[] = ['aptitude', 'technical', 'coding'];
+
+            // ALL divisions to cover comprehensively
+            const allDivisions = [
+                { division: 'MCQ', type: 'aptitude' as SectionType },
+                { division: 'Technical', type: 'technical' as SectionType },
+                { division: 'Coding', type: 'coding' as SectionType },
+                { division: 'SQL', type: 'sql' as SectionType },
+                { division: 'Pseudocode', type: 'technical' as SectionType }
+            ];
+
             const themeColors = ['blue', 'purple', 'green', 'orange', 'red', 'gray'];
 
-            // Fetch a large pool of questions once to avoid too many requests, or fetch per section?
-            // Fetching a larger pool is better for randomness.
-            // Fetch a large pool of questions based on selected filters
-            // IF Coding division is selected, use the Coding Question Service
-            let allQuestions: any[] = [];
+            // Fetch questions for each division
+            const questionsByDivision = new Map<string, any[]>();
+            const topicsByDivision = new Map<string, string[]>();
 
-            if (randomConfig.division?.toLowerCase() === 'coding') {
-                // Slugify topic for API if present (Coding Service expects slugs)
-                const topicSlug = randomConfig.topic ? randomConfig.topic.toLowerCase().replace(/\s+/g, '-') : undefined;
+            console.log('🎯 [Random Magic] Fetching questions for all divisions...');
 
-                const response = await codingQuestionService.listProblems({
+            // Fetch MCQ/Aptitude questions
+            try {
+                const mcqResponse = await questionBankService.listQuestions({
+                    limit: 100,
+                    page: 1,
+                    division: 'Aptitude',
+                    difficulty: randomConfig.difficulty || undefined,
+                    type: randomConfig.type || undefined
+                });
+                const mcqQuestions = mcqResponse.data.questions || [];
+                questionsByDivision.set('MCQ', mcqQuestions);
+
+                // Extract unique topics
+                const mcqTopics = [...new Set(mcqQuestions.map((q: any) => q.subdivision || q.topic || 'General'))];
+                topicsByDivision.set('MCQ', mcqTopics);
+                console.log(`✅ MCQ: ${mcqQuestions.length} questions, ${mcqTopics.length} topics`);
+            } catch (e) {
+                console.warn('⚠️ MCQ fetch failed:', e);
+                questionsByDivision.set('MCQ', []);
+                topicsByDivision.set('MCQ', []);
+            }
+
+            // Fetch Technical questions
+            try {
+                const techResponse = await questionBankService.listQuestions({
+                    limit: 100,
+                    page: 1,
+                    division: 'Technical',
+                    difficulty: randomConfig.difficulty || undefined,
+                    type: randomConfig.type || undefined
+                });
+                const techQuestions = techResponse.data.questions || [];
+                questionsByDivision.set('Technical', techQuestions);
+
+                const techTopics = [...new Set(techQuestions.map((q: any) => q.subdivision || q.topic || 'General'))];
+                topicsByDivision.set('Technical', techTopics);
+                console.log(`✅ Technical: ${techQuestions.length} questions, ${techTopics.length} topics`);
+            } catch (e) {
+                console.warn('⚠️ Technical fetch failed:', e);
+                questionsByDivision.set('Technical', []);
+                topicsByDivision.set('Technical', []);
+            }
+
+            // Fetch Pseudocode questions
+            try {
+                const pseudoResponse = await questionBankService.listQuestions({
+                    limit: 100,
+                    page: 1,
+                    division: 'Pseudocode',
+                    difficulty: randomConfig.difficulty || undefined
+                });
+                const pseudoQuestions = pseudoResponse.data.questions || [];
+                questionsByDivision.set('Pseudocode', pseudoQuestions);
+
+                const pseudoTopics = [...new Set(pseudoQuestions.map((q: any) => q.subdivision || q.topic || 'General'))];
+                topicsByDivision.set('Pseudocode', pseudoTopics);
+                console.log(`✅ Pseudocode: ${pseudoQuestions.length} questions, ${pseudoTopics.length} topics`);
+            } catch (e) {
+                console.warn('⚠️ Pseudocode fetch failed:', e);
+                questionsByDivision.set('Pseudocode', []);
+                topicsByDivision.set('Pseudocode', []);
+            }
+
+            // Fetch Coding problems
+            try {
+                const codingResponse = await codingQuestionService.listProblems({
                     take: 100,
                     skip: 0,
-                    difficulty: randomConfig.difficulty || undefined,
-                    tags: topicSlug ? [topicSlug] : (randomConfig.tags.length > 0 ? randomConfig.tags : undefined)
+                    difficulty: randomConfig.difficulty || undefined
                 });
-
-                // Map CodingProblems to the Question structure used by the builder
-                allQuestions = (response.data.problems || []).map(p => ({
-                    id: p.id, // Use original ID temporarily or new? Downstream we gen new ID.
-                    text: p.title, // Title becomes text for coding Qs
+                const codingQuestions = (codingResponse.data.problems || []).map(p => ({
+                    id: p.id,
+                    text: p.title,
                     type: 'coding',
                     codeStub: p.starterCode?.python || p.starterCode?.javascript,
                     problemId: p.id,
                     problemData: p,
-                    topic: p.topicTags?.[0]?.name || 'Coding', // Use first tag as topic
+                    topic: p.topicTags?.[0]?.name || 'DSA',
                     tags: p.topicTags?.map(t => t.name)
                 }));
-            } else {
-                // Standard Question Bank
-                const response = await questionBankService.listQuestions({
-                    limit: 100,
-                    page: 1,
-                    division: randomConfig.division || undefined,
-                    subdivision: randomConfig.topic || undefined,
-                    difficulty: randomConfig.difficulty || undefined,
-                    type: randomConfig.type || undefined,
-                    tags: randomConfig.tags.length > 0 ? randomConfig.tags : undefined
-                });
-                allQuestions = response.data.questions || [];
+                questionsByDivision.set('Coding', codingQuestions);
+
+                const codingTopics = [...new Set(codingQuestions.map(q => q.topic))];
+                topicsByDivision.set('Coding', codingTopics);
+                console.log(`✅ Coding: ${codingQuestions.length} problems, ${codingTopics.length} topics`);
+            } catch (e) {
+                console.warn('⚠️ Coding fetch failed:', e);
+                questionsByDivision.set('Coding', []);
+                topicsByDivision.set('Coding', []);
             }
 
-            if (allQuestions.length === 0) {
-                alert("No questions found in the Question Bank to generate from.");
+            // Fetch SQL questions
+            try {
+                const sqlResponse = await sqlQuestionService.listQuestions({
+                    limit: 100,
+                    page: 1,
+                    difficulty: randomConfig.difficulty || undefined
+                });
+                const sqlQuestions = (sqlResponse.data.questions || []).map(q => ({
+                    id: q.id,
+                    text: q.title,
+                    type: 'sql',
+                    sqlQuestionId: q.id,
+                    sqlQuestionData: q,
+                    topic: q.topic || q.subdivision || 'SQL',
+                    tags: q.tags || [],
+                    difficulty: q.difficulty,
+                    dialect: q.dialect
+                }));
+                questionsByDivision.set('SQL', sqlQuestions);
+
+                const sqlTopics = [...new Set(sqlQuestions.map(q => q.topic))];
+                topicsByDivision.set('SQL', sqlTopics);
+                console.log(`✅ SQL: ${sqlQuestions.length} questions, ${sqlTopics.length} topics`);
+            } catch (e) {
+                console.warn('⚠️ SQL fetch failed:', e);
+                questionsByDivision.set('SQL', []);
+                topicsByDivision.set('SQL', []);
+            }
+
+            // Filter out divisions with no questions
+            const availableDivisions = allDivisions.filter(d =>
+                (questionsByDivision.get(d.division) || []).length > 0
+            );
+
+            if (availableDivisions.length === 0) {
+                alert("No questions found in any division to generate from.");
                 setIsGenerating(false);
                 return;
             }
 
-            // Group questions by topic/subtype for better variety
-            const questionsByTopic = new Map<string, any[]>();
-            allQuestions.forEach(q => {
-                const qAny = q as any; // Cast to any to access dynamic properties
-                const key = qAny.topic || qAny.subType || q.type || 'general';
-                if (!questionsByTopic.has(key)) {
-                    questionsByTopic.set(key, []);
-                }
-                questionsByTopic.get(key)!.push(q);
-            });
+            console.log(`🎯 Available divisions: ${availableDivisions.map(d => d.division).join(', ')}`);
 
-            // Get unique topics and shuffle them
-            const uniqueTopics = Array.from(questionsByTopic.keys()).sort(() => 0.5 - Math.random());
-            let topicIndex = 0;
-
-            // To ensure variety, shuffle the types array initially so we cycle through them
-            let typeCycle = [...types].sort(() => 0.5 - Math.random());
-            let typeIndex = 0;
+            // SMART DISTRIBUTION ALGORITHM
+            // Track which topics we've used for each division
+            const usedTopicsByDivision = new Map<string, Set<string>>();
+            availableDivisions.forEach(d => usedTopicsByDivision.set(d.division, new Set()));
 
             for (let i = 0; i < sectionCount; i++) {
-                // Cycle through types to ensure variety
-                if (typeIndex >= typeCycle.length) {
-                    typeCycle = [...types].sort(() => 0.5 - Math.random());
-                    typeIndex = 0;
-                }
-                const randomType = typeCycle[typeIndex++];
-                const defaults = getSectionDefaults(randomType);
+                // FIRST PRIORITY: Cycle through all divisions
+                const divisionIndex = i % availableDivisions.length;
+                const currentDivision = availableDivisions[divisionIndex];
+                const divisionQuestions = questionsByDivision.get(currentDivision.division) || [];
+                const divisionTopics = topicsByDivision.get(currentDivision.division) || [];
+                const usedTopics = usedTopicsByDivision.get(currentDivision.division)!;
 
-                // Get a unique topic for this section
-                if (topicIndex >= uniqueTopics.length) {
-                    topicIndex = 0;
-                }
-                const currentTopic = uniqueTopics[topicIndex++];
-                const topicQuestions = questionsByTopic.get(currentTopic) || [];
+                console.log(`📍 Section ${i + 1}/${sectionCount}: ${currentDivision.division}`);
 
-                // Shuffle and pick questions from this topic
-                const shuffledTopicQuestions = [...topicQuestions].sort(() => 0.5 - Math.random());
+                // SECOND PRIORITY: Pick next unused topic from this division
+                let selectedTopic = '';
+                const unusedTopics = divisionTopics.filter(t => !usedTopics.has(t));
+
+                if (unusedTopics.length > 0) {
+                    // Pick first unused topic
+                    selectedTopic = unusedTopics[0];
+                    usedTopics.add(selectedTopic);
+                    console.log(`  → Topic: ${selectedTopic} (new)`);
+                } else {
+                    // All topics used, reset and pick first
+                    usedTopics.clear();
+                    selectedTopic = divisionTopics[0] || 'General';
+                    usedTopics.add(selectedTopic);
+                    console.log(`  → Topic: ${selectedTopic} (cycled)`);
+                }
+
+                // Get questions from this topic
+                const topicQuestions = divisionQuestions.filter((q: any) =>
+                    (q.subdivision || q.topic || 'General') === selectedTopic
+                );
+
+                // Shuffle and pick questions
+                const shuffled = [...topicQuestions].sort(() => 0.5 - Math.random());
                 const sectionQuestions: any[] = [];
 
-                for (let q = 0; q < Math.min(questionCount, shuffledTopicQuestions.length); q++) {
-                    const qData = shuffledTopicQuestions[q];
+                for (let q = 0; q < Math.min(questionCount, shuffled.length); q++) {
+                    const qData = shuffled[q];
                     const { id: _origId, ...qFields } = qData;
 
                     sectionQuestions.push({
@@ -354,14 +480,14 @@ export const AssessmentBuilderSidebar: React.FC<AssessmentBuilderSidebarProps> =
                     });
                 }
 
-                // If we don't have enough questions from this topic, fill from other questions
+                // Fill remaining from any questions in this division if needed
                 if (sectionQuestions.length < questionCount) {
-                    const remainingQuestions = allQuestions
-                        .filter(q => !sectionQuestions.some(sq => sq.text === q.text))
+                    const remaining = divisionQuestions
+                        .filter((q: any) => !sectionQuestions.some(sq => sq.text === q.text))
                         .sort(() => 0.5 - Math.random());
 
-                    for (let q = sectionQuestions.length; q < questionCount && q < remainingQuestions.length; q++) {
-                        const qData = remainingQuestions[q - sectionQuestions.length];
+                    for (let q = sectionQuestions.length; q < questionCount && q - sectionQuestions.length < remaining.length; q++) {
+                        const qData = remaining[q - sectionQuestions.length];
                         const { id: _origId, ...qFields } = qData;
                         sectionQuestions.push({
                             id: crypto.randomUUID(),
@@ -370,32 +496,25 @@ export const AssessmentBuilderSidebar: React.FC<AssessmentBuilderSidebarProps> =
                     }
                 }
 
-                // Determine Title from Content
-                let meaningfulTitle = currentTopic.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-
-                // If it's a generic title, try to get more specific from first question
-                if (meaningfulTitle.toLowerCase() === 'general' || meaningfulTitle.toLowerCase() === randomType) {
-                    const firstQ = sectionQuestions[0];
-                    if (firstQ) {
-                        if (firstQ.topic) meaningfulTitle = firstQ.topic;
-                        else if (firstQ.subType) meaningfulTitle = firstQ.subType;
-                        else if (firstQ.tags && Array.isArray(firstQ.tags) && firstQ.tags.length > 0) meaningfulTitle = firstQ.tags[0];
-                    }
-                    meaningfulTitle = meaningfulTitle.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-                }
+                const defaults = getSectionDefaults(currentDivision.type);
+                const meaningfulTitle = selectedTopic.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
                 newSections.push({
                     ...defaults,
                     id: crypto.randomUUID(),
-                    type: randomType,
-                    title: meaningfulTitle,
+                    type: currentDivision.type,
+                    title: `${currentDivision.division} - ${meaningfulTitle}`,
                     questionCount: sectionQuestions.length,
                     timeLimit: defaults.timeLimit,
                     questions: sectionQuestions,
                     enabledPatterns: defaults.enabledPatterns,
                     themeColor: themeColors[i % themeColors.length] as any
                 } as AssessmentSection);
+
+                console.log(`  ✓ Created: ${sectionQuestions.length} questions`);
             }
+
+            console.log(`🎉 [Random Magic] Generated ${newSections.length} sections!`);
 
             setSections(prev => [...prev, ...newSections]);
             setLastAddedSectionId(newSections[0].id);
@@ -657,7 +776,8 @@ export const AssessmentBuilderSidebar: React.FC<AssessmentBuilderSidebarProps> =
                                                 >
                                                     <option value="">Any Division</option>
                                                     <option value="coding">Coding</option>
-                                                    {filterOptions?.divisions?.filter(d => d.toLowerCase() !== 'coding').map((div, i) => (
+                                                    <option value="sql">SQL</option>
+                                                    {filterOptions?.divisions?.filter(d => d.toLowerCase() !== 'coding' && d.toLowerCase() !== 'sql').map((div, i) => (
                                                         <option key={i} value={div}>{div}</option>
                                                     ))}
                                                 </select>

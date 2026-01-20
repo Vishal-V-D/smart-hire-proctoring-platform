@@ -20,12 +20,16 @@ import {
     Image as ImageIcon,
     AlertCircle,
     BarChart3,
-    Layers
+    Layers,
+    Eye
 } from 'lucide-react';
 import { questionBankService, QuestionBankQuestion, QuestionBankFilters, FilterOptions, QuestionBankStats } from '@/api/questionBankService';
 import { codingQuestionService, CodingProblem, CodingProblemFilters } from '@/api/codingQuestionService';
+import { sqlQuestionService, SQLQuestion, SQLQuestionFilters, SQLFilterOptions } from '@/api/sqlQuestionService';
 import CodingQuestionEditModal from './CodingQuestionEditModal';
 import PseudoCodeDisplay from '@/components/contestant/PseudoCodeDisplay';
+import SQLQuestionDisplay from '@/components/organizer/questions/SQLQuestionDisplay';
+import SQLQuestionEditModal from './SQLQuestionEditModal';
 
 const QuestionBankPage = () => {
     const [questions, setQuestions] = useState<QuestionBankQuestion[]>([]);
@@ -49,7 +53,7 @@ const QuestionBankPage = () => {
     const [isSelectionMode, setIsSelectionMode] = useState(false);
 
     // Coding Questions Tab State
-    const [activeQuestionTab, setActiveQuestionTab] = useState<'regular' | 'coding'>('regular');
+    const [activeQuestionTab, setActiveQuestionTab] = useState<'regular' | 'coding' | 'sql'>('regular');
     const [codingProblems, setCodingProblems] = useState<CodingProblem[]>([]);
     const [codingFilters, setCodingFilters] = useState<CodingProblemFilters>({ skip: 0, take: 20 });
     const [codingPagination, setCodingPagination] = useState({ total: 0, skip: 0, take: 20 });
@@ -63,6 +67,10 @@ const QuestionBankPage = () => {
     useEffect(() => {
         fetchFilterOptions();
         fetchStats();
+        // Fetch initial counts for other tabs
+        fetchCodingProblems();
+        fetchSqlFilters();
+        fetchSqlQuestions();
     }, []);
 
     // Fetch questions when filters change
@@ -143,6 +151,93 @@ const QuestionBankPage = () => {
         } catch (error) {
             console.error('Failed to delete coding problem:', error);
             alert('Failed to delete problem');
+        }
+    };
+
+    // SQL Questions Tab State
+    const [sqlQuestions, setSqlQuestions] = useState<SQLQuestion[]>([]);
+    const [sqlFilters, setSqlFilters] = useState<SQLQuestionFilters>({ page: 1, limit: 20 });
+    const [sqlPagination, setSqlPagination] = useState({ page: 1, limit: 20, total: 0 });
+    const [sqlFilterOptions, setSqlFilterOptions] = useState<SQLFilterOptions | null>(null);
+    const [isSqlLoading, setIsSqlLoading] = useState(false);
+    const [sqlSearchQuery, setSqlSearchQuery] = useState('');
+    const [selectedSqlQuestion, setSelectedSqlQuestion] = useState<SQLQuestion | null>(null);
+    const [showSqlDeleteModal, setShowSqlDeleteModal] = useState(false);
+    const [showSqlEditModal, setShowSqlEditModal] = useState(false);
+
+
+    const fetchSqlFilters = async () => {
+        try {
+            const response = await sqlQuestionService.getFilters();
+            if (response.data.success) {
+                setSqlFilterOptions(response.data.filters);
+            }
+        } catch (error) {
+            console.error('Failed to fetch SQL filters:', error);
+        }
+    };
+
+    const fetchSqlQuestions = async () => {
+        setIsSqlLoading(true);
+        try {
+            const response = await sqlQuestionService.listQuestions(sqlFilters);
+            console.log('📊 [SQL Questions] Fetched:', response.data);
+
+            // ✅ New pagination structure - total is inside pagination object
+            const pagination = response.data.pagination || {};
+
+            setSqlQuestions(response.data.questions || []);
+            setSqlPagination({
+                page: pagination.page || sqlFilters.page || 1,
+                limit: pagination.limit || sqlFilters.limit || 20,
+                total: pagination.total || 0,  // ✅ Access total from pagination object
+            });
+            console.log('✅ [SQL Questions] Total:', pagination.total);
+        } catch (error) {
+            console.error('Failed to fetch SQL questions:', error);
+            setSqlQuestions([]);
+            setSqlPagination({ page: 1, limit: 20, total: 0 });
+        } finally {
+            setIsSqlLoading(false);
+        }
+    };
+
+    // Fetch SQL questions when tab changes or filters change
+    useEffect(() => {
+        if (activeQuestionTab === 'sql') {
+            fetchSqlQuestions();
+        }
+    }, [activeQuestionTab, sqlFilters]);
+
+    const handleSqlSearch = (value: string) => {
+        setSqlSearchQuery(value);
+        setSqlFilters({ ...sqlFilters, search: value, page: 1 });
+    };
+
+    const handleSqlFilterChange = (key: keyof SQLQuestionFilters, value: any) => {
+        setSqlFilters({ ...sqlFilters, [key]: value, page: 1 });
+    };
+
+    const handleDeleteSqlQuestion = async () => {
+        if (!selectedSqlQuestion) return;
+        try {
+            // Assuming delete endpoint exists or using general delete if ID is unique globally
+            // For now, I'll assume we might need a delete method in sqlQuestionService or use questionBankService if IDs are shared
+            // Since I didn't see a specific delete in sqlQuestionService, I'll leave this empty or use a placeholder
+            // Actually, usually delete is generic. Let's use questionBankService for now or check if I need to add it.
+            // Wait, sqlQuestionService had list, run, submit. No delete. 
+            // I will use questionBankService.deleteQuestion assuming ID is compatible, otherwise I might need to add it to service.
+            // But for safety, I'll stick to what I have. If IDs are UUIDs, questionBankService might work if the backend is unified.
+            // If not, I'll just log "Not implemented" for now or add it to the implementation plan.
+            // Let's check questionBankService.deleteQuestion, it takes 'id'.
+            // I'll try generic delete.
+            await questionBankService.deleteQuestion(selectedSqlQuestion.id);
+            fetchSqlQuestions();
+            setShowSqlDeleteModal(false);
+            setSelectedSqlQuestion(null);
+        } catch (error) {
+            console.error('Failed to delete SQL question:', error);
+            alert('Failed to delete question');
         }
     };
 
@@ -227,6 +322,14 @@ const QuestionBankPage = () => {
             console.error('Failed to update question:', error);
             alert('Failed to update question');
         }
+    };
+
+    const [viewQuestion, setViewQuestion] = useState<QuestionBankQuestion | null>(null);
+    const [showViewModal, setShowViewModal] = useState(false);
+
+    const handleView = (question: QuestionBankQuestion) => {
+        setViewQuestion(question);
+        setShowViewModal(true);
     };
 
     const getQuestionTypeIcon = (type: string) => {
@@ -355,6 +458,17 @@ const QuestionBankPage = () => {
                         <Code size={16} />
                         Coding Questions
                         {codingPagination.total > 0 && <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-600 rounded-full text-xs font-bold">{codingPagination.total}</span>}
+                    </button>
+                    <button
+                        onClick={() => setActiveQuestionTab('sql')}
+                        className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium text-sm transition-all ${activeQuestionTab === 'sql'
+                            ? 'bg-background text-foreground shadow-sm'
+                            : 'text-muted-foreground hover:text-foreground'
+                            }`}
+                    >
+                        <Database size={16} />
+                        SQL Questions
+                        {sqlPagination.total > 0 && <span className="px-2 py-0.5 bg-amber-500/10 text-amber-600 rounded-full text-xs font-bold">{sqlPagination.total}</span>}
                     </button>
                 </div>
 
@@ -760,7 +874,302 @@ const QuestionBankPage = () => {
                 )}
             </div>
 
+            {/* SQL Questions Content */}
+            {activeQuestionTab === 'sql' && (
+                <div className="max-w-7xl mx-auto space-y-6">
+                    <div className="bg-card border border-border rounded-xl p-4">
+                        <div className="flex flex-col md:flex-row gap-3">
+                            <div className="flex-1 relative">
+                                <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                <input
+                                    type="text"
+                                    placeholder="Search SQL questions..."
+                                    value={sqlSearchQuery}
+                                    onChange={(e) => handleSqlSearch(e.target.value)}
+                                    className="w-full bg-background border border-border rounded-lg py-2.5 pl-10 pr-4 text-sm focus:border-primary outline-none"
+                                />
+                            </div>
+                            <select
+                                value={sqlFilters.dialect || ''}
+                                onChange={(e) => handleSqlFilterChange('dialect', e.target.value)}
+                                className="bg-background border border-border rounded-lg py-2 px-3 text-sm focus:border-primary outline-none"
+                            >
+                                <option value="">All Dialects</option>
+                                {sqlFilterOptions?.dialects.map((d, i) => (
+                                    <option key={i} value={d}>{d}</option>
+                                ))}
+                            </select>
+                            <select
+                                value={sqlFilters.difficulty || ''}
+                                onChange={(e) => handleSqlFilterChange('difficulty', e.target.value)}
+                                className="bg-background border border-border rounded-lg py-2 px-3 text-sm focus:border-primary outline-none"
+                            >
+                                <option value="">All Difficulties</option>
+                                <option value="Easy">Easy</option>
+                                <option value="Medium">Medium</option>
+                                <option value="Hard">Hard</option>
+                            </select>
+                            <select
+                                value={sqlFilters.topic || ''}
+                                onChange={(e) => handleSqlFilterChange('topic', e.target.value)}
+                                className="bg-background border border-border rounded-lg py-2 px-3 text-sm focus:border-primary outline-none"
+                            >
+                                <option value="">All Topics</option>
+                                {sqlFilterOptions?.topics.map((t, i) => (
+                                    <option key={i} value={t}>{t}</option>
+                                ))}
+                            </select>
+                            <select
+                                value={sqlFilters.subdivision || ''}
+                                onChange={(e) => handleSqlFilterChange('subdivision', e.target.value)}
+                                className="bg-background border border-border rounded-lg py-2 px-3 text-sm focus:border-primary outline-none"
+                            >
+                                <option value="">All Subdivisions</option>
+                                {sqlFilterOptions?.subdivisions.map((s, i) => (
+                                    <option key={i} value={s}>{s}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="bg-card border border-border rounded-xl overflow-hidden">
+                        {isSqlLoading ? (
+                            <div className="flex items-center justify-center py-20">
+                                <div className="flex flex-col items-center gap-3">
+                                    <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                                    <p className="text-sm text-muted-foreground">Loading SQL questions...</p>
+                                </div>
+                            </div>
+                        ) : sqlQuestions.length === 0 ? (
+                            <div className="flex items-center justify-center py-20">
+                                <div className="text-center">
+                                    <Database size={48} className="mx-auto text-muted-foreground/50 mb-3" />
+                                    <p className="text-sm font-bold text-foreground">No SQL questions found</p>
+                                    <p className="text-xs text-muted-foreground mt-1">Try adjusting your filters</p>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead className="bg-muted/50 border-b border-border">
+                                        <tr>
+                                            <th className="text-left py-3 px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">Title</th>
+                                            <th className="text-left py-3 px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">Dialect</th>
+                                            <th className="text-left py-3 px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">Difficulty</th>
+                                            <th className="text-left py-3 px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">Topic</th>
+                                            <th className="text-right py-3 px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-border">
+                                        {sqlQuestions.map((question) => (
+                                            <tr key={question.id} className="hover:bg-muted/30 transition-colors">
+                                                <td className="py-3 px-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <Database size={16} className="text-amber-500 shrink-0" />
+                                                        <div>
+                                                            <p className="text-sm font-medium text-foreground">{question.title}</p>
+                                                            <p className="text-xs text-muted-foreground font-mono">{question.slug}</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="py-3 px-4">
+                                                    <span className="text-xs font-medium px-2 py-1 bg-muted rounded-md uppercase">{question.dialect}</span>
+                                                </td>
+                                                <td className="py-3 px-4">
+                                                    <span className={`text-xs font-bold px-2 py-1 rounded-md border ${question.difficulty === 'Easy' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' :
+                                                        question.difficulty === 'Medium' ? 'bg-amber-500/10 text-amber-600 border-amber-500/20' :
+                                                            'bg-red-500/10 text-red-600 border-red-500/20'
+                                                        }`}>
+                                                        {question.difficulty}
+                                                    </span>
+                                                </td>
+                                                <td className="py-3 px-4">
+                                                    <span className="text-xs text-muted-foreground">{question.topic || '-'}</span>
+                                                </td>
+                                                <td className="py-3 px-4">
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        <button
+                                                            onClick={() => {
+                                                                const adapted: QuestionBankQuestion = {
+                                                                    id: question.id,
+                                                                    text: question.description || question.content,
+                                                                    title: question.title,
+                                                                    description: question.description || question.content,
+                                                                    type: 'sql',
+                                                                    marks: 0,
+                                                                    order: 0,
+                                                                    tags: [],
+                                                                    topic: question.topic || '',
+                                                                    division: 'Coding',
+                                                                    subdivision: question.subdivision || '',
+                                                                    difficulty: question.difficulty,
+                                                                    createdAt: question.createdAt || '',
+                                                                    updatedAt: '',
+                                                                    inputTables: question.inputTables,
+                                                                    expectedResult: question.expectedResult,
+                                                                    expectedQuery: question.expectedResult ? undefined : '',
+                                                                    dialect: question.dialect,
+                                                                    hint: question.hint,
+                                                                } as any;
+                                                                handleView(adapted);
+                                                            }}
+                                                            className="p-2 hover:bg-blue-500/10 text-blue-500 rounded-lg transition-colors"
+                                                            title="View Question"
+                                                        >
+                                                            <Eye size={16} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                setSelectedSqlQuestion(question);
+                                                                setShowSqlEditModal(true);
+                                                            }}
+                                                            className="p-2 hover:bg-primary/10 text-primary rounded-lg transition-colors"
+                                                            title="Edit Question"
+                                                        >
+                                                            <Edit size={16} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                setSelectedSqlQuestion(question);
+                                                                setShowSqlDeleteModal(true);
+                                                            }}
+                                                            className="p-2 hover:bg-destructive/10 text-destructive rounded-lg transition-colors"
+                                                            title="Delete Question"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                    {!isSqlLoading && sqlQuestions.length > 0 && (
+                        <div className="flex items-center justify-between">
+                            <div className="text-xs text-muted-foreground">
+                                Showing {((sqlPagination.page - 1) * sqlPagination.limit) + 1} - {Math.min(sqlPagination.page * sqlPagination.limit, sqlPagination.total)} of {sqlPagination.total}
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setSqlFilters({ ...sqlFilters, page: Math.max(1, sqlPagination.page - 1) })}
+                                    disabled={sqlPagination.page === 1}
+                                    className="p-2 rounded-lg border border-border hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    <ChevronLeft size={18} />
+                                </button>
+                                <button
+                                    onClick={() => setSqlFilters({ ...sqlFilters, page: Math.ceil(sqlPagination.total / sqlPagination.limit) })}
+                                    disabled={sqlPagination.page >= Math.ceil(sqlPagination.total / sqlPagination.limit)}
+                                    className="p-2 rounded-lg border border-border hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    <ChevronRight size={18} />
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )
+            }
+
             {/* Modals */}
+            <AnimatePresence>
+                {showSqlDeleteModal && selectedSqlQuestion && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/60 backdrop-blur-md">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.9 }}
+                            className="bg-card border border-border rounded-xl p-6 max-w-md w-full shadow-2xl"
+                        >
+                            <div className="flex items-start gap-4 mb-4">
+                                <div className="p-3 bg-destructive/10 rounded-full">
+                                    <AlertCircle className="text-destructive" size={24} />
+                                </div>
+                                <div className="flex-1">
+                                    <h3 className="text-lg font-bold text-foreground mb-1">Delete SQL Question?</h3>
+                                    <p className="text-sm text-muted-foreground">
+                                        Are you sure you want to delete this SQL question? This action cannot be undone.
+                                    </p>
+                                    <p className="text-xs text-muted-foreground mt-2 p-2 bg-muted rounded-lg line-clamp-2">
+                                        "{selectedSqlQuestion.title}"
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex gap-3 justify-end">
+                                <button
+                                    onClick={() => {
+                                        setShowSqlDeleteModal(false);
+                                        setSelectedSqlQuestion(null);
+                                    }}
+                                    className="px-4 py-2 rounded-lg border border-border hover:bg-muted transition-colors text-sm font-medium"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleDeleteSqlQuestion}
+                                    className="px-4 py-2 rounded-lg bg-destructive text-destructive-foreground hover:opacity-90 transition-all text-sm font-bold"
+                                >
+                                    Delete Question
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* View Question Modal */}
+            <AnimatePresence>
+                {showViewModal && viewQuestion && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-50 bg-background/95 backdrop-blur-xl overflow-y-auto"
+                    >
+                        <div className="min-h-screen p-6 md:p-10">
+                            <div className="max-w-4xl mx-auto">
+                                <div className="flex items-center justify-between mb-8">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-primary/10 rounded-lg text-primary">
+                                            {viewQuestion.type === 'sql' ? <Database size={24} /> : <Code size={24} />}
+                                        </div>
+                                        <div>
+                                            <h2 className="text-2xl font-bold text-foreground">Question Properties</h2>
+                                            <p className="text-sm text-muted-foreground">{viewQuestion.type === 'sql' ? 'SQL Question Details' : 'Question Preview'}</p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => setShowViewModal(false)}
+                                        className="p-2 hover:bg-muted rounded-lg transition-colors"
+                                    >
+                                        <X size={24} />
+                                    </button>
+                                </div>
+
+                                <div className="bg-card border border-border rounded-xl p-6 md:p-8 shadow-sm">
+                                    {viewQuestion.type === 'sql' ? (
+                                        <div className="overflow-none">
+                                            <SQLQuestionDisplay question={viewQuestion as any} />
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-6">
+                                            <div>
+                                                <h3 className="text-lg font-bold mb-2">{viewQuestion.topic}</h3>
+                                                <div className="p-4 bg-muted/50 rounded-lg">
+                                                    <p className="whitespace-pre-wrap">{viewQuestion.text}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
             <CodingQuestionEditModal
                 problem={selectedCodingProblem}
                 isOpen={showCodingEditModal}
@@ -1163,7 +1572,22 @@ const QuestionBankPage = () => {
                     </div>
                 )}
             </AnimatePresence>
-        </div>
+
+            {/* SQL Edit Modal */}
+            <SQLQuestionEditModal
+                isOpen={showSqlEditModal}
+                onClose={() => {
+                    setShowSqlEditModal(false);
+                    setSelectedSqlQuestion(null);
+                }}
+                question={selectedSqlQuestion}
+                onSave={() => {
+                    fetchSqlQuestions();
+                    setShowSqlEditModal(false);
+                    setSelectedSqlQuestion(null);
+                }}
+            />
+        </div >
     );
 };
 

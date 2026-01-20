@@ -293,11 +293,8 @@ export const AuthProviderClient = ({ children }: { children: ReactNode }) => {
     // Show loading state
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-theme-primary">
-                <div className="flex flex-col items-center gap-4">
-                    <div className="animate-spin h-8 w-8 border-4 border-[hsl(var(--color-accent))] border-t-transparent rounded-full"></div>
-                    <span className="text-theme-secondary">Loading...</span>
-                </div>
+            <div className="min-h-screen flex items-center justify-center bg-background">
+                <div className="initial-loader"></div>
             </div>
         );
     }
