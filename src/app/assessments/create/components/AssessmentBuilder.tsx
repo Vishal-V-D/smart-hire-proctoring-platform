@@ -188,7 +188,8 @@ const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({ config, sections,
             let subdivision: string | undefined;
 
             // Map section type to proper division name
-            const sectionTypeToDivision: Record<SectionType, string> = {
+            // Map section type to proper division name
+            const divisionMap: Record<SectionType, string> = {
                 'aptitude': 'Aptitude',
                 'technical': 'Technical',
                 'coding': 'Coding',
@@ -196,7 +197,7 @@ const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({ config, sections,
                 'sql': 'SQL'
             };
 
-            division = sectionTypeToDivision[section.type] || section.type.charAt(0).toUpperCase() + section.type.slice(1);
+            division = divisionMap[section.type] || section.type.charAt(0).toUpperCase() + section.type.slice(1);
 
             // Override for Pseudo Code and SQL based on Title
             if (section.title.includes('Pseudo Code')) {
