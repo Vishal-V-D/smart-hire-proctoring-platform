@@ -12,7 +12,11 @@ import {
     BarChart3,
     Mail,
     TrendingUp,
-    Eye
+    Eye,
+    ChevronDown,
+    ChevronUp,
+    ChevronLeft,
+    ChevronRight
 } from 'lucide-react';
 import {
     AreaChart,
@@ -28,6 +32,8 @@ import {
 import { assessmentService } from '@/api/assessmentService';
 
 // ========== CONSTANTS ==========
+
+const ITEMS_PER_PAGE = 6;
 
 const VIOLATION_TYPE_LABELS: Record<string, string> = {
     'THIRD_EYE': '3rd Eye',
@@ -71,6 +77,8 @@ const MonitoringTab = ({ assessmentId }: MonitoringTabProps) => {
     const [recentActivity, setRecentActivity] = useState<any[]>([]);
     const [chartData, setChartData] = useState<any[]>([]);
     const [dataLoaded, setDataLoaded] = useState(false); // Track if data has been loaded
+    const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
+    const [currentPage, setCurrentPage] = useState(1);
 
     // Process violations for Recharts
     const processChartData = (violations: any[]) => {
@@ -79,8 +87,8 @@ const MonitoringTab = ({ assessmentId }: MonitoringTabProps) => {
 
         violations.forEach(v => {
             const date = new Date(v.detectedAt || v.timestamp || v.createdAt);
-            const minutes = Math.floor(date.getMinutes() / 5) * 5;
-            date.setMinutes(minutes, 0, 0);
+            // Group by 1 minute intervals for better granularity
+            date.setSeconds(0, 0);
             const timeKey = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
             if (!buckets[timeKey]) {
@@ -89,6 +97,7 @@ const MonitoringTab = ({ assessmentId }: MonitoringTabProps) => {
             buckets[timeKey].count++;
         });
 
+        // Ensure sorted by time ascending
         return Object.values(buckets).sort((a, b) => a.timestamp - b.timestamp);
     };
 
@@ -97,72 +106,102 @@ const MonitoringTab = ({ assessmentId }: MonitoringTabProps) => {
             if (isManual) setRefreshing(true);
 
             const response = await assessmentService.getViolationStats(assessmentId);
+            // Handle both structure variations: direct object or nested in 'stats'
             const stats: any = response.data?.stats || response.data;
+            const globalViolations: any[] = (response.data as any)?.violations || [];
 
             if (stats) {
-                // Initialize counts
+                // 1. Violation Counts (Breakdown)
+                // Backend returns keys like "window_swap", "no_face". 
+                // We need to map them to our ALL_VIOLATION_TYPES (uppercase) or just use them if UI supports dynamic keys.
+                // Our UI constants (VIOLATION_TYPE_LABELS) use keys like 'WINDOW_SWAP', 'NO_FACE'.
                 const newCounts: Record<string, number> = {};
+
+                // Initialize clean counts
                 ALL_VIOLATION_TYPES.forEach(type => {
                     newCounts[type] = 0;
                 });
 
-                let totalCount = 0;
-                const allViols: any[] = [];
+                // Check violationsByType from new API structure
+                if (stats.violationsByType) {
+                    Object.entries(stats.violationsByType).forEach(([key, count]) => {
+                        const normalizedKey = key.toUpperCase().replace(/\s+/g, '_');
+                        if (ALL_VIOLATION_TYPES.includes(normalizedKey)) {
+                            newCounts[normalizedKey] = (count as number) || 0;
+                        } else {
+                            // Try to find a match or just log key
+                            console.log('⚠️ Unknown violation key from API:', key);
+                        }
+                    });
+                }
+
+                // 2. Active Candidates (User List)
                 const candidatesMap: Record<string, any> = {};
+                const aggregatedViolations: any[] = [];
 
-                // Process violations from users
                 if (stats.users && Array.isArray(stats.users)) {
-                    console.log('📊 Processing', stats.users.length, 'users from backend');
-                    stats.users.forEach((user: any) => {
-                        const candidateId = user.userId || user.contestantId || user.id;
-                        const violationsArray = user.violations || [];
-                        const userViolationCount = violationsArray.length;
+                    // console.log('📊 Processing', stats.users.length, 'users');
+                    stats.users.forEach((u: any) => {
+                        // Extract user details
+                        const userObj = u.user || {};
+                        const candidateId = userObj.id || u.id;
 
-                        console.log('👤 User:', user.userName || user.contestantName, '| Violations:', userViolationCount);
-
-                        if (violationsArray.length > 0) {
-                            violationsArray.forEach((v: any) => {
-                                const type = v.type?.toUpperCase().replace(/\s+/g, '_') || 'UNKNOWN';
-
-                                // Count violations by type (for breakdown)
-                                if (ALL_VIOLATION_TYPES.includes(type)) {
-                                    newCounts[type] = (newCounts[type] || 0) + 1;
-                                    totalCount++;
-                                } else {
-                                    // Also count unknown types
-                                    console.log('⚠️ Unknown violation type:', type, 'Original:', v.type);
-                                    totalCount++;
-                                }
-
-                                allViols.push(v);
-                            });
+                        // Collect violations for fallback
+                        if (u.violations && Array.isArray(u.violations)) {
+                            // Inject user name context since it's missing in nested objects
+                            const userName = userObj.name || userObj.username || 'Anonymous';
+                            const enriched = u.violations.map((v: any) => ({
+                                ...v,
+                                contestantName: v.contestantName || userName,
+                                userName: v.userName || userName
+                            }));
+                            aggregatedViolations.push(...enriched);
                         }
 
-                        // Track ALL candidates
                         if (candidateId) {
                             candidatesMap[candidateId] = {
                                 id: candidateId,
-                                name: user.userName || user.contestantName || 'Anonymous',
-                                email: user.userEmail || user.contestantEmail || '',
-                                violations: userViolationCount,
-                                lastUpdate: Date.now()
+                                name: userObj.name || userObj.username || 'Anonymous',
+                                email: userObj.email || '',
+                                status: u.status, // 'active' for Live
+                                violations: u.totalViolations || 0,
+                                lastUpdate: Date.now(),
+                                recentEvents: u.violations || []
                             };
-                            console.log('✅ Candidate added:', candidateId, 'Violations:', userViolationCount);
                         }
                     });
                 }
 
-                // Also check byType from backend if available (fallback)
-                if (stats.byType && Object.keys(newCounts).every(k => newCounts[k] === 0)) {
-                    ALL_VIOLATION_TYPES.forEach(type => {
-                        newCounts[type] = stats.byType[type] || 0;
-                    });
-                }
-
-                setStatsTotal(totalCount || stats.total || 0);
+                // 3. Stats Totals
+                setStatsTotal(stats.totalViolations || stats.total || 0);
                 setViolationCounts(newCounts);
-                setActiveCandidates(prev => ({ ...prev, ...candidatesMap }));
-                setChartData(processChartData(allViols));
+                setActiveCandidates(candidatesMap);
+
+                // 4. Recent Activity & Charts
+                // Prefer the global 'violations' array from response if available (latest 100)
+                // Otherwise aggregate from users (less accurate for timeline)
+                const activitySource = globalViolations.length > 0 ? globalViolations : aggregatedViolations;
+
+                // Always process chart data from the actual source list to ensure timestamps match the data (e.g. historical data)
+                // rather than relying on a potentially empty "Last 60 Minutes" timeline from backend.
+                setChartData(processChartData(activitySource));
+
+                // Format Recent Activity Feed
+                const activityFeed = activitySource.slice(0, 30).map((v: any) => {
+                    const type = v.type?.toUpperCase().replace(/\s+/g, '_') || 'UNKNOWN';
+                    return {
+                        id: v.id || `temp-${v.detectedAt}-${Math.random()}`,
+                        name: v.contestantName || v.userName || 'Unknown Candidate',
+                        type: type,
+                        timestamp: v.detectedAt || v.timestamp || v.createdAt || new Date().toISOString()
+                    };
+                });
+
+                // Reducer-style update to prevent empties from clearing state momentarily
+                setRecentActivity(prev => {
+                    if (activityFeed.length === 0 && prev.length > 0) return prev;
+                    return activityFeed;
+                });
             }
             if (!isManual) setLastPolled(new Date().toISOString());
         } catch (error) {
@@ -185,35 +224,9 @@ const MonitoringTab = ({ assessmentId }: MonitoringTabProps) => {
             try {
                 const response = await assessmentService.getViolationsRealtime(assessmentId, lastPolled);
                 if (response.data?.violations && response.data.violations.length > 0) {
-                    // Just refresh the full stats instead of incrementing
+                    // Just refresh the full stats immediately for accurate sync
+                    // This handles active candidates, charts, and activity feed in one go
                     fetchStats(true);
-
-                    // Update activity feed with new violations
-                    const newCandidates = { ...activeCandidates };
-                    response.data.violations.forEach((v: any) => {
-                        const type = v.type?.toUpperCase().replace(/\s+/g, '_') || 'UNKNOWN';
-                        const candidateId = v.contestantId || v.user?.id || 'unknown';
-
-                        if (!newCandidates[candidateId]) {
-                            newCandidates[candidateId] = {
-                                id: candidateId,
-                                name: v.userName || v.contestantName || 'Anonymous',
-                                email: v.userEmail || v.contestantEmail || '',
-                                violations: 0,
-                                lastUpdate: Date.now()
-                            };
-                        }
-                        newCandidates[candidateId].lastUpdate = Date.now();
-
-                        setRecentActivity(prev => [{
-                            id: v.id || Math.random(),
-                            name: newCandidates[candidateId].name,
-                            type: type,
-                            timestamp: v.timestamp || new Date().toISOString()
-                        }, ...prev].slice(0, 30));
-                    });
-
-                    setActiveCandidates(newCandidates);
                 }
                 const nextTs = response.data?.lastTimestamp || response.data?.serverTimestamp;
                 if (nextTs) setLastPolled(nextTs);
@@ -225,7 +238,19 @@ const MonitoringTab = ({ assessmentId }: MonitoringTabProps) => {
         return () => clearInterval(pollInterval);
     }, [assessmentId, lastPolled, activeCandidates]);
 
-    const activeSessions = Object.keys(activeCandidates).length;
+    const activeSessionsFiltered = Object.values(activeCandidates).filter((c: any) =>
+        c.status === 'active' || (Date.now() - c.lastUpdate < 60000)
+    );
+    const activeSessions = activeSessionsFiltered.length;
+
+    // Pagination Logic
+    const totalPages = Math.ceil(activeSessionsFiltered.length / ITEMS_PER_PAGE);
+    const paginatedCandidates = activeSessionsFiltered.slice(
+        (currentPage - 1) * ITEMS_PER_PAGE,
+        currentPage * ITEMS_PER_PAGE
+    );
+
+    // Sort logic for top violations
     const topViolations = Object.entries(violationCounts)
         .filter(([_, count]) => count > 0)
         .sort((a, b) => b[1] - a[1])
@@ -267,61 +292,134 @@ const MonitoringTab = ({ assessmentId }: MonitoringTabProps) => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
                 {/* Left Column - Candidates Table */}
-                <div className="lg:col-span-2 bg-card border border-border rounded-xl overflow-hidden">
-                    <div className="p-4 border-b border-border bg-muted/30">
+                <div className="lg:col-span-2 bg-card border border-border rounded-xl overflow-hidden flex flex-col h-[500px]">
+                    <div className="p-4 border-b border-border bg-muted/30 shrink-0">
                         <h3 className="font-bold text-sm flex items-center gap-2">
                             <Eye size={16} className="text-primary" />
                             Active Candidates
                         </h3>
                     </div>
-                    <div className="overflow-y-auto max-h-[500px] custom-scrollbar">
+                    <div className="flex-1 overflow-y-auto custom-scrollbar">
                         {!dataLoaded ? (
                             <CandidatesSkeleton />
                         ) : activeSessions === 0 ? (
-                            <div className="flex flex-col items-center justify-center py-16 text-center">
+                            <div className="flex flex-col items-center justify-center h-full text-center">
                                 <Users size={48} className="text-muted-foreground mb-4 opacity-30" />
                                 <p className="text-sm font-medium text-muted-foreground">No active candidates</p>
                                 <p className="text-xs text-muted-foreground mt-1">Waiting for sessions to start...</p>
                             </div>
                         ) : (
                             <table className="w-full">
-                                <thead className="sticky top-0 bg-card border-b border-border">
+                                <thead className="sticky top-0 bg-card border-b border-border z-10">
                                     <tr className="text-xs font-bold text-muted-foreground uppercase">
+                                        <th className="px-4 py-3 text-left w-6"></th>
                                         <th className="px-4 py-3 text-left">Candidate</th>
+                                        <th className="px-4 py-3 text-center">Violation Count</th>
                                         <th className="px-4 py-3 text-center">Status</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-border">
-                                    {Object.values(activeCandidates).map((candidate) => (
-                                        <tr key={candidate.id} className="hover:bg-muted/30 transition-colors">
-                                            <td className="px-4 py-3">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-                                                        {candidate.name.charAt(0).toUpperCase()}
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-sm font-semibold text-foreground">{candidate.name}</p>
-                                                        {candidate.email && (
-                                                            <p className="text-xs text-muted-foreground flex items-center gap-1">
-                                                                <Mail size={10} />
+                                    {paginatedCandidates.map((candidate: any) => (
+                                        <React.Fragment key={candidate.id}>
+                                            <tr
+                                                className={`hover:bg-muted/30 transition-colors cursor-pointer ${expandedRows[candidate.id] ? 'bg-muted/20' : ''}`}
+                                                onClick={() => setExpandedRows(prev => ({ ...prev, [candidate.id]: !prev[candidate.id] }))}
+                                            >
+                                                <td className="px-4 py-3">
+                                                    {expandedRows[candidate.id] ?
+                                                        <ChevronUp size={16} className="text-muted-foreground" /> :
+                                                        <ChevronDown size={16} className="text-muted-foreground" />
+                                                    }
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs shrink-0">
+                                                            {(candidate.email || candidate.name).charAt(0).toUpperCase()}
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <p className="text-sm font-semibold text-foreground truncate max-w-[150px]">
+                                                                {candidate.name}
+                                                            </p>
+                                                            <p className="text-xs text-muted-foreground truncate max-w-[150px]">
                                                                 {candidate.email}
                                                             </p>
-                                                        )}
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-3 text-center">
-                                                <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold">
-                                                    <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
-                                                    Live
-                                                </span>
-                                            </td>
-                                        </tr>
+                                                </td>
+                                                <td className="px-4 py-3 text-center">
+                                                    <span className={`text-xs font-bold px-2 py-0.5 rounded ${candidate.violations > 0 ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'
+                                                        }`}>
+                                                        {candidate.violations}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-3 text-center">
+                                                    <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider">
+                                                        <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
+                                                        Live
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                            {expandedRows[candidate.id] && (
+                                                <tr className="bg-muted/10">
+                                                    <td colSpan={4} className="p-0">
+                                                        <div className="p-3 pl-14 text-sm border-b border-border border-dashed">
+                                                            <p className="text-xs font-bold text-muted-foreground mb-2 flex items-center gap-2">
+                                                                <Shield size={12} />
+                                                                Recent Violations (Latest 5)
+                                                            </p>
+                                                            {!candidate.recentEvents || candidate.recentEvents.length === 0 ? (
+                                                                <p className="text-xs text-muted-foreground italic">No specific violations recorded yet.</p>
+                                                            ) : (
+                                                                <div className="space-y-1.5">
+                                                                    {candidate.recentEvents.slice(0, 5).map((ev: any, idx: number) => (
+                                                                        <div key={idx} className="flex items-center justify-between text-xs bg-card border border-border rounded px-2 py-1.5">
+                                                                            <span className="font-medium text-foreground">
+                                                                                {VIOLATION_TYPE_LABELS[ev.type] || ev.type}
+                                                                            </span>
+                                                                            <span className="text-muted-foreground text-[10px]">
+                                                                                {new Date(ev.detectedAt || ev.timestamp || Date.now()).toLocaleTimeString()}
+                                                                            </span>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </React.Fragment>
                                     ))}
                                 </tbody>
                             </table>
                         )}
                     </div>
+                    {/* Pagination Footer */}
+                    {activeSessions > 0 && (
+                        <div className="p-3 border-t border-border bg-muted/10 flex items-center justify-between shrink-0">
+                            <span className="text-xs text-muted-foreground">
+                                Showing {Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, activeSessions)} - {Math.min(currentPage * ITEMS_PER_PAGE, activeSessions)} of {activeSessions}
+                            </span>
+                            <div className="flex gap-1">
+                                <button
+                                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                    disabled={currentPage === 1}
+                                    className="p-1 rounded hover:bg-muted disabled:opacity-50 transition-colors"
+                                >
+                                    <ChevronLeft size={16} className="text-muted-foreground" />
+                                </button>
+                                <span className="text-xs font-medium px-2 py-1 flex items-center text-foreground">
+                                    {currentPage} / {totalPages || 1}
+                                </span>
+                                <button
+                                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                    disabled={currentPage >= totalPages}
+                                    className="p-1 rounded hover:bg-muted disabled:opacity-50 transition-colors"
+                                >
+                                    <ChevronRight size={16} className="text-muted-foreground" />
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Right Column - Activity & Charts */}

@@ -81,14 +81,11 @@ const ParticipantsTab = ({ assessmentId }: { assessmentId: string }) => {
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center text-xs font-bold text-primary">
-                                                    {(p.user?.fullName || p.invitationName || '?').charAt(0)}
+                                                    {(p.user?.email || p.invitationEmail || '?').charAt(0).toUpperCase()}
                                                 </div>
-                                                <div className="flex flex-col">
-                                                    <span className="font-bold text-foreground">
-                                                        {p.user?.fullName || p.invitationName || p.user?.username || 'Anonymous'}
-                                                    </span>
-                                                    <span className="text-xs text-muted-foreground flex items-center gap-1">
-                                                        <Mail size={10} /> {p.user?.email || p.invitationEmail}
+                                                <div className="flex flex-col justify-center">
+                                                    <span className="font-bold text-foreground text-sm">
+                                                        {p.user?.email || p.invitationEmail}
                                                     </span>
                                                 </div>
                                             </div>

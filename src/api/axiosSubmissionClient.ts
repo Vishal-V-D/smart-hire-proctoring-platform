@@ -1,8 +1,8 @@
 // src/api/axiosSubmissionClient.ts
 import axios from "axios";
 
-const SUBMISSION_API_URL = process.env.NEXT_PUBLIC_SUBMISSION_SERVICE_URL || 'http://localhost:3003';
-const CONTEST_API_URL = process.env.NEXT_PUBLIC_CONTEST_SERVICE_URL || 'http://localhost:3002/api/v1';
+const SUBMISSION_API_URL = process.env.NEXT_PUBLIC_SUBMISSION_SERVICE_URL;
+const CONTEST_API_URL = process.env.NEXT_PUBLIC_CONTEST_SERVICE_URL;
 
 console.log('🔧 [Config] Loading Submission Service Client...');
 // console.log('🔧 [Config] NEXT_PUBLIC_SUBMISSION_SERVICE_URL:', SUBMISSION_API_URL);

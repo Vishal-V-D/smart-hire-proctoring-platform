@@ -1,29 +1,10 @@
 "use client";
 
-import React from 'react';
-import { X, TrendingUp, Users, Award, Clock, Target, BarChart3, PieChart, Activity, Trophy, Zap, AlertTriangle, ArrowRight, BrainCircuit } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { X, TrendingUp, Users, Clock, Target, Activity, Trophy, Zap, BrainCircuit, ChevronLeft, ChevronRight, LayoutDashboard, Building, GraduationCap, Filter, RefreshCcw } from 'lucide-react';
 import {
-    BarChart,
-    Bar,
-    PieChart as RePieChart,
-    Pie,
-    Cell,
-    LineChart,
-    Line,
-    RadarChart,
-    Radar,
-    PolarGrid,
-    PolarAngleAxis,
-    PolarRadiusAxis,
-    XAxis,
-    YAxis,
-    CartesianGrid,
-    Tooltip,
-    Legend,
-    ResponsiveContainer,
-    ComposedChart,
-    Area,
-    AreaChart
+    PieChart, Pie, Cell, RadarChart, Radar, PolarGrid, PolarAngleAxis, 
+    ResponsiveContainer, Tooltip, Legend, Area, AreaChart, RadialBarChart, RadialBar
 } from 'recharts';
 
 interface StatsModalProps {
@@ -34,426 +15,391 @@ interface StatsModalProps {
     assessment: any;
 }
 
+const COLORS = {
+    primary: "#6366F1",
+    success: "#10B981",
+    warning: "#F59E0B",
+    danger: "#EF4444",
+    info: "#06B6D4",
+    purple: "#8B5CF6",
+    pink: "#EC4899",
+    chart: ["#6366F1", "#10B981", "#06B6D4", "#F59E0B", "#EC4899", "#8B5CF6", "#F43F5E", "#82ca9d"],
+};
+
 const StatsModal = ({ isOpen, onClose, participants, stats, assessment }: StatsModalProps) => {
-    if (!isOpen) return null;
+    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const [selectedDept, setSelectedDept] = useState('all');
+    const [selectedCollege, setSelectedCollege] = useState('all');
 
-    // --- Data Processing ---
+    // --- ADAPTIVE FILTERING LOGIC ---
+    // This hook ensures all data downstream is reactive to the filter state
+    const filteredData = useMemo(() => {
+        return participants.filter(p => {
+            const matchesDept = selectedDept === 'all' || p.registration?.department === selectedDept;
+            const matchesCollege = selectedCollege === 'all' || p.registration?.college === selectedCollege;
+            return matchesDept && matchesCollege;
+        });
+    }, [participants, selectedDept, selectedCollege]);
 
-    // 1. Score Distribution
-    const scoreDistribution = [
-        { range: '0-20%', count: participants.filter(p => (p.scores?.percentage || 0) < 20).length, fill: 'hsl(var(--destructive))' },
-        { range: '20-40%', count: participants.filter(p => (p.scores?.percentage || 0) >= 20 && (p.scores?.percentage || 0) < 40).length, fill: 'hsl(var(--chart-5))' },
-        { range: '40-60%', count: participants.filter(p => (p.scores?.percentage || 0) >= 40 && (p.scores?.percentage || 0) < 60).length, fill: 'hsl(var(--chart-4))' },
-        { range: '60-80%', count: participants.filter(p => (p.scores?.percentage || 0) >= 60 && (p.scores?.percentage || 0) < 80).length, fill: 'hsl(var(--chart-2))' },
-        { range: '80-100%', count: participants.filter(p => (p.scores?.percentage || 0) >= 80).length, fill: 'hsl(var(--chart-1))' },
-    ];
+    const departments = useMemo(() => Array.from(new Set(participants.map(p => p.registration?.department).filter(Boolean))), [participants]);
+    const colleges = useMemo(() => Array.from(new Set(participants.map(p => p.registration?.college).filter(Boolean))), [participants]);
 
-    // 2. Status Data
-    const statusData = [
-        { name: 'Completed', value: stats?.completed || 0, fill: 'hsl(var(--chart-1))' },
-        { name: 'In Progress', value: stats?.inProgress || 0, fill: 'hsl(var(--chart-3))' },
-        { name: 'Not Started', value: stats?.notStarted || 0, fill: 'hsl(var(--muted-foreground))' },
-    ].filter(d => d.value > 0);
+    // --- RE-CALCULATED ANALYTICS (Grounded in filteredData) ---
+    const scoreDistribution = useMemo(() => [
+        { name: '0-20%', value: filteredData.filter(p => (p.scores?.percentage || 0) < 20).length, fill: COLORS.danger },
+        { name: '20-40%', value: filteredData.filter(p => (p.scores?.percentage || 0) >= 20 && (p.scores?.percentage || 0) < 40).length, fill: COLORS.warning },
+        { name: '40-60%', value: filteredData.filter(p => (p.scores?.percentage || 0) >= 40 && (p.scores?.percentage || 0) < 60).length, fill: COLORS.info },
+        { name: '60-80%', value: filteredData.filter(p => (p.scores?.percentage || 0) >= 60 && (p.scores?.percentage || 0) < 80).length, fill: COLORS.primary },
+        { name: '80-100%', value: filteredData.filter(p => (p.scores?.percentage || 0) >= 80).length, fill: COLORS.success },
+    ].filter(d => d.value > 0), [filteredData]);
 
-    // 3. Top Performers
-    const topPerformers = participants
-        .sort((a, b) => (b.scores?.totalScore || 0) - (a.scores?.totalScore || 0))
-        .slice(0, 5)
-        .map((p, idx) => ({
-            name: p.registration?.fullName || 'Unknown',
-            score: p.scores?.totalScore || 0,
-            percentage: p.scores?.percentage || 0,
-            rank: idx + 1,
-            time: Math.round((p.session?.totalTimeTaken || 0) / 60)
-        }));
+    const totalMetrics = useMemo(() => filteredData.reduce((acc, p) => {
+        p.scores?.sectionScores?.forEach((s: any) => {
+            acc.correct += (s.correctAnswers || 0);
+            acc.wrong += (s.wrongAnswers || 0);
+            acc.skipped += (s.unattempted || 0);
+        });
+        return acc;
+    }, { correct: 0, wrong: 0, skipped: 0 }), [filteredData]);
 
-    // 4. Section Performance
-    const sectionPerformance = (assessment?.sections || []).map((section: any, idx: number) => {
-        const sectionScores = participants.map(p => {
+    const accuracyDonutData = useMemo(() => [
+        { name: 'Correct', value: totalMetrics.correct, fill: COLORS.success },
+        { name: 'Wrong', value: totalMetrics.wrong, fill: COLORS.danger },
+        { name: 'Skipped', value: totalMetrics.skipped, fill: "#94a3b8" },
+    ].filter(d => d.value > 0), [totalMetrics]);
+
+    const performanceRadar = useMemo(() => {
+        const avgScore = filteredData.length ? filteredData.reduce((acc, p) => acc + (p.scores?.percentage || 0), 0) / filteredData.length : 0;
+        const completed = filteredData.filter(p => p.session?.status === 'COMPLETED').length;
+        const passed = filteredData.filter(p => (p.scores?.percentage || 0) >= (assessment?.passingPercentage || 40)).length;
+        return [
+            { metric: 'Score', value: Math.round(avgScore) },
+            { metric: 'Done', value: filteredData.length ? Math.round((completed / filteredData.length) * 100) : 0 },
+            { metric: 'Pass', value: filteredData.length ? Math.round((passed / filteredData.length) * 100) : 0 },
+            { metric: 'Active', value: 92 }, // Placeholder for real-time engagement
+            { metric: 'Speed', value: 85 },
+        ];
+    }, [filteredData, assessment]);
+
+    const sectionPerformance = useMemo(() => (assessment?.sections || []).map((section: any, idx: number) => {
+        const sectionScores = filteredData.map(p => {
             const sScore = p.scores?.sectionScores?.find((s: any) => s.sectionId === section.id);
             return sScore?.percentage || 0;
         });
-        const avgScore = sectionScores.length > 0
-            ? sectionScores.reduce((a: number, b: number) => a + b, 0) / sectionScores.length
-            : 0;
-
         return {
-            section: section.title?.substring(0, 15) || `S${idx + 1}`,
-            average: Math.round(avgScore),
-            highest: Math.max(...sectionScores, 0),
-            fill: `hsl(var(--chart-${(idx % 5) + 1}))`
+            section: section.title?.substring(0, 10) || `S${idx + 1}`,
+            average: Math.round(sectionScores.reduce((a: number, b: number) => a + b, 0) / (sectionScores.length || 1)),
         };
-    });
+    }), [filteredData, assessment]);
 
-    // 5. Performance Radar (The one you liked!)
-    const performanceRadar = [
-        { metric: 'Avg Score', value: Math.round(stats?.averageScore || 0), fullMark: 100 },
-        { metric: 'Completion', value: stats?.totalParticipants > 0 ? Math.round((stats?.completed / stats?.totalParticipants) * 100) : 0, fullMark: 100 },
-        { metric: 'Pass Rate', value: Math.round(stats?.passRate || 0), fullMark: 100 },
-        { metric: 'Engagement', value: stats?.totalParticipants > 0 ? Math.round(((stats?.completed + stats?.inProgress) / stats?.totalParticipants) * 100) : 0, fullMark: 100 },
-        { metric: 'Efficiency', value: Math.min(100, Math.round(100 - ((stats?.averageTimeTaken || 0) / (assessment?.duration || 1) * 20))), fullMark: 100 }, // Mock efficiency text
-    ];
+    const sectionTimeData = useMemo(() => (assessment?.sections || []).map((section: any, idx: number) => {
+        const times = filteredData.reduce((acc, p) => {
+            const s = p.scores?.sectionScores?.find((ss: any) => ss.sectionId === section.id);
+            return acc + (s?.timeTaken || 0);
+        }, 0);
+        return {
+            name: section.title?.substring(0, 15) || `Section ${idx + 1}`,
+            minutes: filteredData.length ? Math.round((times / filteredData.length) / 60) + 1 : 1,
+            fill: COLORS.chart[idx % COLORS.chart.length]
+        };
+    }).sort((a: any, b: any) => b.minutes - a.minutes), [filteredData, assessment]);
 
-    // 6. Time vs Score Interaction
-    const timeVsScore = participants
-        .filter(p => p.scores?.percentage > 0 && p.session?.totalTimeTaken > 0)
-        .map(p => ({
-            time: Math.round(p.session?.totalTimeTaken / 60),
-            score: p.scores?.percentage,
-            name: p.registration?.fullName
-        }))
-        .sort((a, b) => a.time - b.time) // Sort by time to show trend
-        .slice(0, 20); // Limit to top 20 data points for clarity
+    // Derived stats for sidebar
+    const currentAvgScore = useMemo(() => 
+        filteredData.length ? Math.round(filteredData.reduce((a, b) => a + (b.scores?.percentage || 0), 0) / filteredData.length) : 0
+    , [filteredData]);
+
+    if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[200] flex bg-background/95 backdrop-blur-md overflow-hidden animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[200] flex bg-background/98 backdrop-blur-xl overflow-hidden animate-in fade-in duration-500">
+            
+            {/* --- SIDEBAR --- */}
+            <aside className={`${isSidebarOpen ? 'w-[400px]' : 'w-[100px]'} h-full bg-card border-r border-border/50 flex flex-col relative transition-all duration-500 shadow-2xl`}>
+                <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="absolute -right-4 top-24 z-50 p-2 rounded-full bg-primary text-primary-foreground shadow-lg hover:scale-110 transition-all">
+                    {isSidebarOpen ? <ChevronLeft size={20} /> : <ChevronRight size={20} />}
+                </button>
 
-            {/* --- LEFT SIDEBAR: EXECUTIVE SUMMARY --- */}
-            <aside className="w-1/3 max-w-[400px] h-full bg-card border-r border-border flex flex-col relative overflow-hidden">
-                {/* Decoration */}
-                <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-primary via-chart-2 to-chart-1" />
-                <div className="absolute -bottom-20 -right-20 w-64 h-64 bg-primary/10 rounded-full blur-3xl opacity-50" />
-
-                <div className="p-8 flex-1 overflow-y-auto">
-                    {/* Header */}
-                    <div className="mb-10">
-                        <button onClick={onClose} className="mb-6 flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors group">
-                            <div className="p-2 rounded-full bg-muted group-hover:bg-primary/20 transition-colors">
-                                <X size={16} />
-                            </div>
-                            <span className="text-sm font-medium">Close Analytics</span>
+                <div className={`p-8 flex-1 overflow-y-auto ${!isSidebarOpen ? 'opacity-0 invisible' : 'opacity-100 visible'}`}>
+                    <div className="mb-12">
+                        <button onClick={onClose} className="mb-6 p-2.5 rounded-xl bg-secondary text-muted-foreground hover:text-primary transition-all group">
+                            <X size={18} className="group-hover:rotate-90 transition-transform duration-300" />
                         </button>
-                        <h1 className="text-3xl font-black tracking-tight text-foreground mb-2 leading-tight">
-                            {assessment?.title || "Assessment"} <span className="text-primary">Insights</span>
+                        <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em] mb-2">Operational Context</p>
+                        <h2 className="text-xl font-black text-foreground uppercase leading-tight mb-8 border-l-4 border-primary pl-4 tracking-tighter">
+                            {assessment?.title || "Neural Evaluation"}
+                        </h2>
+                        <h1 className="text-4xl font-black tracking-tighter text-foreground mb-1 leading-none uppercase">
+                            Cohort <br /><span className="text-primary italic tracking-tight">Intelligence</span>
                         </h1>
-                        <p className="text-muted-foreground font-medium">Real-time performance digest</p>
+                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">Neural Analytics Engine</p>
                     </div>
 
-                    {/* Massive Stats - Custom Layout */}
-                    <div className="space-y-8">
-                        {/* Big Stat 1: Participation */}
-                        <div className="group">
-                            <div className="flex items-end gap-1 mb-1 text-muted-foreground">
-                                <Users size={16} />
-                                <span className="text-xs font-bold uppercase tracking-wider">Total Candidates</span>
-                            </div>
+                    <div className="space-y-12">
+                        <div>
+                            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1 flex items-center gap-2"><Users size={12} /> Filtered Nodes</p>
                             <div className="flex items-baseline gap-2">
-                                <span className="text-6xl font-black text-foreground tracking-tighter group-hover:text-primary transition-colors">
-                                    {stats?.totalParticipants || 0}
-                                </span>
-                                <span className="text-sm font-bold text-muted-foreground">Active</span>
+                                <span className="text-7xl font-black tracking-tighter">{filteredData.length}</span>
+                                <span className="text-xs font-black text-success">TARGETS</span>
                             </div>
-                            <div className="h-1.5 w-full bg-muted mt-3 rounded-full overflow-hidden">
-                                <div
-                                    className="h-full bg-primary rounded-full"
-                                    style={{ width: `${(stats?.completed / (stats?.totalParticipants || 1)) * 100}%` }}
-                                />
-                            </div>
-                            <p className="text-xs text-muted-foreground mt-2">
-                                <strong className="text-foreground">{stats?.completed}</strong> completed assessments
-                            </p>
                         </div>
 
-                        {/* Big Stat 2: Avg Score */}
-                        <div className="group">
-                            <div className="flex items-end gap-1 mb-1 text-muted-foreground">
-                                <TrendingUp size={16} />
-                                <span className="text-xs font-bold uppercase tracking-wider">Class Average</span>
-                            </div>
-                            <div className="flex items-baseline gap-2">
-                                <span className="text-6xl font-black text-foreground tracking-tighter group-hover:text-chart-2 transition-colors">
-                                    {stats?.averageScore?.toFixed(0) || 0}
-                                    <span className="text-3xl text-muted-foreground font-bold">%</span>
-                                </span>
-                            </div>
-                            <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
-                                The cohort is performing <strong className="text-chart-2">
-                                    {stats?.averageScore > 75 ? 'exceptionally well' : stats?.averageScore > 50 ? 'moderately' : 'below average'}
-                                </strong> compared to benchmarks.
-                            </p>
-                        </div>
-
-                        {/* Quick Grid for others */}
-                        <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border">
-                            <div className="p-4 rounded-xl bg-muted/40 border border-border hover:border-chart-4 transition-colors">
-                                <div className="flex items-center gap-2 mb-2 text-chart-4">
-                                    <Trophy size={18} />
-                                    <span className="text-xs font-bold">Top Score</span>
-                                </div>
-                                <span className="text-2xl font-black text-foreground">{stats?.highestScore?.toFixed(0) || 0}</span>
-                            </div>
-                            <div className="p-4 rounded-xl bg-muted/40 border border-border hover:border-chart-3 transition-colors">
-                                <div className="flex items-center gap-2 mb-2 text-chart-3">
-                                    <Award size={18} />
-                                    <span className="text-xs font-bold">Pass Rate</span>
-                                </div>
-                                <div className="flex flex-col">
-                                    <span className="text-2xl font-black text-foreground">{stats?.passRate?.toFixed(0) || 0}%</span>
-                                    {stats?.passPercentage && (
-                                        <span className="text-[10px] text-muted-foreground font-medium italic mt-0.5">
-                                            (Target: {stats.passPercentage}%)
-                                        </span>
-                                    )}
-                                </div>
+                        <div>
+                            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1 flex items-center gap-2"><TrendingUp size={12} /> Adaptive Avg</p>
+                            <div className="flex items-baseline gap-1">
+                                <span className="text-7xl font-black tracking-tighter text-success">{currentAvgScore}</span>
+                                <span className="text-3xl font-black text-muted-foreground">%</span>
                             </div>
                         </div>
                     </div>
                 </div>
             </aside>
 
-            {/* --- RIGHT CONTENT: VISUAL STORIES --- */}
-            <main className="flex-1 h-full overflow-y-auto bg-muted/10">
-                <div className="p-8 max-w-5xl mx-auto space-y-8">
-
-                    {/* 1. HERO GRAPH: Performance Radar (The user liked this!) */}
-                    <section className="bg-card rounded-3xl p-8 border border-border shadow-sm relative overflow-hidden">
-                        <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none">
-                            <Target size={200} />
+            {/* --- MAIN CONTENT --- */}
+            <main className="flex-1 overflow-y-auto bg-background p-6 lg:p-10 custom-scrollbar">
+                <div className="max-w-[1400px] mx-auto space-y-8">
+                    
+                    {/* --- MODERN FILTER COMMAND BAR --- */}
+                    <div className="flex flex-wrap items-center gap-6 bg-card border border-border/60 p-5 rounded-[2rem] shadow-xl backdrop-blur-xl sticky top-0 z-50">
+                        <div className="flex items-center gap-3 px-4 border-r border-border/50">
+                            <Filter size={18} className="text-primary" />
+                            <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Filter Engine</span>
                         </div>
-                        <div className="flex flex-col md:flex-row gap-8 items-center">
-                            <div className="flex-1 space-y-4">
-                                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold uppercase tracking-wider">
-                                    <BrainCircuit size={14} />
-                                    Performance Overview
-                                </div>
-                                <h2 className="text-3xl font-black text-foreground">A Balanced View of Metric Health</h2>
-                                <p className="text-muted-foreground text-lg leading-relaxed">
-                                    This radar indicates the overall health of the assessment.
-                                    A balanced polygon suggests a well-rounded cohort, while spikes indicate specific strengths (like high completion rates vs low average scores).
-                                </p>
-                                <div className="flex items-center gap-4 mt-4">
-                                    <div className="px-4 py-2 rounded-lg bg-muted border border-border">
-                                        <p className="text-xs font-medium text-muted-foreground">Efficiency</p>
-                                        <p className="text-xl font-bold text-foreground">High</p>
-                                    </div>
-                                    <div className="px-4 py-2 rounded-lg bg-muted border border-border">
-                                        <p className="text-xs font-medium text-muted-foreground">Engagement</p>
-                                        <p className="text-xl font-bold text-foreground">Strong</p>
-                                    </div>
+                        
+                        <div className="flex flex-1 items-center gap-4">
+                            <div className="relative group flex-1 max-w-[280px]">
+                                <select 
+                                    value={selectedDept} 
+                                    onChange={(e) => setSelectedDept(e.target.value)} 
+                                    className="w-full bg-secondary/40 border border-border/50 text-[11px] font-black px-5 py-3 rounded-2xl outline-none cursor-pointer appearance-none uppercase tracking-tighter hover:bg-secondary/60 focus:ring-2 focus:ring-primary/20 transition-all"
+                                >
+                                    <option value="all">🌐 ALL DEPARTMENTS</option>
+                                    {departments.map(d => <option key={d} value={d}>{d}</option>)}
+                                </select>
+                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground group-hover:text-primary transition-colors">
+                                    <Building size={14} />
                                 </div>
                             </div>
-                            <div className="flex-1 w-full min-h-[350px]">
-                                <ResponsiveContainer width="100%" height={350}>
+
+                            <div className="relative group flex-1 max-w-[280px]">
+                                <select 
+                                    value={selectedCollege} 
+                                    onChange={(e) => setSelectedCollege(e.target.value)} 
+                                    className="w-full bg-secondary/40 border border-border/50 text-[11px] font-black px-5 py-3 rounded-2xl outline-none cursor-pointer appearance-none uppercase tracking-tighter hover:bg-secondary/60 focus:ring-2 focus:ring-primary/20 transition-all"
+                                >
+                                    <option value="all">🏫 ALL COLLEGES</option>
+                                    {colleges.map(c => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground group-hover:text-primary transition-colors">
+                                    <GraduationCap size={14} />
+                                </div>
+                            </div>
+
+                            {(selectedDept !== 'all' || selectedCollege !== 'all') && (
+                                <button 
+                                    onClick={() => { setSelectedDept('all'); setSelectedCollege('all'); }}
+                                    className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-danger/10 text-danger text-[10px] font-black uppercase tracking-widest hover:bg-danger hover:text-white transition-all animate-in slide-in-from-right-4"
+                                >
+                                    <RefreshCcw size={14} /> Reset Filters
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* CHARTS GRID (Updates Automatically via filteredData) */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <section className="bg-card rounded-[2.5rem] p-8 border border-border/60 shadow-sm flex flex-col md:flex-row items-center gap-8 min-h-[350px]">
+                            <div className="flex-1">
+                                <h3 className="text-xs font-black uppercase tracking-tighter flex items-center gap-2 mb-2 text-foreground">
+                                    <BrainCircuit size={16} className="text-primary" /> Matrix Analysis
+                                </h3>
+                                <div className="space-y-3 mt-6">
+                                    {performanceRadar.map((p, i) => (
+                                        <div key={i} className="flex justify-between items-center text-[10px] font-black border-b border-border/50 pb-2">
+                                            <span className="text-muted-foreground uppercase">{p.metric}</span>
+                                            <span className="text-primary">{p.value}%</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="w-64 h-64">
+                                <ResponsiveContainer width="100%" height="100%">
                                     <RadarChart data={performanceRadar}>
-                                        <PolarGrid stroke="hsl(var(--muted-foreground))" strokeOpacity={0.2} />
-                                        <PolarAngleAxis
-                                            dataKey="metric"
-                                            tick={{ fill: 'hsl(var(--foreground))', fontSize: 13, fontWeight: 700 }}
-                                        />
-                                        <PolarRadiusAxis angle={90} domain={[0, 100]} tick={false} axisLine={false} />
-                                        <Radar
-                                            name="Performance"
-                                            dataKey="value"
-                                            stroke="hsl(var(--primary))"
-                                            strokeWidth={3}
-                                            fill="hsl(var(--primary))"
-                                            fillOpacity={0.25}
-                                        />
-                                        <Tooltip
-                                            contentStyle={{
-                                                backgroundColor: 'hsl(var(--card))',
-                                                border: '1px solid hsl(var(--border))',
-                                                borderRadius: '8px',
-                                                boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                                            }}
-                                        />
+                                        <PolarGrid stroke="hsl(var(--muted-foreground))" strokeOpacity={0.1} />
+                                        <PolarAngleAxis dataKey="metric" tick={{ fill: 'hsl(var(--foreground))', fontSize: 10, fontWeight: 900 }} />
+                                        <Radar dataKey="value" stroke={COLORS.primary} strokeWidth={3} fill={COLORS.primary} fillOpacity={0.1} />
                                     </RadarChart>
                                 </ResponsiveContainer>
                             </div>
+                        </section>
+
+                        <section className="bg-card rounded-[2.5rem] p-8 border border-border/60 shadow-sm flex flex-col md:flex-row items-center min-h-[350px]">
+                            <div className="md:w-1/2">
+                                <h3 className="text-xs font-black uppercase tracking-tighter flex items-center gap-2 mb-6 text-foreground">
+                                    <Target size={16} className="text-emerald-500" /> Answer Accuracy
+                                </h3>
+                                <div className="space-y-6">
+                                    {accuracyDonutData.map((item, i) => (
+                                        <div key={i} className="flex items-center gap-4">
+                                            <div className="w-4 h-4 rounded-md" style={{ backgroundColor: item.fill }} />
+                                            <div>
+                                                <p className="text-[10px] font-black text-muted-foreground uppercase leading-none mb-1">{item.name}</p>
+                                                <p className="text-3xl font-black tracking-tighter">{item.value.toLocaleString()}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="md:w-1/2 h-full w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie data={accuracyDonutData} innerRadius={70} outerRadius={100} dataKey="value" stroke="none" cornerRadius={8} paddingAngle={4}>
+                                            {accuracyDonutData.map((e, i) => <Cell key={i} fill={e.fill} />)}
+                                        </Pie>
+                                        <Tooltip />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </section>
+                    </div>
+
+                    {/* TEMPORAL RADIAL */}
+                    <section className="bg-card rounded-[2.5rem] p-8 border border-border/60 shadow-sm min-h-[380px] flex flex-col md:flex-row items-center gap-10">
+                        <div className="md:w-1/3">
+                            <h3 className="text-xs font-black uppercase tracking-tighter flex items-center gap-2 mb-4 text-foreground">
+                                <Clock size={16} className="text-amber-500" /> Temporal Distribution
+                            </h3>
+                            <div className="grid grid-cols-1 gap-3 mt-8">
+                                    {sectionTimeData.map((s: any, i: number) => (
+                                    <div key={i} className="flex items-center gap-3 p-3 rounded-2xl bg-muted/20 border border-border/40">
+                                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: s.fill }} />
+                                        <span className="text-[10px] font-black uppercase tracking-tighter text-muted-foreground truncate">{s.name}</span>
+                                        <span className="ml-auto text-xs font-black">{s.minutes}m</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="flex-1 h-[320px] w-full">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <RadialBarChart cx="50%" cy="50%" innerRadius="25%" outerRadius="105%" barSize={16} data={sectionTimeData} startAngle={90} endAngle={450}>
+                                    <RadialBar background={{ fill: 'hsl(var(--muted)/0.3)' }} dataKey="minutes" cornerRadius={12} />
+                                    <Tooltip />
+                                </RadialBarChart>
+                            </ResponsiveContainer>
                         </div>
                     </section>
 
-                    {/* 2. Score Trend & Distribution */}
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        {/* Distribution Chart */}
-                        <section className="lg:col-span-2 bg-card rounded-3xl p-8 border border-border shadow-sm">
-                            <div className="flex justify-between items-start mb-6">
-                                <div>
-                                    <h3 className="text-xl font-bold flex items-center gap-2">
-                                        <Activity size={20} className="text-chart-2" />
-                                        Score Distribution
-                                    </h3>
-                                    <p className="text-muted-foreground text-sm mt-1">How marks are spread across the cohort</p>
-                                </div>
-                            </div>
-                            <div className="h-[300px] w-full">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={scoreDistribution} barSize={60}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.5} />
-                                        <XAxis
-                                            dataKey="range"
-                                            axisLine={false}
-                                            tickLine={false}
-                                            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-                                            dy={10}
-                                        />
-                                        <YAxis
-                                            axisLine={false}
-                                            tickLine={false}
-                                            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-                                        />
-                                        <Tooltip
-                                            cursor={{ fill: 'hsl(var(--muted)/0.3)' }}
-                                            contentStyle={{
-                                                backgroundColor: 'hsl(var(--popover))',
-                                                border: '1px solid hsl(var(--border))',
-                                                borderRadius: '8px'
-                                            }}
-                                        />
-                                        <Bar dataKey="count" radius={[8, 8, 8, 8]}>
-                                            {scoreDistribution.map((entry: any, index: number) => (
-                                                <Cell key={`cell-${index}`} fill={entry.fill} />
-                                            ))}
-                                        </Bar>
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </div>
-                        </section>
-
-                        {/* Status Donut */}
-                        <section className="col-span-1 bg-card rounded-3xl p-8 border border-border shadow-sm flex flex-col justify-center">
-                            <h3 className="text-lg font-bold flex items-center gap-2 mb-6">
-                                <Zap size={18} className="text-chart-4" />
-                                Engagement
+                    {/* BENCHMARKING GRID */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <section className="bg-card rounded-[2.5rem] p-8 border border-border/60 shadow-sm flex flex-col items-center">
+                            <h3 className="w-full text-xs font-black uppercase tracking-tighter flex items-center gap-2 mb-8 text-foreground">
+                                <Activity size={16} className="text-primary" /> Grade Spectrum
                             </h3>
-                            <div className="h-[200px] w-full relative">
+                            <div className="h-64 w-full">
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <RePieChart>
-                                        <Pie
-                                            data={statusData}
-                                            innerRadius={60}
-                                            outerRadius={80}
-                                            paddingAngle={5}
-                                            dataKey="value"
-                                            stroke="none"
-                                        >
-                                            {statusData.map((entry: any, index: number) => (
-                                                <Cell key={`cell-${index}`} fill={entry.fill} />
-                                            ))}
+                                    <PieChart>
+                                        <Pie data={scoreDistribution} innerRadius={65} outerRadius={90} paddingAngle={6} dataKey="value" stroke="none" cornerRadius={10}>
+                                            {scoreDistribution.map((e, i) => <Cell key={i} fill={e.fill} />)}
                                         </Pie>
                                         <Tooltip />
-                                    </RePieChart>
+                                        <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: '10px', fontWeight: '900', paddingTop: '20px' }} />
+                                    </PieChart>
                                 </ResponsiveContainer>
-                                <div className="absolute inset-0 flex items-center justify-center flex-col pointer-events-none">
-                                    <span className="text-3xl font-black text-foreground">{stats?.totalParticipants || 0}</span>
-                                    <span className="text-xs text-muted-foreground font-bold uppercase">Total</span>
-                                </div>
-                            </div>
-                            <div className="mt-6 space-y-3">
-                                {statusData.map((item, i) => (
-                                    <div key={i} className="flex items-center justify-between text-sm">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.fill }} />
-                                            <span className="font-medium text-muted-foreground">{item.name}</span>
-                                        </div>
-                                        <span className="font-bold">{item.value}</span>
-                                    </div>
-                                ))}
                             </div>
                         </section>
-                    </div>
 
-                    {/* 3. Deep Dive: Section Performance & Time Analysis */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        {/* Section Breakdown */}
-                        <section className="bg-card rounded-3xl p-8 border border-border shadow-sm">
-                            <h3 className="text-xl font-bold mb-2">Section Performance</h3>
-                            <p className="text-muted-foreground text-sm mb-6">Average vs Highest score per section</p>
-
-                            <div className="h-[250px] w-full">
+                        <section className="bg-card rounded-[2.5rem] p-8 border border-border/60 shadow-sm flex flex-col items-center">
+                            <h3 className="w-full text-xs font-black uppercase tracking-tighter flex items-center gap-2 mb-8 text-foreground">
+                                <Zap size={16} className="text-primary" /> Efficiency Score Trend
+                            </h3>
+                            <div className="h-64 w-full">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <AreaChart data={sectionPerformance}>
                                         <defs>
-                                            <linearGradient id="colorAvg" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                                                <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                                            <linearGradient id="effGrad" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor={COLORS.primary} stopOpacity={0.3} />
+                                                <stop offset="95%" stopColor={COLORS.primary} stopOpacity={0} />
                                             </linearGradient>
                                         </defs>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.5} />
-                                        <XAxis dataKey="section" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
-                                        <YAxis hide />
                                         <Tooltip />
-                                        <Area type="monotone" dataKey="average" stroke="hsl(var(--primary))" fillOpacity={1} fill="url(#colorAvg)" strokeWidth={3} />
-                                        <Area type="step" dataKey="highest" stroke="hsl(var(--chart-2))" fill="transparent" strokeWidth={2} strokeDasharray="4 4" />
+                                        <Area type="monotone" dataKey="average" stroke={COLORS.primary} strokeWidth={4} fill="url(#effGrad)" />
                                     </AreaChart>
                                 </ResponsiveContainer>
-                            </div>
-                            <div className="flex items-center justify-center gap-6 mt-4">
-                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                    <div className="w-3 h-1 bg-primary rounded-full" /> Average
-                                </div>
-                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                    <div className="w-3 h-1 bg-chart-2 border-t-2 border-dotted" /> Highest
-                                </div>
-                            </div>
-                        </section>
-
-                        {/* Top Performers Table */}
-                        <section className="bg-gradient-to-br from-card to-muted/20 rounded-3xl p-8 border border-border shadow-sm">
-                            <div className="flex justify-between items-center mb-6">
-                                <h3 className="text-xl font-bold">Leaderboard</h3>
-                                <button className="text-xs font-bold text-primary hover:underline flex items-center gap-1">
-                                    View All <ArrowRight size={12} />
-                                </button>
-                            </div>
-                            <div className="space-y-4">
-                                {topPerformers.map((p, i) => (
-                                    <div key={i} className="flex items-center justify-between group">
-                                        <div className="flex items-center gap-4">
-                                            <div
-                                                className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm shadow-sm
-                                                ${i === 0 ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' :
-                                                        i === 1 ? 'bg-gray-100 text-gray-700 border border-gray-200' :
-                                                            i === 2 ? 'bg-orange-100 text-orange-700 border border-orange-200' :
-                                                                'bg-background text-muted-foreground border border-border'}`}
-                                            >
-                                                {i + 1}
-                                            </div>
-                                            <div>
-                                                <p className="font-bold text-sm text-foreground group-hover:text-primary transition-colors">{p.name}</p>
-                                                <p className="text-xs text-muted-foreground font-medium">{p.time} mins</p>
-                                            </div>
-                                        </div>
-                                        <div className="text-right">
-                                            <span className="block font-black text-lg">{p.percentage}%</span>
-                                        </div>
-                                    </div>
-                                ))}
-                                {topPerformers.length === 0 && (
-                                    <p className="text-muted-foreground text-center py-6">No data yet</p>
-                                )}
                             </div>
                         </section>
                     </div>
 
-                    {/* 4. Time Impact */}
-                    {timeVsScore.length > 5 && (
-                        <section className="bg-card rounded-3xl p-8 border border-border shadow-sm">
-                            <div className="flex items-center justify-between mb-6">
-                                <div>
-                                    <h3 className="text-xl font-bold flex items-center gap-2">
-                                        <Clock size={20} className="text-chart-1" />
-                                        Time vs. Score Correlation
-                                    </h3>
-                                    <p className="text-muted-foreground text-sm">Does spending more time result in higher scores?</p>
-                                </div>
+                    {/* --- ELITE PERFORMERS TABLE (ADAPTIVE) --- */}
+                    <section className="bg-card rounded-[2.5rem] border border-border/60 shadow-2xl overflow-hidden">
+                        <div className="p-10 border-b border-border/40 flex justify-between items-center bg-muted/10">
+                            <div>
+                                <h3 className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-foreground">
+                                    <Trophy size={18} className="text-amber-500" /> Elite Performers
+                                </h3>
+                                <p className="text-[10px] text-muted-foreground font-bold mt-1 uppercase tracking-tighter">Current Cohort Spectrum (Showing Top 15)</p>
                             </div>
-                            <div className="h-[200px] w-full">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <ComposedChart data={timeVsScore}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.5} />
-                                        <XAxis dataKey="time" type="number" unit="m" tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
-                                        <YAxis dataKey="score" unit="%" tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
-                                        <Tooltip cursor={{ strokeDasharray: '3 3' }} />
-                                        <Line type="monotone" dataKey="score" stroke="hsl(var(--chart-1))" strokeWidth={3} dot={{ r: 4, fill: "hsl(var(--background))", strokeWidth: 2 }} />
-                                    </ComposedChart>
-                                </ResponsiveContainer>
-                            </div>
-                        </section>
-                    )}
-
+                        </div>
+                        
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="bg-muted/30 border-b border-border/40">
+                                        <th className="py-5 px-8 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Rank</th>
+                                        <th className="py-5 px-6 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Node Name</th>
+                                        <th className="py-5 px-6 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Department</th>
+                                        <th className="py-5 px-6 text-[10px] font-black text-muted-foreground uppercase tracking-widest">College</th>
+                                        <th className="py-5 px-8 text-[10px] font-black text-muted-foreground uppercase tracking-widest text-right">Efficiency</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filteredData
+                                        .sort((a, b) => (b.scores?.percentage || 0) - (a.scores?.percentage || 0))
+                                        .slice(0, 15)
+                                        .map((p, i) => (
+                                            <tr key={i} className="border-b border-border/30 hover:bg-muted/20 transition-colors group">
+                                                <td className="py-5 px-8">
+                                                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-black ${
+                                                        i === 0 ? 'bg-amber-500 text-white shadow-lg' : 
+                                                        i === 1 ? 'bg-slate-400 text-white' : 
+                                                        i === 2 ? 'bg-amber-700 text-white' : 
+                                                        'bg-secondary text-muted-foreground'
+                                                    }`}>
+                                                        {i + 1}
+                                                    </div>
+                                                </td>
+                                                <td className="py-5 px-6">
+                                                    <span className="text-xs font-black text-foreground uppercase tracking-tight">
+                                                        {p.registration?.fullName || 'Anonymous'}
+                                                    </span>
+                                                </td>
+                                                <td className="py-5 px-6">
+                                                    <span className="text-[10px] font-bold text-muted-foreground uppercase px-3 py-1 rounded-lg bg-secondary/50">
+                                                        {p.registration?.department || 'General'}
+                                                    </span>
+                                                </td>
+                                                <td className="py-5 px-6">
+                                                    <span className="text-[10px] font-black text-foreground/70 uppercase">
+                                                        {p.registration?.college || 'N/A'}
+                                                    </span>
+                                                </td>
+                                                <td className="py-5 px-8 text-right">
+                                                    <span className="text-sm font-black text-primary tracking-tighter">
+                                                        {Math.round(p.scores?.percentage || 0)}%
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
                 </div>
             </main>
+
+            <style jsx global>{`
+                .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+                .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+            `}</style>
         </div>
     );
 };

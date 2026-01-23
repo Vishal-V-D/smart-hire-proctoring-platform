@@ -16,6 +16,7 @@ import { codeService, type TestCaseResult, type RunCodeSummary, type SubmitCodeR
 import AssessmentTimer from '@/components/contestant/AssessmentTimer';
 import { useAssessment } from '@/context/AssessmentContext';
 import ProctoringMonitor from '@/components/contestant/ProctoringMonitor';
+import { socketService } from '@/api/socketService';
 
 // Dynamic import Monaco
 const Editor = dynamic(() => import('@monaco-editor/react'), { ssr: false });
@@ -165,6 +166,7 @@ function SQLPageContent() {
     const [showSectionWarning, setShowSectionWarning] = useState(false);
     const [answers, setAnswers] = useState<Record<string, any>>({});
     const [submitting, setSubmitting] = useState(false);
+    const [isFinishingSection, setIsFinishingSection] = useState(false);
     const [submissionId, setSubmissionId] = useState<string | null>(null);
     const [isStateLoaded, setIsStateLoaded] = useState(false);
     // Track which problem's code is currently loaded in the editor
@@ -245,6 +247,150 @@ function SQLPageContent() {
         }
     }, [assessmentId]);
 
+    // ========== WebSocket Integration for SQL Results ==========
+    useEffect(() => {
+        if (!problem?.id) return;
+
+        console.log('🔌 [SQL WebSocket] Connecting to socket server...');
+        const socket = socketService.connect();
+
+        if (!socket) {
+            console.error('❌ [SQL WebSocket] Failed to connect to socket server');
+            return;
+        }
+
+        console.log('✅ [SQL WebSocket] Socket connected, setting up listeners for question:', problem.id);
+
+        // Handler for SQL Run Results (Test execution)
+        const handleSqlRunResult = (payload: any) => {
+            console.log('\n🎯 ========== SQL RUN RESULT RECEIVED (WebSocket) ==========');
+            console.log('📦 [SQL WebSocket] Full Payload:', JSON.stringify(payload, null, 2));
+            console.log('📋 [SQL WebSocket] Question ID:', payload.questionId);
+            console.log('👤 [SQL WebSocket] User ID:', payload.userId);
+            console.log('✅ [SQL WebSocket] Success:', payload.result?.success);
+            console.log('📊 [SQL WebSocket] Output (Rows):', payload.result?.output);
+            console.log('📝 [SQL WebSocket] Raw Output:', payload.result?.rawOutput);
+            console.log('⏱️ [SQL WebSocket] Execution Time:', payload.result?.executionTime, 'ms');
+            console.log('❌ [SQL WebSocket] Error (if any):', payload.result?.error);
+            console.log('🔢 [SQL WebSocket] Status Code:', payload.result?.statusCode);
+            console.log('📌 [SQL WebSocket] Status:', payload.result?.status);
+            console.log('🎯 ============================================================\n');
+
+            // Only process if this result is for the current question
+            if (payload.questionId !== problem.id) {
+                console.warn('⚠️ [SQL WebSocket] Received result for different question, ignoring');
+                return;
+            }
+
+            setIsRunning(false);
+
+            // Handle success/failure
+            if (!payload.result?.success) {
+                console.warn('❌ [SQL WebSocket] Run Failed:', payload.result?.error);
+                const errorMsg = payload.result?.error || payload.result?.rawOutput || 'Execution failed';
+                setSqlError(errorMsg);
+                setSqlResult(null);
+                setActiveTab('result');
+                if (consoleHeight < 5) setConsoleHeight(35);
+                return;
+            }
+
+            // Handle success case
+            const rows = payload.result.output || [];
+            const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
+
+            console.log('✅ [SQL WebSocket] Processing successful result');
+
+            setSqlResult({
+                rows,
+                columns,
+                executionTime: payload.result.executionTime || 0,
+                rowCount: rows.length,
+                status: payload.result.status || 'Success'
+            });
+            setSqlError(null);
+            setActiveTab('result');
+
+            if (consoleHeight < 5) setConsoleHeight(35);
+        };
+
+        // Handler for SQL Submit Results (Final submission with evaluation)
+        const handleSqlSubmitResult = (payload: any) => {
+            console.log('\n🎯 ========== SQL SUBMIT RESULT RECEIVED (WebSocket) ==========');
+            console.log('📦 [SQL WebSocket] Full Payload:', JSON.stringify(payload, null, 2));
+            console.log('📋 [SQL WebSocket] Question ID:', payload.questionId);
+            console.log('👤 [SQL WebSocket] User ID:', payload.userId);
+            console.log('✅ [SQL WebSocket] Success:', payload.result?.success);
+            console.log('🎯 [SQL WebSocket] Is Correct:', payload.result?.isCorrect);
+            console.log('💯 [SQL WebSocket] Score:', payload.result?.score);
+            console.log('📊 [SQL WebSocket] User Result:', payload.result?.userResult);
+            console.log('📊 [SQL WebSocket] Expected Result:', payload.result?.expectedResult || payload.result?.expectedOutput);
+            console.log('💬 [SQL WebSocket] Feedback:', payload.result?.feedback);
+            console.log('⏱️ [SQL WebSocket] Execution Time:', payload.result?.executionTime, 'ms');
+            console.log('❌ [SQL WebSocket] Error (if any):', payload.result?.error);
+            console.log('🔢 [SQL WebSocket] Status Code:', payload.result?.statusCode);
+            console.log('📌 [SQL WebSocket] Status:', payload.result?.status);
+            console.log('📝 [SQL WebSocket] Raw Output:', payload.result?.rawOutput);
+            console.log('🎯 ===============================================================\n');
+
+            // Only process if this result is for the current question
+            if (payload.questionId !== problem.id) {
+                console.warn('⚠️ [SQL WebSocket] Received result for different question, ignoring');
+                return;
+            }
+
+            setIsSubmitting(false);
+
+            // Handle error case (success === false OR error exists)
+            if (!payload.result?.success || payload.result?.error) {
+                console.error('❌ [SQL WebSocket] Error in submission:', payload.result?.error);
+                console.error('❌ [SQL WebSocket] Status:', payload.result?.status);
+                console.error('❌ [SQL WebSocket] Status Code:', payload.result?.statusCode);
+                console.error('❌ [SQL WebSocket] Raw Output:', payload.result?.rawOutput);
+
+                // Display the error message (already cleaned by backend) or raw output
+                const errorMessage = payload.result?.error || payload.result?.message || payload.result?.rawOutput || 'Submission failed';
+                setSqlError(errorMessage);
+                setSqlCheckResult(null);
+                setActiveTab('result');
+                if (consoleHeight < 5) setConsoleHeight(35);
+                return;
+            }
+
+            // Handle success case
+            if (payload.result?.success) {
+                console.log('✅ [SQL WebSocket] Processing successful submission');
+                console.log('   - Is Correct:', payload.result.isCorrect);
+                console.log('   - Score:', payload.result.score);
+
+                setSqlCheckResult({
+                    isCorrect: payload.result.isCorrect,
+                    score: payload.result.score,
+                    userResult: payload.result.userResult || payload.result.output || [],
+                    expectedResult: payload.result.expectedResult || payload.result.expectedOutput || [],
+                    feedback: payload.result.feedback || ''
+                });
+                setSqlError(null);
+                setActiveTab('result');
+
+                if (consoleHeight < 5) setConsoleHeight(35);
+            }
+        };
+
+        // Register event listeners
+        socket.on('sql_run_result', handleSqlRunResult);
+        socket.on('sql_submit_result', handleSqlSubmitResult);
+
+        console.log('👂 [SQL WebSocket] Event listeners registered for sql_run_result and sql_submit_result');
+
+        // Cleanup on unmount or question change
+        return () => {
+            console.log('🧹 [SQL WebSocket] Cleaning up event listeners');
+            socket.off('sql_run_result', handleSqlRunResult);
+            socket.off('sql_submit_result', handleSqlSubmitResult);
+        };
+    }, [problem?.id, consoleHeight]);
+
     // Question switching effect - properly handles state updates
     useEffect(() => {
         if (!problem?.id) return;
@@ -287,8 +433,46 @@ function SQLPageContent() {
         setLoadedProblemId(problem.id);
     }, [problem?.id, questionIndex]); // Run when problem or question index changes
 
+    // Helper function to convert backend errors to user-friendly messages
+    const getFriendlyErrorMessage = (error: string): string => {
+        const errorLower = error.toLowerCase();
+
+        // Common error patterns and their friendly replacements
+        if (errorLower.includes('question id') && errorLower.includes('required')) {
+            return 'Oops! Something went wrong. Please try again.';
+        }
+        if (errorLower.includes('query') && errorLower.includes('required')) {
+            return 'No query to run! ✍️ Write your SQL query first.';
+        }
+        if (errorLower.includes('syntax error')) {
+            return 'Syntax error in your query! 🔍 Check your SQL syntax.';
+        }
+        if (errorLower.includes('does not exist') || errorLower.includes('not found')) {
+            return error; // Keep specific "table/column not found" errors as they're helpful
+        }
+        if (errorLower.includes('permission denied') || errorLower.includes('unauthorized')) {
+            return 'Permission denied! 🚫 You don\'t have access to perform this operation.';
+        }
+        if (errorLower.includes('timeout') || errorLower.includes('timed out')) {
+            return 'Query took too long! ⏱️ Try optimizing your query.';
+        }
+
+        // Return original error if no pattern matches
+        return error;
+    };
+
     const handleRun = async () => {
         if (!problem?.id) return;
+
+        // Validate that user has written a query
+        if (!code || code.trim().length === 0) {
+            setSqlError('No query to run! ✍️ Write your SQL query first.');
+            setSqlResult(null);
+            setSqlCheckResult(null);
+            setActiveTab('result');
+            if (consoleHeight < 5) setConsoleHeight(35);
+            return;
+        }
 
         setIsRunning(true);
         setSqlResult(null);
@@ -302,30 +486,45 @@ function SQLPageContent() {
                 query: code
             });
 
-            if (response.data.success) {
-                const rows = response.data.output || response.data.result || [];
-                const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
-                setSqlResult({
-                    rows,
-                    columns,
-                    executionTime: response.data.executionTime,
-                    rowCount: response.data.rowCount ?? rows.length,
-                    status: response.data.status
-                });
-            } else {
-                setSqlError(response.data.error || 'Execution failed');
+            console.log('✅ [SQL RUN] Job Queued:', response.data);
+
+            // Only handle immediate HTTP errors
+            if (response.data.error) {
+                console.warn('⚠️ [SQL RUN] Queue Error:', response.data.error);
+                setSqlError(getFriendlyErrorMessage(response.data.error));
+                setIsRunning(false); // Stop loading only on error
+                return;
             }
+
+            // Success means job queued - DO NOT update UI yet, wait for WebSocket
+            if (!response.data.success) {
+                console.warn('⚠️ [SQL RUN] Failed to queue job');
+                setSqlError('Failed to queue execution job');
+                setIsRunning(false);
+            }
+
+            // NOTE: isRunning remains TRUE here. It will be set to FALSE by the WebSocket handler.
+
         } catch (error: any) {
-            console.error('Run SQL error:', error);
-            setSqlError(error.response?.data?.message || error.message || 'Failed to execute SQL');
-        } finally {
-            setIsRunning(false);
-            if (consoleHeight < 5) setConsoleHeight(35);
+            console.error('❌ [SQL RUN ERROR] Request Failed:', error);
+            const errorMsg = error.response?.data?.message || error.response?.data?.error || error.message || 'Failed to execute SQL';
+            setSqlError(getFriendlyErrorMessage(errorMsg));
+            setIsRunning(false); // Stop loading on catch
         }
     };
 
     const handleSubmit = async () => {
         if (!problem?.id) return;
+
+        // Validate that user has written a query
+        if (!code || code.trim().length === 0) {
+            setSqlError('No query to submit! ✍️ Write your SQL query first.');
+            setSqlResult(null);
+            setSqlCheckResult(null);
+            setActiveTab('result');
+            if (consoleHeight < 5) setConsoleHeight(35);
+            return;
+        }
 
         setIsSubmitting(true);
         setSqlCheckResult(null);
@@ -339,23 +538,29 @@ function SQLPageContent() {
                 sectionId: sections[currentSectionIndex]?.id
             });
 
-            if (response.data.success) {
-                setSqlCheckResult({
-                    isCorrect: response.data.isCorrect,
-                    score: response.data.score,
-                    userResult: response.data.userResult,
-                    expectedResult: response.data.expectedResult,
-                    feedback: response.data.feedback
-                });
-            } else {
-                setSqlError(response.data.error || 'Submission failed');
+            console.log('✅ [SQL SUBMIT] Job Queued:', response.data);
+
+            // Check if there's an error in the response
+            if (response.data.error) {
+                console.warn('⚠️ [SQL SUBMIT] Queue Error:', response.data.error);
+                setSqlError(getFriendlyErrorMessage(response.data.error));
+                setIsSubmitting(false);
+                return;
             }
+
+            if (!response.data.success) {
+                console.warn('⚠️ [SQL SUBMIT] Failed to queue job');
+                setSqlError('Failed to queue submission job');
+                setIsSubmitting(false);
+            }
+
+            // NOTE: isSubmitting remains TRUE here. It will be set to FALSE by the WebSocket handler.
+
         } catch (error: any) {
-            console.error('Submit SQL error:', error);
-            setSqlError(error.response?.data?.message || error.message || 'Failed to submit SQL');
-        } finally {
+            console.error('❌ [SQL SUBMIT ERROR] Request Failed:', error);
+            const errorMsg = error.response?.data?.message || error.response?.data?.error || error.message || 'Failed to submit SQL';
+            setSqlError(getFriendlyErrorMessage(errorMsg));
             setIsSubmitting(false);
-            if (consoleHeight < 5) setConsoleHeight(35);
         }
     };
 
@@ -467,6 +672,20 @@ function SQLPageContent() {
     const handleSectionFinish = async (isAutoSubmit: boolean = false) => {
         console.log("🏁 [SQLPage] Finishing Section:", currentSectionIndex);
 
+        setIsFinishingSection(true);
+
+        // Call complete section API
+        if (currentSectionId) {
+            try {
+                console.log(`📤 [SQLPage] Completing section ${currentSectionId}...`);
+                await contestantService.completeSection(assessmentId, currentSectionId);
+                console.log(`✅ [SQLPage] Section ${currentSectionId} completed successfully`);
+            } catch (error) {
+                console.error(`❌ [SQLPage] Failed to complete section ${currentSectionId}:`, error);
+                // We continue anyway to allow the user to proceed
+            }
+        }
+
         const newLocked = new Set(lockedSectionIndices).add(currentSectionIndex);
         setLockedSectionIndices(newLocked);
         setShowSectionWarning(false);
@@ -571,6 +790,7 @@ function SQLPageContent() {
                             sectionId={currentSection.id}
                             onExpire={() => handleSectionFinish(true)}
                             className="text-sm font-bold bg-[#262626] px-3 py-1.5 rounded-lg border border-[#393939]"
+                            disableAutoSync={true}
                         />
                     )}
 
@@ -1054,7 +1274,6 @@ function SQLPageContent() {
                                         <div className={`p-3 rounded border ${sqlCheckResult.isCorrect ? 'bg-green-500/5 border-green-500/20 text-green-500' : 'bg-red-500/5 border-red-500/20 text-red-500'}`}>
                                             <p className="font-bold mb-1 text-sm">{sqlCheckResult.isCorrect ? 'Correct!' : 'Incorrect'}</p>
                                             <p className="opacity-90">{sqlCheckResult.feedback}</p>
-                                            <p className="mt-2 text-[10px] opacity-70">Score: {sqlCheckResult.score}%</p>
                                         </div>
 
                                         {/* User Result Table */}
@@ -1138,8 +1357,8 @@ function SQLPageContent() {
                                 ) : (
                                     <div className="h-full flex flex-col items-center justify-center opacity-30 select-none">
                                         <Terminal size={48} className="mb-4" />
-                                        <p className="text-sm font-medium">Ready to execute SQL query</p>
-                                        <p className="text-xs">Click Run or Submit to see results</p>
+                                        <p className="text-sm font-medium">Nothing to show yet! 🤷‍♂️</p>
+                                        <p className="text-xs">Write your query and hit Run or Submit</p>
                                     </div>
                                 )}
                             </div>
@@ -1182,36 +1401,45 @@ function SQLPageContent() {
 
             {/* Modals (Submit/Warning) reused structure logic */}
             {showSubmitConfirm && (
-                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[101] flex items-center justify-center p-4">
-                    <div className={`max-w-sm w-full rounded-2xl p-6 ${cardBg} border ${cardBorder}`}>
-                        <div className="text-center mb-5">
-                            <h2 className="text-lg font-bold">Submit Assessment?</h2>
-                            {submitting && (
-                                <p className="text-sm text-muted-foreground mt-2">
-                                    Submitting your answers...
-                                </p>
-                            )}
+                <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[101] flex items-center justify-center p-4">
+                    <div className="max-w-md w-full rounded-2xl p-8 bg-card border border-border shadow-2xl transform transition-all scale-100 relative overflow-hidden group">
+                        {/* Decorative background glow */}
+                        <div className="absolute -top-20 -right-20 w-40 h-40 bg-primary/10 rounded-full blur-3xl group-hover:bg-primary/20 transition-all duration-700"></div>
+                        <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-primary/10 rounded-full blur-3xl group-hover:bg-primary/20 transition-all duration-700"></div>
+
+                        <div className="relative text-center mb-8">
+                            <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6 ring-1 ring-primary/20 shadow-lg shadow-primary/5">
+                                <Send className="w-7 h-7 text-primary" />
+                            </div>
+                            <h2 className="text-2xl font-bold text-foreground mb-2 tracking-tight">Ready to Submit?</h2>
+                            <p className="text-muted-foreground text-sm leading-relaxed px-4">
+                                You are about to submit your assessment. This action cannot be undone and will finalize your score.
+                            </p>
                         </div>
-                        <div className="flex gap-2">
+
+                        <div className="flex flex-col sm:flex-row gap-3 relative">
                             <button
                                 onClick={() => setShowSubmitConfirm(false)}
                                 disabled={submitting}
-                                className="flex-1 py-2 rounded bg-gray-600 hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="flex-1 py-3 rounded-xl bg-secondary text-secondary-foreground font-medium hover:bg-secondary/80 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed border border-transparent hover:border-border/50"
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={() => handleFinalSubmit(false)}
                                 disabled={submitting}
-                                className="flex-1 py-2 rounded bg-blue-600 hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                                className="flex-1 py-3 rounded-xl bg-primary text-primary-foreground font-bold hover:opacity-90 transition-all active:scale-[0.98] flex items-center justify-center gap-2 shadow-lg shadow-primary/25 disabled:opacity-70 disabled:cursor-not-allowed disabled:shadow-none"
                             >
                                 {submitting ? (
                                     <>
-                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                        Submitting...
+                                        <Loader2 className="w-5 h-5 animate-spin" />
+                                        <span>Submitting...</span>
                                     </>
                                 ) : (
-                                    'Submit All'
+                                    <>
+                                        <span>Submit All</span>
+                                        <ChevronRight className="w-4 h-4 opacity-70" />
+                                    </>
                                 )}
                             </button>
                         </div>
@@ -1222,12 +1450,46 @@ function SQLPageContent() {
             {/* {proctoringSettings && <ProctoringMonitor settings={proctoringSettings} />} - Handled by Layout */}
 
             {showSectionWarning && (
-                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[101] flex items-center justify-center p-4">
-                    <div className={`max-w-sm w-full rounded-2xl p-6 ${cardBg} border ${cardBorder}`}>
-                        <h2 className="text-lg font-bold mb-2 text-center">Finish Section?</h2>
-                        <div className="flex gap-2">
-                            <button onClick={() => setShowSectionWarning(false)} className="flex-1 py-2 rounded bg-gray-600">Cancel</button>
-                            <button onClick={() => handleSectionFinish(false)} className="flex-1 py-2 rounded bg-blue-600">Confirm</button>
+                <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[101] flex items-center justify-center p-4">
+                    <div className="max-w-md w-full rounded-2xl p-8 bg-card border border-border shadow-2xl transform transition-all scale-100 relative overflow-hidden group">
+                        {/* Decorative background glow */}
+                        <div className="absolute -top-20 -right-20 w-40 h-40 bg-indigo-500/10 rounded-full blur-3xl group-hover:bg-indigo-500/20 transition-all duration-700"></div>
+                        <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-indigo-500/10 rounded-full blur-3xl group-hover:bg-indigo-500/20 transition-all duration-700"></div>
+
+                        <div className="relative text-center mb-8">
+                            <div className="w-16 h-16 bg-indigo-500/10 rounded-full flex items-center justify-center mx-auto mb-6 ring-1 ring-indigo-500/20 shadow-lg shadow-indigo-500/5">
+                                <AlertTriangle className="w-7 h-7 text-indigo-500" />
+                            </div>
+                            <h2 className="text-2xl font-bold text-foreground mb-2 tracking-tight">Finish Section?</h2>
+                            <p className="text-muted-foreground text-sm leading-relaxed px-4">
+                                Are you sure you want to finish this section? You won't be able to return to these questions once you proceed.
+                            </p>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row gap-3 relative">
+                            <button
+                                onClick={() => setShowSectionWarning(false)}
+                                className="flex-1 py-3 rounded-xl bg-secondary text-secondary-foreground font-medium hover:bg-secondary/80 transition-all active:scale-[0.98] border border-transparent hover:border-border/50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => handleSectionFinish(false)}
+                                disabled={isFinishingSection}
+                                className="flex-1 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-bold hover:opacity-90 transition-all active:scale-[0.98] flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/25 disabled:opacity-70 disabled:cursor-not-allowed disabled:shadow-none"
+                            >
+                                {isFinishingSection ? (
+                                    <>
+                                        <Loader2 className="w-5 h-5 animate-spin" />
+                                        <span>Processing...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <span>Confirm & Next</span>
+                                        <ChevronRight className="w-4 h-4 opacity-70" />
+                                    </>
+                                )}
+                            </button>
                         </div>
                     </div>
                 </div>

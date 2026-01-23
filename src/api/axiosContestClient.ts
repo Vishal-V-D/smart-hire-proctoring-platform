@@ -10,11 +10,12 @@ console.log('🔧 [Config] NEXT_PUBLIC_CONTEST_SERVICE_URL:', API_BASE_URL);
 
 if (!API_BASE_URL) {
     console.error('❌ [Config] Missing NEXT_PUBLIC_CONTEST_SERVICE_URL in environment variables');
-    // Don't throw error during build - use fallback
+    // We strictly require the env var now, but to avoid crash during build time we might leave undefined, 
+    // effectively causing requests to fail if not set, which is desired.
 }
 
 const axiosContestClient = axios.create({
-    baseURL: API_BASE_URL || 'http://localhost:3001',
+    baseURL: API_BASE_URL,
     withCredentials: true,
     headers: {
         "Content-Type": "application/json"

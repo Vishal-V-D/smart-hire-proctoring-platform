@@ -92,8 +92,13 @@ const ProctoringOverlay: React.FC<ProctoringOverlayProps> = ({
     const sendIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
     const recordViolation = useCallback((type: ViolationType, metadata?: any) => {
+        // Check if this is a stored photo verification error
+        const isStoredPhotoError = metadata?.message?.toLowerCase().includes('profile photo') ||
+            metadata?.message?.toLowerCase().includes('stored photo');
+
         // STRICT CHECK: Completely ignore 'no_face' violations if the authoritative face count is > 0
-        if (type === 'no_face' && faceCountRef.current > 0) {
+        // UNLESS it's a stored photo error (which is independent of live feed)
+        if (type === 'no_face' && faceCountRef.current > 0 && !isStoredPhotoError) {
             console.log('🛡️ Blocked false positive no_face violation (Face count is > 0)');
             return;
         }
@@ -116,32 +121,36 @@ const ProctoringOverlay: React.FC<ProctoringOverlayProps> = ({
 
         // Show toast
         const messages: Record<ViolationType, string> = {
-            'window_swap': '⚠️ Window switch detected',
-            'tab_switch': '⚠️ Tab switch detected',
-            'full_screen_exit': '⚠️ Fullscreen exit detected',
-            'multiple_people': '⚠️ Multiple people detected',
-            'no_face': '⚠️ Face not visible',
-            'looking_away': '⚠️ Looking away from screen',
-            'camera_blocked': '⚠️ Camera blocked',
-            'mic_muted': '⚠️ Microphone muted',
-            'prohibited_object': '⚠️ Prohibited object detected',
-            'right_click': '⚠️ Right-click blocked',
-            'copy_paste': '⚠️ Copy/Paste blocked',
-            'excessive_noise': '🔊 Excessive background noise detected'
+            'window_swap': ' Window switch detected',
+            'tab_switch': ' Tab switch detected',
+            'full_screen_exit': ' Fullscreen exit detected',
+            'multiple_people': ' Multiple people detected',
+            'no_face': ' Face not visible',
+            'looking_away': ' Looking away from screen',
+            'camera_blocked': ' Camera blocked',
+            'mic_muted': ' Microphone muted',
+            'prohibited_object': ' Prohibited object detected',
+            'right_click': ' Right-click blocked',
+            'copy_paste': ' Copy/Paste blocked',
+            'excessive_noise': ' Excessive background noise detected'
         };
 
-        const toastMessage = messages[type] || `⚠️ ${type}`;
+        // Use specific message if it's a stored photo error, otherwise fallback to default
+        const toastMessage = isStoredPhotoError
+            ? (metadata?.message || "⚠️ No face detected in profile photo")
+            : (messages[type] || `⚠️ ${type}`);
+
         console.log('🍞 Setting toast:', toastMessage);
         setToast({ message: toastMessage, type: 'warning' });
         setTimeout(() => setToast(null), 3000);
     }, [onViolation]);
 
-    // Load stored photo if needed
+    // Load stored photo URL from local storage
     useEffect(() => {
         if (!effectivePhotoUrl) {
             const stored = localStorage.getItem('storedPhotoUrl');
             if (stored) {
-                console.log('🔄 ProctoringOverlay: Loaded stored photo for verification:', stored);
+                console.log('🔄 ProctoringOverlay: Loaded stored photo URL:', stored);
                 setEffectivePhotoUrl(stored);
             }
         }
@@ -187,6 +196,35 @@ const ProctoringOverlay: React.FC<ProctoringOverlayProps> = ({
             recordViolation(mappedType, aiViolation.metadata);
         }
     });
+
+    // Check stored photo validity once proctoring is initialized
+    useEffect(() => {
+        if (effectivePhotoUrl && settings?.faceDetection && aiInitialized) {
+            console.log('🔍 Checking stored photo validity...');
+            // Add a small delay to ensure models are fully warm
+            const timer = setTimeout(async () => {
+                try {
+                    // Try to load/verify the photo
+                    const isValid = await loadStoredPhoto(effectivePhotoUrl);
+                    if (!isValid) {
+                        console.warn("❌ Face verification check failed for stored photo");
+                        setToast({
+                            message: "⚠️ No face detected in profile photo. ID Verification disabled.",
+                            type: 'warning'
+                        });
+                        // Clear toast after 8 seconds
+                        setTimeout(() => setToast(null), 8000);
+                    } else {
+                        console.log("✅ Stored photo verified successfully");
+                    }
+                } catch (e) {
+                    console.error("Error verifying stored photo:", e);
+                }
+            }, 1000);
+
+            return () => clearTimeout(timer);
+        }
+    }, [effectivePhotoUrl, settings?.faceDetection, aiInitialized, loadStoredPhoto]);
 
     // Callback ref to attach stream immediately when video element is created
     const setVideoRef = useCallback((node: HTMLVideoElement | null) => {

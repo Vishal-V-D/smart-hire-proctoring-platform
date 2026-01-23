@@ -229,26 +229,18 @@ export const contestantService = {
      * Get overall assessment timer (global time remaining)
      * GET /contestant/assessments/:id/timer
      */
-    getAssessmentTimer: (assessmentId: string) =>
+    getAssessmentTimer: (assessmentId: string, sectionId?: string) =>
         axiosContestClient.get<{
             success: boolean;
             data: {
-                submissionId: string;
-                assessmentId: string;
-                mode: 'global' | 'section';
-                status: 'running' | 'paused' | 'expired' | 'completed' | 'idle';
-                globalTimeRemaining?: number; // Optional now
-                sections: Array<{
-                    sectionId: string;
-                    sectionTitle: string;
-                    limitMinutes: number;
-                    timeLeft: number; // seconds
-                    timeUsed: number; // seconds
-                    totalTime: number; // seconds
-                    status: 'idle' | 'running' | 'paused' | 'completed' | 'expired';
-                }>;
+                timeLeft: number;    // Seconds remaining
+                timeUsed: number;    // Seconds used
+                totalTime: number;   // Total limit in seconds
+                status: 'running' | 'completed' | 'expired';
             };
-        }>(`${API_BASE}/assessments/${assessmentId}/timer`),
+        }>(`${API_BASE}/assessments/${assessmentId}/timer`, {
+            params: sectionId ? { sectionId } : undefined
+        }),
 
     /**
      * Start section timer (for section-timed assessments)
@@ -261,9 +253,9 @@ export const contestantService = {
             data: {
                 sectionId: string;
                 sectionTitle: string;
-                timeLimit: number;  // minutes
-                timeSpent: number;  // minutes
-                timeRemaining: number;  // minutes
+                timeLimit: number;  // seconds
+                timeSpent: number;  // seconds
+                timeRemaining: number;  // seconds
                 startedAt: string;
             };
         }>(`${API_BASE}/assessments/${assessmentId}/sections/${sectionId}/start`,
@@ -285,6 +277,16 @@ export const contestantService = {
                 status: 'in_progress' | 'completed' | 'expired';
             };
         }>(`${API_BASE}/assessments/${assessmentId}/sections/${sectionId}/timer`),
+
+    /**
+     * Complete a section (stop timer)
+     * POST /contestant/assessments/:id/sections/:sectionId/complete
+     */
+    completeSection: (assessmentId: string, sectionId: string) =>
+        axiosContestClient.post<{ success: boolean; message: string }>(
+            `${API_BASE}/assessments/${assessmentId}/sections/${sectionId}/complete`
+        ),
+
 
     // ========== SESSION MANAGEMENT ==========
 

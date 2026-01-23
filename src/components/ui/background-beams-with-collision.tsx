@@ -10,8 +10,8 @@ export const BackgroundBeamsWithCollision = ({
     children?: React.ReactNode;
     className?: string;
 }) => {
-    const containerRef = useRef<HTMLDivElement | null>(null);
-    const parentRef = useRef<HTMLDivElement | null>(null);
+    const containerRef = useRef<HTMLDivElement>(null) as React.RefObject<HTMLDivElement>;
+    const parentRef = useRef<HTMLDivElement>(null) as React.RefObject<HTMLDivElement>;
 
     const beams = [
         {
@@ -119,8 +119,8 @@ export const BackgroundBeamsWithCollision = ({
 const CollisionMechanism = React.forwardRef<
     HTMLDivElement,
     {
-        containerRef: React.RefObject<HTMLDivElement | null>;
-        parentRef: React.RefObject<HTMLDivElement | null>;
+        containerRef: React.RefObject<HTMLDivElement>;
+        parentRef: React.RefObject<HTMLDivElement>;
         beamOptions?: {
             initialX?: number;
             translateX?: number;

@@ -15,8 +15,8 @@ export default function CompletePage() {
     }, []);
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-green-500/10 via-background to-primary/10 overflow-y-auto">
-            <div className="min-h-screen flex items-center justify-center p-4 py-12">
+        <div className="min-h-screen bg-gradient-to-br from-green-500/10 via-background to-primary/10">
+            <div className="flex justify-center p-4 py-12">
                 <motion.div
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
@@ -98,41 +98,8 @@ export default function CompletePage() {
                         </div>
                     </motion.div>
 
-                    {/* Important Notes */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 1 }}
-                        className="bg-primary/5 border border-primary/20 rounded-xl p-6 mb-6"
-                    >
-                        <h3 className="font-semibold text-foreground mb-3">Important Notes</h3>
-                        <ul className="space-y-2 text-sm text-muted-foreground">
-                            <li className="flex items-start gap-2">
-                                <span className="text-primary mt-0.5">•</span>
-                                <span>A confirmation email has been sent to your registered email address</span>
-                            </li>
-                            <li className="flex items-start gap-2">
-                                <span className="text-primary mt-0.5">•</span>
-                                <span>Keep checking your email for updates on your application status</span>
-                            </li>
-                            <li className="flex items-start gap-2">
-                                <span className="text-primary mt-0.5">•</span>
-                                <span>If you have any questions, please contact the assessment organizer</span>
-                            </li>
-                        </ul>
-                    </motion.div>
 
-                    {/* Action Button */}
-                    <motion.button
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: 1.2 }}
-                        onClick={() => router.push('/')}
-                        className="w-full py-4 bg-primary text-primary-foreground rounded-xl font-bold text-lg hover:opacity-90 transition-all flex items-center justify-center gap-2"
-                    >
-                        <Home className="h-6 w-6" />
-                        Return to Home
-                    </motion.button>
+                  
 
                     <motion.p
                         initial={{ opacity: 0 }}

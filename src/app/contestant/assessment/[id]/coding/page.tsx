@@ -131,6 +131,7 @@ function CodingPageContent() {
     const [showSectionWarning, setShowSectionWarning] = useState(false);
     const [answers, setAnswers] = useState<Record<string, any>>({});
     const [submitting, setSubmitting] = useState(false);
+    const [isFinishingSection, setIsFinishingSection] = useState(false);
     const [submissionId, setSubmissionId] = useState<string | null>(null);
     const [isStateLoaded, setIsStateLoaded] = useState(false);
     const [sectionScrollPosition, setSectionScrollPosition] = useState(0);
@@ -404,6 +405,20 @@ function CodingPageContent() {
     const handleSectionFinish = async (isAutoSubmit: boolean = false) => {
         console.log("🏁 [CodingPage] Finishing Section:", currentSectionIndex);
 
+        setIsFinishingSection(true);
+
+        // Call complete section API
+        if (currentSectionId) {
+            try {
+                console.log(`📤 [CodingPage] Completing section ${currentSectionId}...`);
+                await contestantService.completeSection(assessmentId, currentSectionId);
+                console.log(`✅ [CodingPage] Section ${currentSectionId} completed successfully`);
+            } catch (error) {
+                console.error(`❌ [CodingPage] Failed to complete section ${currentSectionId}:`, error);
+                // We continue anyway to allow the user to proceed
+            }
+        }
+
         // Lock current section
         const newLocked = new Set(lockedSectionIndices).add(currentSectionIndex);
         setLockedSectionIndices(newLocked);
@@ -588,6 +603,7 @@ function CodingPageContent() {
                                 handleSectionFinish(true);
                             }}
                             className="text-sm font-bold bg-[#262626] px-3 py-1.5 rounded-lg border border-[#393939]"
+                            disableAutoSync={true}
                         />
                     )}
                     {/* Theme Toggle */}
@@ -1234,8 +1250,19 @@ function CodingPageContent() {
                                 className={`flex-1 py-2.5 rounded-lg font-medium text-sm ${theme === 'dark' ? 'bg-[#393939] hover:bg-[#4c4c4c]' : 'bg-[#e0e0e0] hover:bg-[#c6c6c6]'}`}>
                                 Cancel
                             </button>
-                            <button onClick={() => handleSectionFinish(false)} disabled={submitting} className="flex-1 py-2.5 bg-[#0f62fe] hover:bg-[#0353e9] text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2">
-                                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirm'}
+                            <button
+                                onClick={() => handleSectionFinish(false)}
+                                disabled={submitting || isFinishingSection}
+                                className="flex-1 py-2.5 bg-[#0f62fe] hover:bg-[#0353e9] text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2"
+                            >
+                                {submitting || isFinishingSection ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        Processing...
+                                    </>
+                                ) : (
+                                    'Confirm'
+                                )}
                             </button>
                         </div>
                     </div>

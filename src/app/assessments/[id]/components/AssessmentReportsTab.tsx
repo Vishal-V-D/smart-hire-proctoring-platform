@@ -21,7 +21,12 @@ import {
     Shield,
     MoreVertical,
     Check,
-    X
+    X,
+    ChevronsUpDown,
+    Maximize2,
+    Minimize2,
+    ChevronRight,
+    Code
 } from 'lucide-react';
 import { assessmentService } from '@/api/assessmentService';
 import { useRouter } from 'next/navigation';
@@ -65,6 +70,98 @@ const AssessmentReportsTab = ({ assessmentId, assessment }: AssessmentReportsTab
     });
 
     const [sortConfig, setSortConfig] = useState({ key: 'submittedAt', direction: 'desc' });
+    const [isFullScreen, setIsFullScreen] = useState(false);
+    const [selectedParticipant, setSelectedParticipant] = useState<any>(null);
+    const [showCodingModal, setShowCodingModal] = useState(false);
+
+    // CSV Export Logic
+    const handleExport = () => {
+        if (!filteredParticipants.length) return;
+
+        // 1. Define Headers
+        const headers = [
+            'Candidate Name',
+            'Email',
+            'Department',
+            'Status',
+            'Total Time',
+            // Dynamic Section Headers
+            ...(assessment?.sections?.flatMap((s: any) => {
+                const cols = [`${s.title} Score`, `${s.title} Time`];
+                if (s.type === 'coding') cols.push(`${s.title} Tests Passed`, `${s.title} Language`);
+                return cols;
+            }) || []),
+            'Plagiarism %',
+            'AI %',
+            'Risk Level',
+            'Total Score',
+            'Total %',
+            'Violations',
+            'Verdict'
+        ];
+
+        // 2. Map Data
+        const csvRows = filteredParticipants.map(p => {
+            const row = [
+                `"${p.registration?.fullName || ''}"`,
+                `"${p.registration?.email || ''}"`,
+                `"${p.registration?.department || ''}"`,
+                p.session?.status || '-',
+                formatDuration(p.session?.totalTimeTaken),
+                // Dynamic Section Data
+                ...(assessment?.sections?.flatMap((s: any) => {
+                    const sScore = p.scores?.sectionScores?.find((ss: any) => ss.sectionId === s.id || ss.sectionTitle === s.title);
+                    const cols = [
+                        sScore?.obtainedMarks || '-',
+                        sScore?.timeTaken ? formatDuration(sScore.timeTaken) : '-'
+                    ];
+
+                    if (s.type === 'coding') {
+                        // Tests calculation logic
+                        let passed = 0;
+                        const sectionQuestions = s.questions?.filter((q: any) => q.type === 'coding') || [];
+                        const matchedProblems = (p.codingProblems || []).filter((prob: any) =>
+                            sectionQuestions.some((q: any) =>
+                                (q.problemId && q.problemId === (prob.problemId || prob.questionId)) ||
+                                (q.id && q.id === (prob.problemId || prob.questionId))
+                            )
+                        );
+                        matchedProblems.forEach((prob: any) => passed += (prob.passedTests || 0));
+                        if (passed === 0 && p.scores?.testCases?.total > 0 && s.questions?.length === 1) {
+                            passed = p.scores.testCases.passed;
+                        }
+                        cols.push(passed);
+
+                        // Extract all unique languages from ALL coding problems
+                        const allLangs = (p.codingProblems || []).map((prob: any) => prob.language).filter(Boolean) as string[];
+                        const uniqueLangs = [...new Set<string>(allLangs)];
+                        const languageStr = uniqueLangs.length > 0 ? uniqueLangs.join(', ') : '-';
+                        cols.push(languageStr);
+                    }
+                    return cols;
+                }) || []),
+                p.plagiarism?.overallScore || 0,
+                p.plagiarism?.aiConfidence || 0,
+                p.violations?.riskLevel || '-',
+                p.scores?.totalScore || 0,
+                p.scores?.percentage || 0,
+                p.violations?.totalCount || 0,
+                p.verdict?.status || '-'
+            ];
+            return row.join(',');
+        });
+
+        // 3. Create Content & Download
+        const csvContent = [headers.join(','), ...csvRows].join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', `assessment_report_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
 
     useEffect(() => {
         fetchReports();
@@ -75,6 +172,7 @@ const AssessmentReportsTab = ({ assessmentId, assessment }: AssessmentReportsTab
         try {
             // Fetch participants/reports with full details
             const response = await assessmentService.getParticipantReports(assessmentId);
+            console.log('=== WHOLE REPORT TAB DATA FROM BACKEND BRO ===', response.data);
             if (response.data) {
                 setParticipants(response.data.participants || []);
                 setStats(response.data.stats || {});
@@ -110,14 +208,59 @@ const AssessmentReportsTab = ({ assessmentId, assessment }: AssessmentReportsTab
 
             return matchesSearch && matchesStatus && matchesMinScore && matchesMaxScore && matchesDepartment && matchesCollege && matchesRisk;
         }).sort((a, b) => {
-            // Allow nested property sorting
-            const getVal = (obj: any, path: string) => path.split('.').reduce((o, i) => o?.[i], obj);
+            // Helper to get value based on path or special logic
+            const getVal = (obj: any, path: string) => {
+                // SPECIAL HANDLING: Section Sorting "SECTION_[ID]_[TYPE]"
+                if (path.startsWith('SECTION_')) {
+                    const parts = path.split('_');
+                    // Format: SECTION_{ID}_{TYPE} (Type: score, time, tests)
+                    // The ID might contain underscores, so we join everything between index 1 and last index
+                    const type = parts[parts.length - 1];
+                    const sectionId = parts.slice(1, parts.length - 1).join('_');
+
+                    const sectionScore = obj.scores?.sectionScores?.find((s: any) => s.sectionId === sectionId || s.sectionTitle === (assessment?.sections?.find((as: any) => as.id === sectionId)?.title));
+
+                    if (type === 'score') return Number(sectionScore?.percentage) || 0;
+                    if (type === 'time') return Number(sectionScore?.timeTaken) || 0;
+
+                    if (type === 'tests') {
+                        // Recalculate passed tests for this section
+                        const section = assessment?.sections?.find((s: any) => s.id === sectionId);
+                        if (!section) return 0;
+
+                        // Filter questions for this section
+                        const sectionQuestions = section.questions?.filter((q: any) => q.type === 'coding') || [];
+                        const matchedProblems = (obj.codingProblems || []).filter((prob: any) =>
+                            sectionQuestions.some((q: any) =>
+                                (q.problemId && q.problemId === (prob.problemId || prob.questionId)) ||
+                                (q.id && q.id === (prob.problemId || prob.questionId))
+                            )
+                        );
+
+                        let passed = 0;
+                        matchedProblems.forEach((prob: any) => {
+                            passed += (prob.passedTests || 0);
+                        });
+
+                        // Fallback if no specific problems found but score has test case data
+                        // (Only accurate if section is 100% coding, but good enough fallback)
+                        if (passed === 0 && obj.scores?.testCases?.total > 0 && section.questions?.length === 1) {
+                            passed = obj.scores.testCases.passed;
+                        }
+                        return passed;
+                    }
+                    return 0;
+                }
+
+                // Standard Path Sorting
+                return path.split('.').reduce((o, i) => o?.[i], obj);
+            };
 
             let valA = getVal(a, sortConfig.key);
             let valB = getVal(b, sortConfig.key);
 
             // Handle date comparison
-            if (sortConfig.key === 'submittedAt' || sortConfig.key === 'createdAt') {
+            if (sortConfig.key === 'submittedAt' || sortConfig.key === 'createdAt' || sortConfig.key.includes('At')) {
                 valA = new Date(valA || 0).getTime();
                 valB = new Date(valB || 0).getTime();
             }
@@ -135,7 +278,7 @@ const AssessmentReportsTab = ({ assessmentId, assessment }: AssessmentReportsTab
                 ? valA.localeCompare(valB)
                 : valB.localeCompare(valA);
         });
-    }, [participants, searchQuery, filters, sortConfig]);
+    }, [participants, searchQuery, filters, sortConfig, assessment]);
 
     const handleSort = (key: string) => {
         setSortConfig(current => ({
@@ -219,7 +362,18 @@ const AssessmentReportsTab = ({ assessmentId, assessment }: AssessmentReportsTab
     }
 
     return (
-        <div className="space-y-6 pb-20">
+        <div className={`space-y-6 pb-20 ${isFullScreen ? 'fixed inset-0 z-[100] bg-background overflow-auto p-6 transition-all duration-300' : ''}`}>
+            {isFullScreen && (
+                <div className="flex items-center justify-between mb-4 pb-4 border-b border-border">
+                    <h2 className="text-xl font-bold text-foreground">Assessment Reports Detail View</h2>
+                    <button
+                        onClick={() => setIsFullScreen(false)}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-muted hover:bg-muted/80 rounded-lg text-sm font-medium transition-colors"
+                    >
+                        <Minimize2 size={16} /> Exit Full Screen
+                    </button>
+                </div>
+            )}
             {/* 1. Header & Filters Toolbar */}
             <div className="flex flex-col gap-4">
                 {/* Search & Actions Row */}
@@ -259,9 +413,12 @@ const AssessmentReportsTab = ({ assessmentId, assessment }: AssessmentReportsTab
                             <span className="hidden sm:inline">Analytics</span>
                         </button>
 
-                        <button className="flex items-center gap-2 px-4 py-2.5 bg-card border border-border hover:bg-muted text-foreground rounded-xl text-sm font-medium transition-all shadow-sm">
+                        <button
+                            onClick={handleExport}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-card border border-border hover:bg-muted text-foreground rounded-xl text-sm font-medium transition-all shadow-sm"
+                        >
                             <Download size={16} />
-                            <span className="hidden sm:inline">Export</span>
+                            <span className="hidden sm:inline">Export CSV</span>
                         </button>
                     </div>
                 </div>
@@ -292,7 +449,7 @@ const AssessmentReportsTab = ({ assessmentId, assessment }: AssessmentReportsTab
             </div>
 
             {/* 2. Main Data Table */}
-            <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden flex flex-col">
+            <div className={`bg-card border border-border rounded-xl shadow-sm overflow-hidden flex flex-col transition-all duration-300`}>
                 {/* Table Header Controls */}
                 <div className="p-4 border-b border-border bg-muted/10 flex items-center justify-between">
                     <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
@@ -300,16 +457,26 @@ const AssessmentReportsTab = ({ assessmentId, assessment }: AssessmentReportsTab
                         Candidate Results <span className="text-muted-foreground font-normal">({filteredParticipants.length})</span>
                     </h3>
 
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        <div className="flex items-center gap-1.5">
-                            <div className="w-2 h-2 rounded-full bg-green-500" /> Pass
+                    <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground hidden sm:flex">
+                            <div className="flex items-center gap-1.5">
+                                <div className="w-2 h-2 rounded-full bg-green-500" /> Pass
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                <div className="w-2 h-2 rounded-full bg-red-500" /> Fail
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                <div className="w-2 h-2 rounded-full bg-amber-500" /> Flagged
+                            </div>
                         </div>
-                        <div className="flex items-center gap-1.5">
-                            <div className="w-2 h-2 rounded-full bg-red-500" /> Fail
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                            <div className="w-2 h-2 rounded-full bg-amber-500" /> Flagged
-                        </div>
+                        <div className="h-4 w-px bg-border hidden sm:block" />
+                        <button
+                            onClick={() => setIsFullScreen(!isFullScreen)}
+                            className="p-1.5 hover:bg-muted rounded-lg text-muted-foreground transition-colors"
+                            title={isFullScreen ? "Exit Full Screen" : "Full Screen"}
+                        >
+                            {isFullScreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+                        </button>
                     </div>
                 </div>
 
@@ -348,57 +515,131 @@ const AssessmentReportsTab = ({ assessmentId, assessment }: AssessmentReportsTab
                                     <th className="py-3 px-4 w-[250px] cursor-pointer hover:text-foreground transition-colors group" onClick={() => handleSort('registration.fullName')}>
                                         <div className="flex items-center gap-2">
                                             Candidate Details
-                                            {sortConfig.key === 'registration.fullName' && (sortConfig.direction === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />)}
+                                            {sortConfig.key === 'registration.fullName' ? (sortConfig.direction === 'asc' ? <ChevronUp size={12} className="text-primary" /> : <ChevronDown size={12} className="text-primary" />) : <ChevronsUpDown size={12} className="text-muted-foreground/60 transition-opacity" />}
                                         </div>
                                     </th>
-                                    <th className="py-3 px-4 cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('registration.department')}>
-                                        Department
+                                    <th className="py-3 px-2 text-center">
+                                        <Code size={14} className="text-muted-foreground" />
                                     </th>
-                                    <th className="py-3 px-4 text-center cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('session.status')}>
-                                        Status
+                                    <th className="py-3 px-4 cursor-pointer hover:text-foreground transition-colors group" onClick={() => handleSort('registration.department')}>
+                                        <div className="flex items-center gap-2">
+                                            Department
+                                            {sortConfig.key === 'registration.department' ? (sortConfig.direction === 'asc' ? <ChevronUp size={12} className="text-primary" /> : <ChevronDown size={12} className="text-primary" />) : <ChevronsUpDown size={12} className="text-muted-foreground/60 transition-opacity" />}
+                                        </div>
                                     </th>
-                                    <th className="py-3 px-4 text-center cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('session.totalTimeTaken')}>
-                                        Time
+                                    <th className="py-3 px-4 text-center cursor-pointer hover:text-foreground transition-colors group" onClick={() => handleSort('session.status')}>
+                                        <div className="flex items-center justify-center gap-2">
+                                            Status
+                                            {sortConfig.key === 'session.status' ? (sortConfig.direction === 'asc' ? <ChevronUp size={12} className="text-primary" /> : <ChevronDown size={12} className="text-primary" />) : <ChevronsUpDown size={12} className="text-muted-foreground/60 transition-opacity" />}
+                                        </div>
+                                    </th>
+                                    <th className="py-3 px-4 text-center cursor-pointer hover:text-foreground transition-colors group" onClick={() => handleSort('session.totalTimeTaken')}>
+                                        <div className="flex items-center justify-center gap-2">
+                                            Time
+                                            {sortConfig.key === 'session.totalTimeTaken' ? (sortConfig.direction === 'asc' ? <ChevronUp size={12} className="text-primary" /> : <ChevronDown size={12} className="text-primary" />) : <ChevronsUpDown size={12} className="text-muted-foreground/60 transition-opacity" />}
+                                        </div>
                                     </th>
 
-                                    {/* Dynamic Section Columns - Only show summary columns for sections */}
+                                    {/* Dynamic Section Columns */}
                                     {assessment?.sections?.map((section: any, idx: number) => (
                                         <React.Fragment key={section.id}>
-                                            <th className="py-3 px-4 text-center border-l border-border bg-muted/30">
+                                            <th
+                                                className="py-3 px-4 text-center border-l border-border bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors group"
+                                                onClick={() => handleSort(`SECTION_${section.id}_score`)}
+                                            >
                                                 <div className="flex flex-col items-center" title={section.title}>
                                                     <span className="truncate max-w-[80px] text-[10px]">{section.title}</span>
-                                                    <span className="text-[9px] opacity-70">Score</span>
+                                                    <div className="flex items-center gap-1">
+                                                        <span className="text-[9px] opacity-70">Score</span>
+                                                        {sortConfig.key === `SECTION_${section.id}_score` ? (sortConfig.direction === 'asc' ? <ChevronUp size={10} className="text-primary" /> : <ChevronDown size={10} className="text-primary" />) : <ChevronsUpDown size={10} className="text-muted-foreground/30 transition-opacity" />}
+                                                    </div>
                                                 </div>
                                             </th>
                                             {section.type === 'coding' && (
                                                 <>
-                                                    <th className="py-3 px-4 text-center border-l-0 border-r-0 border-border bg-muted/30">
-                                                        <span className="text-[9px] opacity-70">Time</span>
+                                                    <th
+                                                        className="py-3 px-4 text-center border-l-0 border-r-0 border-border bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors group"
+                                                        onClick={() => handleSort(`SECTION_${section.id}_time`)}
+                                                    >
+                                                        <div className="flex items-center justify-center gap-1">
+                                                            <span className="text-[9px] opacity-70">Time</span>
+                                                            {sortConfig.key === `SECTION_${section.id}_time` ? (sortConfig.direction === 'asc' ? <ChevronUp size={10} className="text-primary" /> : <ChevronDown size={10} className="text-primary" />) : <ChevronsUpDown size={10} className="text-muted-foreground/30 transition-opacity" />}
+                                                        </div>
+                                                    </th>
+                                                    <th
+                                                        className="py-3 px-4 text-center border-r border-border bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors group"
+                                                        onClick={() => handleSort(`SECTION_${section.id}_tests`)}
+                                                    >
+                                                        <div className="flex items-center justify-center gap-1">
+                                                            <span className="text-[9px] opacity-70">Tests</span>
+                                                            {sortConfig.key === `SECTION_${section.id}_tests` ? (sortConfig.direction === 'asc' ? <ChevronUp size={10} className="text-primary" /> : <ChevronDown size={10} className="text-primary" />) : <ChevronsUpDown size={10} className="text-muted-foreground/30 transition-opacity" />}
+                                                        </div>
                                                     </th>
                                                     <th className="py-3 px-4 text-center border-r border-border bg-muted/30">
-                                                        <span className="text-[9px] opacity-70">Tests</span>
+                                                        <div className="flex items-center justify-center gap-1">
+                                                            <span className="text-[9px] opacity-70">Lang</span>
+                                                        </div>
                                                     </th>
                                                 </>
                                             )}
                                             {section.type !== 'coding' && (
-                                                <th className="py-3 px-4 text-center border-r border-border bg-muted/30">
-                                                    <span className="text-[9px] opacity-70">Time</span>
+                                                <th
+                                                    className="py-3 px-4 text-center border-r border-border bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors group"
+                                                    onClick={() => handleSort(`SECTION_${section.id}_time`)}
+                                                >
+                                                    <div className="flex items-center justify-center gap-1">
+                                                        <span className="text-[9px] opacity-70">Time</span>
+                                                        {sortConfig.key === `SECTION_${section.id}_time` ? (sortConfig.direction === 'asc' ? <ChevronUp size={10} className="text-primary" /> : <ChevronDown size={10} className="text-primary" />) : <ChevronsUpDown size={10} className="text-muted-foreground/30 opacity-0 group-hover:opacity-100 transition-opacity" />}
+                                                    </div>
                                                 </th>
                                             )}
                                         </React.Fragment>
                                     ))}
 
-                                    <th className="py-3 px-2 text-center text-red-600/70 bg-red-50/50">Plag %</th>
-                                    <th className="py-3 px-2 text-center text-red-600/70 bg-red-50/50">AI %</th>
-                                    <th className="py-3 px-2 text-center border-r border-border bg-red-50/50">Risk</th>
-
-                                    <th className="py-3 px-2 text-center bg-green-50/30 text-green-700/70">Score</th>
-                                    <th className="py-3 px-4 text-center border-r border-border bg-green-50/30 text-green-700/70 cursor-pointer" onClick={() => handleSort('scores.percentage')}>
-                                        Total %
+                                    <th className="py-3 px-2 text-center text-red-600/70 bg-red-50/50 cursor-pointer hover:bg-red-50/80 transition-colors group" onClick={() => handleSort('plagiarism.overallScore')}>
+                                        <div className="flex items-center justify-center gap-1">
+                                            Plag %
+                                            {sortConfig.key === 'plagiarism.overallScore' ? (sortConfig.direction === 'asc' ? <ChevronUp size={12} className="text-primary" /> : <ChevronDown size={12} className="text-primary" />) : <ChevronsUpDown size={12} className="text-muted-foreground/60 transition-opacity" />}
+                                        </div>
+                                    </th>
+                                    <th className="py-3 px-2 text-center text-red-600/70 bg-red-50/50 cursor-pointer hover:bg-red-50/80 transition-colors group" onClick={() => handleSort('plagiarism.aiConfidence')}>
+                                        <div className="flex items-center justify-center gap-1">
+                                            AI %
+                                            {sortConfig.key === 'plagiarism.aiConfidence' ? (sortConfig.direction === 'asc' ? <ChevronUp size={12} className="text-primary" /> : <ChevronDown size={12} className="text-primary" />) : <ChevronsUpDown size={12} className="text-muted-foreground/60 transition-opacity" />}
+                                        </div>
+                                    </th>
+                                    <th className="py-3 px-2 text-center border-r border-border bg-red-50/50 cursor-pointer hover:bg-red-50/80 transition-colors group" onClick={() => handleSort('violations.riskLevel')}>
+                                        <div className="flex items-center justify-center gap-1">
+                                            Risk
+                                            {sortConfig.key === 'violations.riskLevel' ? (sortConfig.direction === 'asc' ? <ChevronUp size={12} className="text-primary" /> : <ChevronDown size={12} className="text-primary" />) : <ChevronsUpDown size={12} className="text-muted-foreground/60 transition-opacity" />}
+                                        </div>
                                     </th>
 
-                                    <th className="py-3 px-4">Violations</th>
-                                    <th className="py-3 px-4">Verdict</th>
+                                    <th className="py-3 px-2 text-center bg-green-50/30 text-green-700/70 cursor-pointer hover:bg-green-50/50 transition-colors group" onClick={() => handleSort('scores.totalScore')}>
+                                        <div className="flex items-center justify-center gap-1">
+                                            Score
+                                            {sortConfig.key === 'scores.totalScore' ? (sortConfig.direction === 'asc' ? <ChevronUp size={12} className="text-primary" /> : <ChevronDown size={12} className="text-primary" />) : <ChevronsUpDown size={12} className="text-muted-foreground/60 transition-opacity" />}
+                                        </div>
+                                    </th>
+                                    <th className="py-3 px-4 text-center border-r border-border bg-green-50/30 text-green-700/70 cursor-pointer hover:bg-green-50/50 transition-colors group" onClick={() => handleSort('scores.percentage')}>
+                                        <div className="flex items-center justify-center gap-1">
+                                            Total %
+                                            {sortConfig.key === 'scores.percentage' ? (sortConfig.direction === 'asc' ? <ChevronUp size={12} className="text-primary" /> : <ChevronDown size={12} className="text-primary" />) : <ChevronsUpDown size={12} className="text-muted-foreground/60 transition-opacity" />}
+                                        </div>
+                                    </th>
+
+                                    <th className="py-3 px-4 cursor-pointer hover:text-foreground transition-colors group" onClick={() => handleSort('violations.totalCount')}>
+                                        <div className="flex items-center gap-2">
+                                            Violations
+                                            {sortConfig.key === 'violations.totalCount' ? (sortConfig.direction === 'asc' ? <ChevronUp size={12} className="text-primary" /> : <ChevronDown size={12} className="text-primary" />) : <ChevronsUpDown size={12} className="text-muted-foreground/30 transition-opacity" />}
+                                        </div>
+                                    </th>
+                                    <th className="py-3 px-4 cursor-pointer hover:text-foreground transition-colors group" onClick={() => handleSort('verdict.status')}>
+                                        <div className="flex items-center gap-2">
+                                            Verdict
+                                            {sortConfig.key === 'verdict.status' ? (sortConfig.direction === 'asc' ? <ChevronUp size={12} className="text-primary" /> : <ChevronDown size={12} className="text-primary" />) : <ChevronsUpDown size={12} className="text-muted-foreground/30 transition-opacity" />}
+                                        </div>
+                                    </th>
                                     <th className="py-3 px-4 text-right sticky right-0 bg-muted/50 z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.1)]">Actions</th>
                                 </tr>
                             </thead>
@@ -408,9 +649,9 @@ const AssessmentReportsTab = ({ assessmentId, assessment }: AssessmentReportsTab
                                         <tr key={p.participantId} className="hover:bg-muted/20 transition-colors group text-sm" onClick={() => viewReport(p.participantId)}>
                                             <td className="py-3 px-4">
                                                 <div className="flex items-center gap-3">
-                                                    {p.registration?.avatar ? (
+                                                    {p.verification?.photoUrl ? (
                                                         <div className="relative w-10 h-10 rounded-full overflow-hidden ring-2 ring-border group-hover:ring-primary transition-all">
-                                                            <img src={p.registration.avatar} alt="" className="w-full h-full object-cover" />
+                                                            <img src={p.verification.photoUrl} alt="" className="w-full h-full object-cover" />
                                                             <div className="absolute inset-0 rounded-full bg-black/5 group-hover:bg-transparent transition-colors" />
                                                         </div>
                                                     ) : (
@@ -427,6 +668,23 @@ const AssessmentReportsTab = ({ assessmentId, assessment }: AssessmentReportsTab
                                                         </p>
                                                     </div>
                                                 </div>
+                                            </td>
+                                            <td className="py-3 px-2 text-center">
+                                                {p.codingProblems && p.codingProblems.length > 0 ? (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setSelectedParticipant(p);
+                                                            setShowCodingModal(true);
+                                                        }}
+                                                        className="p-1.5 hover:bg-primary/10 rounded-lg transition-colors text-primary"
+                                                        title="View coding problem details"
+                                                    >
+                                                        <ChevronRight size={16} />
+                                                    </button>
+                                                ) : (
+                                                    <span className="text-muted-foreground/30">-</span>
+                                                )}
                                             </td>
                                             <td className="py-3 px-4 border-r border-border whitespace-nowrap">
                                                 <div>
@@ -508,6 +766,23 @@ const AssessmentReportsTab = ({ assessmentId, assessment }: AssessmentReportsTab
                                                                         <span className="text-muted-foreground/80">{totalTests}</span>
                                                                     </div>
                                                                 ) : <span className="text-muted-foreground/40 text-[10px] font-mono select-none">- / -</span>}
+                                                            </td>
+                                                            <td className="py-3 px-4 text-center border-r border-border bg-purple-50/10">
+                                                                {(() => {
+                                                                    // Get all unique languages from ALL coding problems for this participant
+                                                                    const allLanguages = (p.codingProblems || []).map((prob: any) => prob.language).filter(Boolean) as string[];
+                                                                    const uniqueLanguages: string[] = [...new Set<string>(allLanguages)];
+
+                                                                    return uniqueLanguages.length > 0 ? (
+                                                                        <div className="flex flex-wrap gap-1 justify-center">
+                                                                            {uniqueLanguages.map((lang: string, idx: number) => (
+                                                                                <span key={idx} className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-blue-100 text-blue-700 uppercase">
+                                                                                    {lang}
+                                                                                </span>
+                                                                            ))}
+                                                                        </div>
+                                                                    ) : <span className="text-muted-foreground/40 text-[10px]">-</span>;
+                                                                })()}
                                                             </td>
                                                         </React.Fragment>
                                                     );
@@ -629,6 +904,126 @@ const AssessmentReportsTab = ({ assessmentId, assessment }: AssessmentReportsTab
                     </div>
                 )}
             </div>
+
+            {/* Coding Problem Details Modal */}
+            {showCodingModal && selectedParticipant && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowCodingModal(false)}>
+                    <div className="bg-card border border-border rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+                        {/* Modal Header */}
+                        <div className="p-6 border-b border-border bg-muted/20">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h2 className="text-2xl font-bold text-foreground flex items-center gap-3">
+                                        <Code className="text-primary" size={28} />
+                                        Coding Problem Details
+                                    </h2>
+                                    <p className="text-sm text-muted-foreground mt-1">
+                                        {selectedParticipant.registration?.fullName} ({selectedParticipant.registration?.email})
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => setShowCodingModal(false)}
+                                    className="p-2 hover:bg-muted rounded-lg transition-colors"
+                                >
+                                    <X size={24} className="text-muted-foreground" />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                            {selectedParticipant.codingProblems && selectedParticipant.codingProblems.length > 0 ? (
+                                selectedParticipant.codingProblems.map((problem: any, idx: number) => (
+                                    <div key={idx} className="bg-muted/10 border border-border rounded-xl p-6 space-y-4">
+                                        {/* Problem Header */}
+                                        <div className="flex items-start justify-between gap-4">
+                                            <div className="flex-1">
+                                                <h3 className="text-lg font-bold text-foreground mb-2">
+                                                    {problem.problemTitle || `Problem ${idx + 1}`}
+                                                </h3>
+                                                <div className="flex items-center gap-3 flex-wrap">
+                                                    {problem.language && (
+                                                        <span className="text-xs font-mono font-semibold px-3 py-1 rounded-full bg-blue-100 text-blue-700 uppercase">
+                                                            {problem.language}
+                                                        </span>
+                                                    )}
+                                                    {problem.status && (
+                                                        <span className={`text-xs font-bold px-3 py-1 rounded-full uppercase ${problem.status === 'accepted' ? 'bg-green-100 text-green-700' :
+                                                            problem.status === 'wrong_answer' ? 'bg-red-100 text-red-700' :
+                                                                'bg-amber-100 text-amber-700'
+                                                            }`}>
+                                                            {problem.status.replace('_', ' ')}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <div className="text-2xl font-bold text-primary">
+                                                    {problem.score || 0} <span className="text-sm text-muted-foreground">/ {problem.maxScore || 0}</span>
+                                                </div>
+                                                {problem.passedTests !== undefined && problem.totalTests !== undefined && (
+                                                    <div className="text-sm text-muted-foreground mt-1">
+                                                        <span className="font-semibold text-emerald-600">{problem.passedTests}</span>
+                                                        <span className="mx-1">/</span>
+                                                        <span>{problem.totalTests}</span>
+                                                        <span className="ml-1">tests passed</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Test Cases Summary */}
+                                        {problem.testCasesSummary && (
+                                            <div className="text-sm text-muted-foreground">
+                                                <span className="font-medium">Test Summary:</span> {problem.testCasesSummary}
+                                            </div>
+                                        )}
+
+                                        {/* Code Submission */}
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <Code size={16} className="text-muted-foreground" />
+                                                <span className="text-sm font-bold text-foreground">Submitted Code</span>
+                                            </div>
+                                            <div className="bg-slate-900 text-slate-100 rounded-lg p-4 overflow-x-auto">
+                                                <pre className="text-xs font-mono whitespace-pre-wrap break-words">
+                                                    <code>{problem.code || 'No code submitted'}</code>
+                                                </pre>
+                                            </div>
+                                        </div>
+
+                                        {/* Plagiarism Info */}
+                                        {problem.plagiarism && (
+                                            <div className="flex items-center gap-4 p-3 bg-red-50/50 border border-red-200 rounded-lg">
+                                                <AlertTriangle size={20} className="text-red-600" />
+                                                <div className="flex-1">
+                                                    <span className="text-sm font-semibold text-red-700">Plagiarism Detected:</span>
+                                                    <span className="text-sm text-red-600 ml-2">{problem.plagiarism}%</span>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="text-center py-12 text-muted-foreground">
+                                    <Code size={48} className="mx-auto mb-4 opacity-30" />
+                                    <p>No coding problems found for this participant</p>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="p-4 border-t border-border bg-muted/10 flex justify-end">
+                            <button
+                                onClick={() => setShowCodingModal(false)}
+                                className="px-6 py-2 bg-primary text-primary-foreground rounded-lg font-bold hover:opacity-90 transition-opacity"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Stats Modal */}
             <StatsModal

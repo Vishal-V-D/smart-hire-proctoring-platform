@@ -4,6 +4,10 @@ const nextConfig: NextConfig = {
   /* config options here */
   reactStrictMode: false,
 
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production',
+  },
+
   // Performance optimizations
   poweredByHeader: false,
   compress: true,

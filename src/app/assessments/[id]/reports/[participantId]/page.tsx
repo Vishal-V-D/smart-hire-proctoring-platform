@@ -79,6 +79,7 @@ export default function ParticipantReportPage() {
                 const response = await assessmentService.getParticipantDetail(assessmentId, participantId);
                 if (response.data?.participant) {
                     setReport(response.data.participant);
+                    console.log('=== WHOLE REPORT TAB DATA BRO ===', response.data.participant);
                     return;
                 }
             } catch (detailErr: any) {
@@ -194,13 +195,27 @@ export default function ParticipantReportPage() {
 
     const formatDate = (dateStr?: string) => {
         if (!dateStr) return '-';
-        return new Date(dateStr).toLocaleString('en-IN', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
+
+        // If the date is already formatted (contains "at" or "AM/PM"), return it as-is
+        if (dateStr.includes(' at ') || dateStr.includes('AM') || dateStr.includes('PM')) {
+            return dateStr;
+        }
+
+        // Otherwise, try to parse and format it
+        try {
+            const date = new Date(dateStr);
+            if (isNaN(date.getTime())) return dateStr; // Return original if invalid
+
+            return date.toLocaleString('en-IN', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        } catch {
+            return dateStr; // Return original on error
+        }
     };
 
     const formatDuration = (seconds?: number) => {
@@ -535,27 +550,27 @@ export default function ParticipantReportPage() {
 
                                 {/* Verdict */}
                                 {isSectionVisible('verdict') ? (
-                                    <div className={`p-3 rounded-lg border-2 relative group ${getVerdictColor(report.verdict.status)}`}>
+                                    <div className={`p-3 rounded-lg border-2 relative group ${getVerdictColor(report.verdict?.status || report.session?.status)}`}>
                                         {isEditMode && (
                                             <button onClick={() => toggleSection('verdict')} className="edit-controls absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><X size={12} /></button>
                                         )}
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-2">
-                                                {report.verdict.status === 'passed' ? (
+                                                {report.verdict?.status === 'passed' ? (
                                                     <CheckCircle size={24} />
-                                                ) : report.verdict.status === 'failed' || report.verdict.status === 'disqualified' ? (
+                                                ) : report.verdict?.status === 'failed' || report.verdict?.status === 'disqualified' ? (
                                                     <XCircle size={24} />
                                                 ) : (
                                                     <AlertTriangle size={24} />
                                                 )}
                                                 <div>
-                                                    <p className="text-lg font-black uppercase">{report.verdict.status}</p>
+                                                    <p className="text-lg font-black uppercase">{report.verdict?.status || report.session?.status || 'N/A'}</p>
                                                     <p className="text-[10px] opacity-75">Final Status</p>
                                                 </div>
                                             </div>
                                             <div className="text-right">
-                                                <p className="text-2xl font-black">{report.verdict.finalScore}</p>
-                                                <p className="text-[10px] opacity-75">Score</p>
+                                                <p className="text-2xl font-black">{report.verdict?.finalScore || report.scores?.totalScore || 0}</p>
+                                                <p className="text-[10px] opacity-75">Score / {report.scores?.maxScore || 0}</p>
                                             </div>
                                         </div>
                                     </div>
@@ -638,24 +653,24 @@ export default function ParticipantReportPage() {
                                             <div className="space-y-1">
                                                 <div className="flex items-center justify-between">
                                                     <span className="text-[10px] text-gray-500">Total:</span>
-                                                    <span className="text-lg font-black">{report.violations.totalCount}</span>
+                                                    <span className="text-lg font-black">{report.violations?.totalCount || 0}</span>
                                                 </div>
                                                 <div className="flex items-center justify-between">
                                                     <span className="text-[10px] text-gray-500">Risk:</span>
-                                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase ${getRiskColor(report.violations.riskLevel)}`}>
-                                                        {report.violations.riskLevel}
+                                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase ${getRiskColor(report.violations?.riskLevel)}`}>
+                                                        {report.violations?.riskLevel || 'Low'}
                                                     </span>
                                                 </div>
                                                 <div className="border-t pt-1">
                                                     <p className="text-[9px] text-gray-500 mb-0.5">By Type:</p>
                                                     <div className="text-[9px] space-y-0.5">
-                                                        {Object.entries(report.violations.byType || {}).slice(0, 3).map(([type, count]) => (
+                                                        {Object.entries(report.violations?.byType || {}).slice(0, 3).map(([type, count]) => (
                                                             <div key={type} className="flex justify-between">
                                                                 <span className="capitalize truncate">{type.replace(/_/g, ' ')}</span>
                                                                 <span className="font-bold">{count}</span>
                                                             </div>
                                                         ))}
-                                                        {Object.keys(report.violations.byType || {}).length === 0 && (
+                                                        {Object.keys(report.violations?.byType || {}).length === 0 && (
                                                             <span className="text-gray-400">None</span>
                                                         )}
                                                     </div>
@@ -871,7 +886,7 @@ export default function ParticipantReportPage() {
                                                 <th className="text-center py-2 px-3 border-b border-gray-300 font-semibold">Scored</th>
                                                 <th className="text-center py-2 px-3 border-b border-gray-300 font-semibold">Max Score</th>
                                                 <th className="text-center py-2 px-3 border-b border-gray-300 font-semibold">Percentage</th>
-                                                <th className="text-center py-2 px-3 border-b border-gray-300 font-semibold">Details</th>
+                                                <th className="text-center py-2 px-3 border-b border-gray-300 font-semibold">Time</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -890,10 +905,8 @@ export default function ParticipantReportPage() {
                                                             {Number(section.percentage || 0).toFixed(1)}%
                                                         </span>
                                                     </td>
-                                                    <td className="py-2 px-3 text-center text-xs text-gray-500">
-                                                        {section.sectionType === 'mcq' && section.correctAnswers !== undefined && (
-                                                            <span>Γ£ô{section.correctAnswers} Γ£ù{section.wrongAnswers} Γùï{section.unattempted}</span>
-                                                        )}
+                                                    <td className="py-2 px-3 text-center font-mono text-gray-600">
+                                                        {formatDuration(section.timeTaken)}
                                                     </td>
                                                 </tr>
                                             ))}
@@ -908,8 +921,8 @@ export default function ParticipantReportPage() {
                                                 <td className="py-3 px-3 text-center text-lg">
                                                     {Number(report.scores.percentage || 0).toFixed(1)}%
                                                 </td>
-                                                <td className="py-3 px-3 text-center">
-                                                    {report.scores.rank && `Rank #${report.scores.rank}`}
+                                                <td className="py-3 px-3 text-center font-mono">
+                                                    {formatDuration(report.session?.totalTimeTaken)}
                                                 </td>
                                             </tr>
                                         </tbody>
@@ -964,24 +977,24 @@ export default function ParticipantReportPage() {
                                     <div className="grid grid-cols-3 gap-3">
                                         <div className="bg-gray-50 p-2 rounded-lg border border-gray-200 text-center">
                                             <p className="text-[10px] text-gray-500 mb-0.5">Total Violations</p>
-                                            <p className="text-xl font-black">{report.violations.totalCount}</p>
+                                            <p className="text-xl font-black">{report.violations?.totalCount || 0}</p>
                                         </div>
                                         <div className="bg-gray-50 p-2 rounded-lg border border-gray-200 text-center">
                                             <p className="text-[10px] text-gray-500 mb-0.5">Risk Level</p>
-                                            <span className={`text-sm font-bold px-2 py-0.5 rounded uppercase ${getRiskColor(report.violations.riskLevel)}`}>
-                                                {report.violations.riskLevel}
+                                            <span className={`text-sm font-bold px-2 py-0.5 rounded uppercase ${getRiskColor(report.violations?.riskLevel)}`}>
+                                                {report.violations?.riskLevel || 'Low'}
                                             </span>
                                         </div>
                                         <div className="bg-gray-50 p-2 rounded-lg border border-gray-200">
                                             <p className="text-[10px] text-gray-500 mb-0.5">By Type</p>
                                             <div className="text-[10px] space-y-0.5">
-                                                {Object.entries(report.violations.byType || {}).slice(0, 3).map(([type, count]) => (
+                                                {Object.entries(report.violations?.byType || {}).slice(0, 3).map(([type, count]) => (
                                                     <div key={type} className="flex justify-between">
                                                         <span className="capitalize truncate">{type.replace(/_/g, ' ')}</span>
                                                         <span className="font-bold">{count}</span>
                                                     </div>
                                                 ))}
-                                                {Object.keys(report.violations.byType || {}).length === 0 && (
+                                                {Object.keys(report.violations?.byType || {}).length === 0 && (
                                                     <span className="text-gray-400">No violations</span>
                                                 )}
                                             </div>
@@ -1000,37 +1013,37 @@ export default function ParticipantReportPage() {
                                         <Shield size={12} />
                                         Final Verdict
                                     </h2>
-                                    <div className={`p-3 rounded-lg border-2 ${getVerdictColor(report.verdict.status)}`}>
+                                    <div className={`p-3 rounded-lg border-2 ${getVerdictColor(report.verdict?.status || report.session?.status)}`}>
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-2">
-                                                {report.verdict.status === 'passed' ? (
+                                                {report.verdict?.status === 'passed' ? (
                                                     <CheckCircle size={24} />
-                                                ) : report.verdict.status === 'failed' || report.verdict.status === 'disqualified' ? (
+                                                ) : report.verdict?.status === 'failed' || report.verdict?.status === 'disqualified' ? (
                                                     <XCircle size={24} />
                                                 ) : (
                                                     <AlertTriangle size={24} />
                                                 )}
                                                 <div>
-                                                    <p className="text-lg font-black uppercase">{report.verdict.status}</p>
+                                                    <p className="text-lg font-black uppercase">{report.verdict?.status || report.session?.status || 'N/A'}</p>
                                                     <p className="text-[10px] opacity-75">Final Status</p>
                                                 </div>
                                             </div>
                                             <div className="text-right">
-                                                <p className="text-2xl font-black">{report.verdict.finalScore}</p>
-                                                <p className="text-[10px] opacity-75">Final Score</p>
+                                                <p className="text-2xl font-black">{report.verdict?.finalScore || report.scores?.totalScore || 0}</p>
+                                                <p className="text-[10px] opacity-75">Final Score / {report.scores?.maxScore || 0}</p>
                                             </div>
                                         </div>
-                                        {(report.verdict.adjustedScore || report.verdict.violationPenalty) && (
+                                        {(report.verdict?.adjustedScore || report.verdict?.violationPenalty) && (
                                             <div className="flex items-center gap-4 pt-2 border-t border-current/20 text-xs mt-2">
-                                                {report.verdict.adjustedScore && (
+                                                {report.verdict.adjustedScore ? (
                                                     <span>Adjusted: <strong>{report.verdict.adjustedScore}</strong></span>
-                                                )}
-                                                {report.verdict.violationPenalty && (
+                                                ) : null}
+                                                {report.verdict.violationPenalty ? (
                                                     <span>Penalty: <strong>-{report.verdict.violationPenalty}</strong></span>
-                                                )}
+                                                ) : null}
                                             </div>
                                         )}
-                                        {report.verdict.notes && (
+                                        {report.verdict?.notes && (
                                             <p className="mt-1 text-[10px] italic truncate">Notes: {report.verdict.notes}</p>
                                         )}
                                     </div>

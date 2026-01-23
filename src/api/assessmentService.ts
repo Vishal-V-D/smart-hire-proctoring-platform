@@ -116,6 +116,27 @@ export interface ViolationStats {
     byType: Partial<Record<ViolationType, number>>;
 }
 
+export interface ViolationUser {
+    sessionId: string;
+    user: {
+        id: string;
+        name: string;
+        email: string;
+        username: string;
+    };
+    status: 'active' | string; // "active" means 'Live'
+    totalViolations: number;
+    violationsByType: Partial<Record<ViolationType, number>>;
+    violations: Violation[];
+}
+
+export interface LiveViolationStats {
+    totalViolations: number;
+    totalCandidates: number;
+    violationsByType: Partial<Record<ViolationType, number>>;
+    users: ViolationUser[];
+}
+
 export interface ViolationsQueryParams {
     page?: number;
     limit?: number;

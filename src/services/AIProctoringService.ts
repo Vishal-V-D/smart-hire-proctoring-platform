@@ -266,6 +266,19 @@ export class AIProctoringService {
 
             if (!detection) {
                 console.error('❌ No face detected in stored photo');
+
+                // Trigger violation callback if available to notify UI
+                if (this.config.onViolation) {
+                    this.config.onViolation({
+                        type: 'no_face',
+                        confidence: 1.0,
+                        timestamp: new Date(),
+                        metadata: {
+                            message: 'Could not detect face in profile photo. Proctoring verification may be limited.'
+                        }
+                    });
+                }
+
                 return false;
             }
 

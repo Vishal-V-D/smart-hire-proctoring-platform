@@ -344,8 +344,23 @@ export default function TakeAssessmentPage() {
         }
     };
 
-    const handleConfirmSectionFinish = () => {
+    const handleConfirmSectionFinish = async () => {
         console.log("🏁 [TakePage] Finishing Section:", currentSectionIndex);
+
+        // Start loading state immediately
+        setIsNavigatingToNextSection(true);
+
+        // Call complete section API
+        if (currentSectionId) {
+            try {
+                console.log(`📤 [TakePage] Completing section ${currentSectionId}...`);
+                await contestantService.completeSection(assessmentId, currentSectionId);
+                console.log(`✅ [TakePage] Section ${currentSectionId} completed successfully`);
+            } catch (error) {
+                console.error(`❌ [TakePage] Failed to complete section ${currentSectionId}:`, error);
+                // We continue anyway to allow the user to proceed
+            }
+        }
 
         const nextIndex = currentSectionIndex + 1;
 
@@ -356,7 +371,6 @@ export default function TakeAssessmentPage() {
 
         // CRITICAL: Reset question index to 0 for the next section
         setCurrentQuestionIndex(0);
-        setIsNavigatingToNextSection(true);
 
         // Check bounds
         if (nextIndex < sections.length) {
@@ -621,6 +635,7 @@ export default function TakeAssessmentPage() {
                                 onExpire={() => setShowSubmitConfirm(true)}
                                 variant="pill"
                                 className="transform scale-105"
+                                disableAutoSync={true}
                             />
                         )}
                     </div>
@@ -678,6 +693,7 @@ export default function TakeAssessmentPage() {
                                                             sectionId={sec.id}
                                                             variant="minimal"
                                                             className="text-xs shrink-0 bg-[#0f62fe]/10 px-1.5 py-0.5 rounded text-[#0f62fe]"
+                                                            disableAutoSync={true}
                                                         />
                                                     )}
                                                 </div>

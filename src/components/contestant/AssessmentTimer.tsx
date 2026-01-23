@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Clock, AlertTriangle, Loader2 } from 'lucide-react';
 import { contestantService } from '@/api/contestantService';
+import { useAssessment } from '@/context/AssessmentContext';
 
 interface AssessmentTimerProps {
     assessmentId: string;
@@ -8,6 +9,7 @@ interface AssessmentTimerProps {
     onExpire?: () => void;
     variant?: 'default' | 'minimal' | 'pill';
     className?: string;
+    disableAutoSync?: boolean; // If true, relies on Context or parent updates only
 }
 
 export default function AssessmentTimer({
@@ -15,46 +17,83 @@ export default function AssessmentTimer({
     sectionId,
     onExpire,
     variant = 'default',
-    className = ''
+    className = '',
+    disableAutoSync = false
 }: AssessmentTimerProps) {
-    const [timeLeft, setTimeLeft] = useState<number | null>(null);
-    const [status, setStatus] = useState<'idle' | 'running' | 'paused' | 'expired' | 'completed' | 'loading'>('loading');
+    // Context State
+    const { currentSectionTimer } = useAssessment();
+
+    // Local State (Fallback)
+    const [localTimeLeft, setLocalTimeLeft] = useState<number | null>(null);
+    const [localStatus, setLocalStatus] = useState<'idle' | 'running' | 'paused' | 'expired' | 'completed' | 'loading'>('loading');
     const [isSyncing, setIsSyncing] = useState(false);
+
     const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-    // Fetch and Sync Timer
+    // Determine if we should use context data
+    // Use context if disableAutoSync is true OR if context matches our sectionId
+    const isContextMatch = currentSectionTimer.sectionId === sectionId;
+    const shouldUseContext = disableAutoSync || isContextMatch;
+
+    // Derived State
+    const timeLeft = shouldUseContext ? (isContextMatch ? currentSectionTimer.timeRemaining : null) : localTimeLeft;
+    const status = shouldUseContext ? (isContextMatch ? currentSectionTimer.status : 'loading') : localStatus;
+
+    // Trigger onExpire from Status Changes (Context or Local)
+    // Use a ref to prevent duplicate calls if onExpire prop is unstable (re-created on render)
+    const hasTriggeredExpire = useRef(false);
+
+    useEffect(() => {
+        if (status === 'expired') {
+            if (!hasTriggeredExpire.current) {
+                hasTriggeredExpire.current = true;
+                if (onExpire) {
+                    console.log("⏰ Timer expired, triggering callback");
+                    onExpire();
+                }
+            }
+        } else if (status !== 'loading' && status !== 'idle') {
+            // Reset if we go back to running (e.g. section change)
+            // But don't reset on 'loading' to avoid race conditions during transitions
+            hasTriggeredExpire.current = false;
+        }
+    }, [status, onExpire]);
+
+    // Fetch and Sync Timer (Local Mode Only)
     const syncTimer = async (retryCount = 0) => {
+        if (shouldUseContext) return; // Guard
+
         if (retryCount === 0) setIsSyncing(true);
         try {
-            const response = await contestantService.getAssessmentTimer(assessmentId);
+            const response = await contestantService.getAssessmentTimer(assessmentId, sectionId);
             const data = response.data.data;
 
-            // Find current section data
-            const currentSectionData = data.sections?.find(s => s.sectionId === sectionId);
+            if (data) {
+                const serverTimeLeft = data.timeLeft;
 
-            if (currentSectionData) {
-                // Check if we hit a race condition (backend hasn't started timer yet)
-                if (currentSectionData.status === 'idle' && retryCount < 3) {
-                    // Retry in 1s
-                    setTimeout(() => syncTimer(retryCount + 1), 1000);
-                    return;
+                // Drift check
+                if (localTimeLeft === null) {
+                    setLocalTimeLeft(serverTimeLeft);
+                } else {
+                    const drift = Math.abs(localTimeLeft - serverTimeLeft);
+                    if (drift > 2) {
+                        console.log(`⏱️ [Timer] Time drift detected (${drift}s). Syncing to server time.`);
+                        setLocalTimeLeft(serverTimeLeft);
+                    }
                 }
 
-                // If section is found, use its data
-                setTimeLeft(currentSectionData.timeLeft);
-                setStatus(currentSectionData.status);
-
-                // If expired, trigger callback
-                if (currentSectionData.status === 'expired' || currentSectionData.timeLeft <= 0) {
-                    if (onExpire) onExpire();
+                // If server says running but time is up, force expired
+                if (data.status === 'running' && serverTimeLeft <= 0) {
+                    setLocalStatus('expired');
+                } else {
+                    setLocalStatus(data.status);
                 }
             } else {
-                // Section not found in timer data? Retry if new
                 if (retryCount < 3) {
                     setTimeout(() => syncTimer(retryCount + 1), 1000);
                     return;
                 }
-                setStatus('idle');
+                setLocalStatus('idle');
             }
 
         } catch (error) {
@@ -66,13 +105,16 @@ export default function AssessmentTimer({
 
     // Reset State on Section Change
     useEffect(() => {
-        setTimeLeft(null);
-        setStatus('loading');
-    }, [sectionId]);
+        if (!shouldUseContext) {
+            setLocalTimeLeft(null);
+            setLocalStatus('loading');
+            hasTriggeredExpire.current = false;
+        }
+    }, [sectionId, shouldUseContext]);
 
-    // Initial Sync and Heartbeat
+    // Initial Sync and Heartbeat (Local Mode Only)
     useEffect(() => {
-        if (!assessmentId || !sectionId) return;
+        if (!assessmentId || !sectionId || shouldUseContext) return;
 
         // Immediate sync
         syncTimer();
@@ -81,32 +123,28 @@ export default function AssessmentTimer({
         const heartbeatInterval = setInterval(() => syncTimer(), 30000);
 
         return () => clearInterval(heartbeatInterval);
-    }, [assessmentId, sectionId]);
+    }, [assessmentId, sectionId, shouldUseContext]);
 
-    // Local Countdown
+    // Local Countdown (Local Mode Only)
+    // When using Context, the Context handles the countdown and we just receive updates
     useEffect(() => {
-        if (status !== 'running') {
+        if (shouldUseContext) return;
+
+        if (localStatus !== 'running') {
             if (timerRef.current) clearInterval(timerRef.current);
             return;
         }
 
-        // Clear existing to be safe
         if (timerRef.current) clearInterval(timerRef.current);
 
         timerRef.current = setInterval(() => {
-            setTimeLeft(prev => {
+            setLocalTimeLeft(prev => {
                 if (prev === null) return null;
 
                 if (prev <= 1) {
-                    // Timer hit 0
                     if (timerRef.current) clearInterval(timerRef.current);
-
-                    // Call expire callback immediately if not already called
-                    setStatus('expired');
-                    if (onExpire) {
-                        console.log("⏰ Timer expired locally, triggering callback");
-                        onExpire();
-                    }
+                    setLocalStatus('expired');
+                    // onExpire handled by effect
                     return 0;
                 }
                 return prev - 1;
@@ -116,7 +154,7 @@ export default function AssessmentTimer({
         return () => {
             if (timerRef.current) clearInterval(timerRef.current);
         };
-    }, [status, onExpire]); // Only restart interval when status changes (not on every tick)
+    }, [localStatus, shouldUseContext]);
 
     // Format time logic
     const formatTime = (seconds: number) => {
@@ -135,7 +173,7 @@ export default function AssessmentTimer({
         if (timeLeft === null) return { color: 'text-gray-400', bg: 'bg-gray-100', border: 'border-gray-200' };
 
         if (timeLeft < 60) {
-            // Critical (Red)
+            // Critical
             return {
                 color: 'text-[#da1e28]',
                 bg: 'bg-[#da1e28]/10',
@@ -144,7 +182,7 @@ export default function AssessmentTimer({
             };
         }
         if (timeLeft < 300) {
-            // Warning (Yellow)
+            // Warning
             return {
                 color: 'text-[#f1c21b]',
                 bg: 'bg-[#f1c21b]/10',
@@ -153,7 +191,7 @@ export default function AssessmentTimer({
             };
         }
 
-        // Normal (Orange as requested)
+        // Normal
         return {
             color: 'text-[#ff832b]',
             bg: 'bg-[#ff832b]/10',
@@ -164,7 +202,7 @@ export default function AssessmentTimer({
 
     const styles = getStatusStyles();
 
-    if (status === 'loading' && timeLeft === null) {
+    if ((status === 'loading' && timeLeft === null) || timeLeft === null) {
         return (
             <div className={`flex items-center gap-2 ${className}`}>
                 <Loader2 className="w-3 h-3 animate-spin opacity-50" />
@@ -172,8 +210,6 @@ export default function AssessmentTimer({
             </div>
         );
     }
-
-    if (timeLeft === null) return null;
 
     if (variant === 'pill') {
         return (

@@ -110,6 +110,7 @@ export type SQLRunResponse = {
     executionTime: number;
     rowCount?: number; // Optional in new backend response?
     error?: string;
+    message?: string; // Additional error/info message
     status?: string;
     statusCode?: number;
     rawOutput?: string;
@@ -124,6 +125,7 @@ export type SQLSubmitResponse = {
     feedback: string;
     executionTime: number;
     error?: string;
+    message?: string; // Additional error/info message
 };
 
 
