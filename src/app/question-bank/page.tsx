@@ -23,6 +23,7 @@ import {
     Layers,
     Eye
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { questionBankService, QuestionBankQuestion, QuestionBankFilters, FilterOptions, QuestionBankStats } from '@/api/questionBankService';
 import { codingQuestionService, CodingProblem, CodingProblemFilters } from '@/api/codingQuestionService';
 import { sqlQuestionService, SQLQuestion, SQLQuestionFilters, SQLFilterOptions } from '@/api/sqlQuestionService';
@@ -32,6 +33,7 @@ import SQLQuestionDisplay from '@/components/organizer/questions/SQLQuestionDisp
 import SQLQuestionEditModal from './SQLQuestionEditModal';
 
 const QuestionBankPage = () => {
+    const router = useRouter();
     const [questions, setQuestions] = useState<QuestionBankQuestion[]>([]);
     const [filterOptions, setFilterOptions] = useState<FilterOptions | null>(null);
     const [stats, setStats] = useState<QuestionBankStats | null>(null);
@@ -359,7 +361,7 @@ const QuestionBankPage = () => {
                 {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                     <div>
-                        <h1 className="text-3xl font-black text-foreground flex items-center gap-3">
+                        <h1 className="text-3xl font-Inter text-foreground flex items-center gap-3">
                             <Database className="text-primary" size={32} />
                             Question Bank
                         </h1>
@@ -398,8 +400,8 @@ const QuestionBankPage = () => {
                             )}
                         </button>
                         <button
-                            onClick={() => window.location.href = '/question-bank/add'}
-                            className="flex items-center gap-2 px-6 py-2.5 bg-primary text-primary-foreground rounded-xl font-bold hover:opacity-90 transition-all shadow-lg shadow-primary/25"
+                            onClick={() => router.push('/question-bank/add')}
+                            className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground rounded-xl font-bold hover:opacity-90 transition-all shadow-lg shadow-primary/25"
                         >
                             <Plus size={18} />
                             Add Question
@@ -489,7 +491,7 @@ const QuestionBankPage = () => {
                                 </div>
                                 <button
                                     onClick={() => setShowFilters(!showFilters)}
-                                    className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border font-medium text-sm transition-all ${showFilters ? 'bg-primary text-primary-foreground border-primary' : 'bg-background border-border hover:bg-muted'}`}
+                                    className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border font-medium text-sm transition-all ${showFilters ? 'bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground border-primary' : 'bg-background border-border hover:bg-muted'}`}
                                 >
                                     <Filter size={18} />
                                     Filters
@@ -606,7 +608,7 @@ const QuestionBankPage = () => {
                                                     <th className="py-3 px-4 w-12">
                                                         <div
                                                             onClick={toggleSelectAll}
-                                                            className={`w-5 h-5 rounded-md border-2 flex items-center justify-center cursor-pointer transition-all ${selectedQuestions.size === questions.length && questions.length > 0 ? 'bg-primary border-primary' : 'border-muted-foreground/50 hover:border-primary'}`}
+                                                            className={`w-5 h-5 rounded-md border-2 flex items-center justify-center cursor-pointer transition-all ${selectedQuestions.size === questions.length && questions.length > 0 ? 'bg-gradient-to-br from-indigo-600 to-violet-600 border-primary' : 'border-muted-foreground/50 hover:border-primary'}`}
                                                         >
                                                             {selectedQuestions.size === questions.length && questions.length > 0 && <CheckCircle size={14} className="text-primary-foreground" />}
                                                         </div>
@@ -633,7 +635,7 @@ const QuestionBankPage = () => {
                                                             <td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
                                                                 <div
                                                                     onClick={() => toggleSelectQuestion(question.id)}
-                                                                    className={`w-5 h-5 rounded-md border-2 flex items-center justify-center cursor-pointer transition-all ${isSelected ? 'bg-primary border-primary' : 'border-muted-foreground/50 hover:border-primary'}`}
+                                                                    className={`w-5 h-5 rounded-md border-2 flex items-center justify-center cursor-pointer transition-all ${isSelected ? 'bg-gradient-to-br from-indigo-600 to-violet-600 border-primary' : 'border-muted-foreground/50 hover:border-primary'}`}
                                                                 >
                                                                     {isSelected && <CheckCircle size={14} className="text-primary-foreground" />}
                                                                 </div>
@@ -1399,7 +1401,7 @@ const QuestionBankPage = () => {
                                 </button>
                                 <button
                                     onClick={handleUpdateQuestion}
-                                    className="px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-all text-sm font-bold"
+                                    className="px-4 py-2 rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground hover:opacity-90 transition-all text-sm font-bold"
                                 >
                                     Save Changes
                                 </button>
@@ -1461,7 +1463,7 @@ const QuestionBankPage = () => {
                         <div className="min-h-screen p-6 md:p-10">
                             <div className="max-w-6xl mx-auto mb-8 flex items-center justify-between">
                                 <div>
-                                    <h2 className="text-3xl font-black text-foreground flex items-center gap-3">
+                                    <h2 className="text-3xl font-Inter text-foreground flex items-center gap-3">
                                         <BarChart3 className="text-primary" size={32} />
                                         Question Bank Analytics
                                     </h2>
@@ -1475,19 +1477,19 @@ const QuestionBankPage = () => {
                             <div className="max-w-6xl mx-auto space-y-8">
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                     <div className="bg-gradient-to-br from-primary to-primary/80 rounded-2xl p-6 text-primary-foreground">
-                                        <p className="text-5xl font-black">{stats.total}</p>
+                                        <p className="text-5xl font-Inter">{stats.total}</p>
                                         <p className="text-sm font-medium opacity-80 mt-1">Total Questions</p>
                                     </div>
                                     <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl p-6 text-white">
-                                        <p className="text-5xl font-black">{Object.keys(stats.byDivision).length}</p>
+                                        <p className="text-5xl font-Inter">{Object.keys(stats.byDivision).length}</p>
                                         <p className="text-sm font-medium opacity-80 mt-1">Divisions</p>
                                     </div>
                                     <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl p-6 text-white">
-                                        <p className="text-5xl font-black">{Object.keys(stats.bySubdivision).length}</p>
+                                        <p className="text-5xl font-Inter">{Object.keys(stats.bySubdivision).length}</p>
                                         <p className="text-sm font-medium opacity-80 mt-1">Subdivisions</p>
                                     </div>
                                     <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-6 text-white">
-                                        <p className="text-5xl font-black">{Object.keys(stats.byType).length}</p>
+                                        <p className="text-5xl font-Inter">{Object.keys(stats.byType).length}</p>
                                         <p className="text-sm font-medium opacity-80 mt-1">Question Types</p>
                                     </div>
                                 </div>
@@ -1502,10 +1504,10 @@ const QuestionBankPage = () => {
                                                     <div key={div}>
                                                         <div className="flex items-center justify-between mb-2">
                                                             <span className="text-sm font-bold">{div}</span>
-                                                            <span className="text-sm font-black text-primary">{count}</span>
+                                                            <span className="text-sm font-Inter text-primary">{count}</span>
                                                         </div>
                                                         <div className="h-3 bg-muted rounded-full overflow-hidden">
-                                                            <div className="h-full bg-primary" style={{ width: `${percentage}%` }} />
+                                                            <div className="h-full bg-gradient-to-br from-indigo-600 to-violet-600" style={{ width: `${percentage}%` }} />
                                                         </div>
                                                     </div>
                                                 );
@@ -1518,7 +1520,7 @@ const QuestionBankPage = () => {
                                             {Object.entries(stats.byDifficulty).map(([diff, count]) => (
                                                 <div key={diff} className="flex items-center justify-between">
                                                     <span className="text-sm font-medium">{diff}</span>
-                                                    <span className="text-sm font-black">{count}</span>
+                                                    <span className="text-sm font-Inter">{count}</span>
                                                 </div>
                                             ))}
                                         </div>
@@ -1529,14 +1531,14 @@ const QuestionBankPage = () => {
                                             {Object.entries(stats.byType).map(([type, count]) => (
                                                 <div key={type} className="flex items-center justify-between">
                                                     <span className="text-sm font-bold capitalize">{type.replace(/_/g, ' ')}</span>
-                                                    <span className="text-sm font-black text-blue-600">{count}</span>
+                                                    <span className="text-sm font-Inter text-blue-600">{count}</span>
                                                 </div>
                                             ))}
                                         </div>
                                     </div>
                                 </div>
                                 <div className="flex justify-center pb-6">
-                                    <button onClick={() => setShowStatsModal(false)} className="px-8 py-3 bg-primary text-primary-foreground rounded-xl font-bold">
+                                    <button onClick={() => setShowStatsModal(false)} className="px-8 py-3 bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground rounded-xl font-bold">
                                         Close Analytics
                                     </button>
                                 </div>

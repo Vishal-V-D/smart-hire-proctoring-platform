@@ -182,7 +182,7 @@ export default function AdminAssessmentsList() {
                                     <td className="px-6 py-4 text-right">
                                         <Link
                                             href={`/assessments/${a.id}`}
-                                            className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 hover:bg-primary text-primary hover:text-primary-foreground rounded-lg text-xs font-bold transition-all"
+                                            className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 hover:bg-gradient-to-br from-indigo-600 to-violet-600 text-primary hover:text-primary-foreground rounded-lg text-xs font-bold transition-all"
                                         >
                                             <Eye size={14} />
                                             View

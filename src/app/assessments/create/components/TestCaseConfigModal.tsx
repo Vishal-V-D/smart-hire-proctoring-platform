@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Settings, CheckCircle, AlertCircle, Loader2, Sparkles, RefreshCw, Shuffle } from 'lucide-react';
+import { X, Settings, CheckCircle, AlertCircle, Sparkles, RefreshCw, Shuffle } from 'lucide-react';
+import Loader from '@/components/Loader';
 import { testCaseConfigService, TestCaseConfig } from '@/api/testCaseConfigService';
 import Slider from 'rc-slider';
 import 'rc-slider/assets/index.css';
@@ -374,7 +375,7 @@ const TestCaseConfigModal: React.FC<TestCaseConfigModalProps> = ({
                     <div className="flex-1 overflow-y-auto p-6 space-y-6">
                         {loading ? (
                             <div className="flex items-center justify-center py-12">
-                                <Loader2 className="animate-spin text-primary" size={32} />
+                                <Loader />
                             </div>
                         ) : (
                             <>
@@ -410,7 +411,7 @@ const TestCaseConfigModal: React.FC<TestCaseConfigModalProps> = ({
                                             <div className="flex items-center gap-2 mb-2">
                                                 <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${method === 'all' ? 'border-primary' : 'border-muted-foreground'
                                                     }`}>
-                                                    {method === 'all' && <div className="w-2 h-2 rounded-full bg-primary" />}
+                                                    {method === 'all' && <div className="w-2 h-2 rounded-full bg-gradient-to-br from-indigo-600 to-violet-600" />}
                                                 </div>
                                                 <span className="text-sm font-bold">All</span>
                                             </div>
@@ -429,7 +430,7 @@ const TestCaseConfigModal: React.FC<TestCaseConfigModalProps> = ({
                                             <div className="flex items-center gap-2 mb-2">
                                                 <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${method === 'range' ? 'border-primary' : 'border-muted-foreground'
                                                     }`}>
-                                                    {method === 'range' && <div className="w-2 h-2 rounded-full bg-primary" />}
+                                                    {method === 'range' && <div className="w-2 h-2 rounded-full bg-gradient-to-br from-indigo-600 to-violet-600" />}
                                                 </div>
                                                 <span className="text-sm font-bold">Range</span>
                                             </div>
@@ -448,7 +449,7 @@ const TestCaseConfigModal: React.FC<TestCaseConfigModalProps> = ({
                                             <div className="flex items-center gap-2 mb-2">
                                                 <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${method === 'indices' ? 'border-primary' : 'border-muted-foreground'
                                                     }`}>
-                                                    {method === 'indices' && <div className="w-2 h-2 rounded-full bg-primary" />}
+                                                    {method === 'indices' && <div className="w-2 h-2 rounded-full bg-gradient-to-br from-indigo-600 to-violet-600" />}
                                                 </div>
                                                 <span className="text-sm font-bold">Specific</span>
                                             </div>
@@ -467,7 +468,7 @@ const TestCaseConfigModal: React.FC<TestCaseConfigModalProps> = ({
                                             <div className="flex items-center gap-2 mb-2">
                                                 <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${method === 'random' ? 'border-primary' : 'border-muted-foreground'
                                                     }`}>
-                                                    {method === 'random' && <div className="w-2 h-2 rounded-full bg-primary" />}
+                                                    {method === 'random' && <div className="w-2 h-2 rounded-full bg-gradient-to-br from-indigo-600 to-violet-600" />}
                                                 </div>
                                                 <span className="text-sm font-bold">Random</span>
                                             </div>
@@ -864,33 +865,33 @@ const TestCaseConfigModal: React.FC<TestCaseConfigModalProps> = ({
 
                                         <button
                                             onClick={handleRandomize}
-                                            className="w-full py-4 bg-primary text-primary-foreground font-bold rounded-xl shadow-lg hover:opacity-90 transition-all flex items-center justify-center gap-2"
+                                            className="w-full py-4 bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground font-bold rounded-xl shadow-lg hover:opacity-90 transition-all flex items-center justify-center gap-2"
                                         >
                                             <RefreshCw size={18} /> Randomize & Select
                                         </button>
 
                                         <div className="bg-muted/30 p-4 rounded-lg border border-border space-y-3">
                                             <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Selected Cases Preview</p>
-                                            
+
                                             <div className="space-y-2">
                                                 <div className="flex items-start gap-2">
                                                     <span className="text-xs font-bold text-emerald-600 bg-emerald-500/10 px-2 py-1 rounded uppercase tracking-wider w-20 shrink-0 text-center">Example</span>
                                                     <div className="flex-1 font-mono text-xs break-all bg-background/50 p-2 rounded border border-border/50">
-                                                        {exampleIndices.size > 0 
-                                                            ? Array.from(exampleIndices).sort((a,b) => a-b).join(', ') 
+                                                        {exampleIndices.size > 0
+                                                            ? Array.from(exampleIndices).sort((a, b) => a - b).join(', ')
                                                             : <span className="text-muted-foreground italic">None selected</span>}
                                                     </div>
                                                 </div>
                                                 <div className="flex items-start gap-2">
                                                     <span className="text-xs font-bold text-orange-600 bg-orange-500/10 px-2 py-1 rounded uppercase tracking-wider w-20 shrink-0 text-center">Hidden</span>
                                                     <div className="flex-1 font-mono text-xs break-all bg-background/50 p-2 rounded border border-border/50">
-                                                        {hiddenIndices.size > 0 
-                                                            ? Array.from(hiddenIndices).sort((a,b) => a-b).join(', ') 
+                                                        {hiddenIndices.size > 0
+                                                            ? Array.from(hiddenIndices).sort((a, b) => a - b).join(', ')
                                                             : <span className="text-muted-foreground italic">None selected</span>}
                                                     </div>
                                                 </div>
                                             </div>
-                                            
+
                                             {(exampleIndices.size > 0 || hiddenIndices.size > 0) && (
                                                 <p className="text-[10px] text-muted-foreground text-center pt-2 border-t border-border/50">
                                                     These specific indices will be saved for the assessment.
@@ -945,11 +946,11 @@ const TestCaseConfigModal: React.FC<TestCaseConfigModalProps> = ({
                             <button
                                 onClick={handleSave}
                                 disabled={saving || loading}
-                                className="px-6 py-2.5 text-sm font-semibold bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                className="px-6 py-2.5 text-sm font-semibold bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                             >
                                 {saving ? (
                                     <>
-                                        <Loader2 className="animate-spin" size={16} />
+                                        <Loader />
                                         Saving...
                                     </>
                                 ) : (

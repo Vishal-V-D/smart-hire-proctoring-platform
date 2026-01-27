@@ -110,7 +110,7 @@ export default function ReportsFilterModal({
                                             : 'bg-card border-border hover:border-primary/50 text-muted-foreground'
                                             }`}
                                     >
-                                        <div className={`w-4 h-4 rounded ml-auto flex items-center justify-center transition-colors ${filters.statuses?.includes(status) ? 'bg-primary text-white' : 'bg-muted border border-border'}`}>
+                                        <div className={`w-4 h-4 rounded ml-auto flex items-center justify-center transition-colors ${filters.statuses?.includes(status) ? 'bg-gradient-to-br from-indigo-600 to-violet-600 text-white' : 'bg-muted border border-border'}`}>
                                             {filters.statuses?.includes(status) && <Check size={10} />}
                                         </div>
                                         <span className="capitalize font-medium">{status.replace('_', ' ')}</span>
@@ -262,7 +262,7 @@ export default function ReportsFilterModal({
                         </button>
                         <button
                             onClick={handleApply}
-                            className="px-6 py-2.5 bg-primary text-primary-foreground text-sm font-bold rounded-xl hover:opacity-90 transition-all shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98]"
+                            className="px-6 py-2.5 bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground text-sm font-bold rounded-xl hover:opacity-90 transition-all shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98]"
                         >
                             Apply Filter
                         </button>

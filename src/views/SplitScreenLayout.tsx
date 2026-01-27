@@ -1,121 +1,139 @@
-'use client'
+'use client';
 
-import React from "react";
-import { FaLaptopCode, FaRocket } from "react-icons/fa";
-import { motion } from "framer-motion";
+import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Code2, ShieldCheck, BarChart3, Globe, Cpu, Zap } from "lucide-react";
 
 interface SplitScreenLayoutProps {
     formSide: React.ReactNode;
     isLogin: boolean;
     customMarketingContent?: React.ReactNode;
+    leftPanelWidth?: string;
+    rightPanelMaxWidth?: string;
 }
+
+const features = [
+    {
+        title: "Advanced Proctoring",
+        description: "AI-driven integrity checks ensure fair assessments every time.",
+
+        color: "text-emerald-400"
+    },
+    {
+        title: "Real-time Code Execution",
+        description: "Support for 40+ languages with instant feedback and test cases.",
+
+        color: "text-blue-400"
+    },
+    {
+        title: "Deep Analytics",
+        description: "Gain actionable insights into candidate performance and skills.",
+
+        color: "text-purple-400"
+    },
+    {
+        title: "Global Infrastructure",
+  
+        color: "text-cyan-400"
+    }
+];
 
 export const SplitScreenLayout: React.FC<SplitScreenLayoutProps> = ({
     formSide,
     isLogin,
     customMarketingContent,
+    leftPanelWidth = isLogin ? "md:w-[60%] lg:w-[60%]" : "md:w-[40%] lg:w-[40%]",
+    rightPanelMaxWidth = "max-w-3xl",
 }) => {
-    const cyanPanelClass =
-        "bg-primary text-primary-foreground p-8 md:p-16 flex flex-col justify-center items-center shadow-2xl transition-all duration-700 ease-in-out";
+    const [currentFeature, setCurrentFeature] = useState(0);
 
-    const whitePanelClass =
-        "bg-card text-foreground p-8 md:p-16 flex flex-col justify-center items-center transition-all duration-700 ease-in-out";
-
-    const marketingContent = isLogin
-        ? {
-            title: "Welcome Back!",
-            icon: <FaLaptopCode className="text-6xl mb-4 text-primary-foreground" />,
-            text: "Please sign in to access your dashboard and manage your work.",
-            cta: "New here? Register now!",
-        }
-        : {
-            title: "Get Started!",
-            icon: <FaRocket className="text-6xl mb-4 text-primary-foreground" />,
-            text: "Join our platform! Whether you're a contestant or an organizer, we've got you covered.",
-            cta: "Already registered? Sign in!",
-        };
-
-    const isFormOnLeft = isLogin;
-
-    // Transition settings
-
-    const marketingPanel = (
-        <motion.div
-            layout
-            key="marketing-panel"
-            transition={{ type: "spring", stiffness: 70, damping: 20, mass: 1.2 }}
-            className={`w-full md:w-1/2 hidden md:flex ${cyanPanelClass} ${isFormOnLeft ? "rounded-bl-[4rem] rounded-tl-[4rem] ml-[-2rem]" : "rounded-br-[4rem] rounded-tr-[4rem] mr-[-2rem]"
-                } relative overflow-hidden z-20 shadow-[0_35px_60px_-15px_rgba(0,0,0,0.3)]`}
-        >
-            {customMarketingContent ? (
-                customMarketingContent
-            ) : (
-                <motion.div
-                    key={isLogin ? "login-marketing" : "register-marketing"}
-                    initial={{ opacity: 0, x: isFormOnLeft ? 20 : -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: isFormOnLeft ? -20 : 20 }}
-                    transition={{ duration: 0.4, delay: 0.1 }}
-                    className="relative z-10 w-full h-full flex flex-col justify-center items-center text-center"
-                >
-                    {marketingContent.icon}
-                    <h2 className="text-4xl md:text-5xl font-bold mb-4 text-primary-foreground">
-                        {marketingContent.title}
-                    </h2>
-                    <p className="text-lg md:text-xl leading-relaxed max-w-sm text-primary-foreground/80">
-                        {marketingContent.text}
-                    </p>
-                    <div onClick={() => {
-                        // This creates a smoother perceived transition if this was client-side routing
-                    }}>
-                        <p className="mt-8 text-base font-medium underline hover:opacity-80 cursor-pointer">
-                            {marketingContent.cta}
-                        </p>
-                    </div>
-                </motion.div>
-            )}
-        </motion.div>
-    );
-
-    const formPanel = (
-        <motion.div
-            layout
-            key="form-panel"
-            transition={{ type: "spring", stiffness: 70, damping: 20, mass: 1.2 }}
-            className={`w-full md:w-1/2 ${whitePanelClass} max-w-none flex flex-col justify-center relative z-10 overflow-y-auto`}
-        >
-            <div className="flex flex-col md:hidden mb-6 text-center text-foreground">
-                <h2 className="text-3xl font-bold mb-2">{marketingContent.title}</h2>
-                <p className="text-lg opacity-90 text-muted-foreground">
-                    {marketingContent.text}
-                </p>
-            </div>
-
-            <motion.div
-                key={isLogin ? "login" : "register"}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: 0.2 }}
-                className="w-full max-w-md mx-auto my-auto"
-            >
-                {formSide}
-            </motion.div>
-        </motion.div>
-    );
+    // Auto-rotate features
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setCurrentFeature((prev) => (prev + 1) % features.length);
+        }, 5000);
+        return () => clearInterval(timer);
+    }, []);
 
     return (
-        <div className="h-screen w-full flex flex-col md:flex-row bg-background overflow-hidden relative">
-            {isFormOnLeft ? (
-                <>
-                    {formPanel}
-                    {marketingPanel}
-                </>
-            ) : (
-                <>
-                    {marketingPanel}
-                    {formPanel}
-                </>
-            )}
+        <div className="min-h-screen w-full flex flex-col md:flex-row bg-background">
+
+            {/* Left Panel - Interactive Showcase (Dark/Professional) */}
+            <div className={`w-full ${leftPanelWidth} bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground relative overflow-hidden flex flex-col p-12 justify-between hidden md:flex`}>
+
+                {/* Background Decoration */}
+                <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary to-primary-foreground/5 opacity-10"></div>
+                <div className="absolute top-0 right-0 w-[300px] h-[300px] bg-white/5 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2"></div>
+                <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-black/20 rounded-full blur-[100px] translate-y-1/2 -translate-x-1/2"></div>
+
+                {/* Logo Area */}
+                <div className="relative z-10">
+                    <div className="flex items-center gap-2 font-bold text-2xl tracking-tighter text-white mb-2">
+
+                        <span>HirePlatform</span>
+                    </div>
+                    <p className="text-primary-foreground/60 text-sm font-medium ml-1">Enterprise Assessment Suite</p>
+                </div>
+
+                {/* Interactive Feature Carousel */}
+                <div className="relative z-10 my-auto">
+                    <AnimatePresence mode="wait">
+                        <motion.div
+                            key={currentFeature}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -20 }}
+                            transition={{ duration: 0.5 }}
+                            className="space-y-6"
+                        >
+
+
+                            <div>
+                                <h2 className="text-3xl lg:text-4xl font-bold mb-4 leading-tight">
+                                    {features[currentFeature].title}
+                                </h2>
+                                <p className="text-lg text-primary-foreground/80 leading-relaxed max-w-sm">
+                                    {features[currentFeature].description}
+                                </p>
+                            </div>
+                        </motion.div>
+                    </AnimatePresence>
+
+                    {/* Progress Indicators */}
+                    <div className="flex gap-2 mt-12">
+                        {features.map((_, idx) => (
+                            <div
+                                key={idx}
+                                className={`h-1.5 rounded-full transition-all duration-500 ${idx === currentFeature ? "w-8 bg-white" : "w-2 bg-white/30"
+                                    }`}
+                            />
+                        ))}
+                    </div>
+                </div>
+
+                {/* Footer/Trust */}
+                <div className="relative z-10 flex items-center gap-4 text-xs font-medium text-primary-foreground/50 uppercase tracking-widest">
+                    <div className="flex -space-x-2">
+                        {[1, 2, 3].map(i => (
+                            <div key={i} className="w-8 h-8 rounded-full bg-white/10 border border-white/5" />
+                        ))}
+                    </div>
+                    <span>Trusted by 500+ Engineering Teams</span>
+                </div>
+            </div>
+
+            {/* Right Panel - Login/Register Form (Clean) */}
+            <div className={`flex-1 flex flex-col justify-center items-center p-2 md:p-4 relative ${isLogin ? "login-form-padding" : ""}`}>
+                <div className={`w-full ${rightPanelMaxWidth} space-y-8`}>
+                    {formSide}
+                </div>
+
+                {/* Mobile Footer */}
+                <div className="mt-8 text-center text-xs text-muted-foreground md:absolute md:bottom-8">
+                    &copy; {new Date().getFullYear()} HirePlatform Inc. All rights reserved.
+                </div>
+            </div>
+
         </div>
     );
 };

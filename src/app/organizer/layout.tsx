@@ -31,6 +31,8 @@ export default function OrganizerLayout({
     const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
     const [isCommandOpen, setIsCommandOpen] = React.useState(false);
 
+    const isOverviewPage = pathname === "/organizer/overview";
+
     // Listen for custom event to open palette from children (e.g. Dashboard Search)
     React.useEffect(() => {
         const handleOpen = () => setIsCommandOpen(true);
@@ -82,23 +84,25 @@ export default function OrganizerLayout({
 
                 <div className="min-h-screen bg-theme-primary flex text-theme-primary font-sans">
                     {/* Sidebar - Desktop */}
-                    <OrganizerSidebar />
+                    {!isOverviewPage && <OrganizerSidebar />}
 
                     {/* Mobile Header & Content */}
                     <div className="flex-1 flex flex-col min-w-0">
                         {/* Mobile Header */}
-                        <header className="lg:hidden h-16 border-b border-theme bg-theme-secondary/80 backdrop-blur flex items-center justify-between px-4 sticky top-0 z-40">
-                            <div className="flex items-center gap-2 font-bold text-lg">
-                                <Sparkles size={20} className="text-theme-accent" />
-                                <span>Hire.AI</span>
-                            </div>
-                            <button
-                                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                                className="p-2 rounded-lg bg-theme-tertiary text-theme-primary"
-                            >
-                                <Menu size={24} />
-                            </button>
-                        </header>
+                        {!isOverviewPage && (
+                            <header className="lg:hidden h-16 border-b border-theme bg-theme-secondary/80 backdrop-blur flex items-center justify-between px-4 sticky top-0 z-40">
+                                <div className="flex items-center gap-2 font-bold text-lg">
+                                    <Sparkles size={20} className="text-theme-accent" />
+                                    <span>Hire.AI</span>
+                                </div>
+                                <button
+                                    onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                                    className="p-2 rounded-lg bg-theme-tertiary text-theme-primary"
+                                >
+                                    <Menu size={24} />
+                                </button>
+                            </header>
+                        )}
 
                         {/* Mobile Menu */}
                         {isMobileMenuOpen && (

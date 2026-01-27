@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { companyService, Company } from '@/api/companyService';
+import { companyService } from '@/api/companyService';
 import { assessmentService } from '@/api/assessmentService';
 import { useRouter, useParams } from 'next/navigation';
 import {
@@ -12,27 +12,24 @@ import {
     Users,
     Briefcase,
     FileCode2,
-    Layers,
-    Shield,
-    CheckCircle,
     Clock,
     ArrowLeft,
-    ArrowUpRight,
     Loader2,
-    Calendar,
-    User,
-    Edit3,
-    History,
-    X,
-    Trash2,
     UserMinus,
-    Phone,
     Plus,
-    Search
+    History,
+    MoreHorizontal,
+    Search,
+    ChevronLeft,
+    ChevronRight,
+    Eye,
+    Shield,
+    X,
+    Lock,
+    CheckCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { showToast } from '@/utils/toast';
-import AddAdminToCompanyModal from '@/components/organizer/AddAdminToCompanyModal';
 
 export default function CompanyDetailsPage() {
     const router = useRouter();
@@ -57,10 +54,15 @@ export default function CompanyDetailsPage() {
     // Assign Assessment Modal State
     const [showAssignModal, setShowAssignModal] = useState(false);
     const [selectedAssessmentId, setSelectedAssessmentId] = useState<string>('');
-    const [assessmentSearch, setAssessmentSearch] = useState('');
+    const [assessmentAssignSearch, setAssessmentAssignSearch] = useState('');
 
     // Add Admin Modal State
     const [showAddAdminModal, setShowAddAdminModal] = useState(false);
+    const [addAdminForm, setAddAdminForm] = useState({ name: '', email: '' });
+
+    // Pagination State
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage] = useState(5);
 
     // Fetch Company Details
     const { data: company, isLoading: isLoadingCompany } = useQuery({
@@ -72,13 +74,14 @@ export default function CompanyDetailsPage() {
         enabled: !!companyId
     });
 
-    // Fetch Company Assessments
+    // Fetch Company Assessments (FIXED ROBUSTNESS)
     const { data: companyAssessments = [], isLoading: isLoadingAssessments } = useQuery({
         queryKey: ['companyAssessments', companyId],
         queryFn: async () => {
             try {
                 const res = await assessmentService.getAssessmentsByCompany(companyId);
-                if (Array.isArray(res.data)) return res.data;
+                // Handle different possible API response structures safely
+                if (res.data && Array.isArray(res.data)) return res.data;
                 if (res.data?.assessments && Array.isArray(res.data.assessments)) return res.data.assessments;
                 if (res.data?.data && Array.isArray(res.data.data)) return res.data.data;
                 return [];
@@ -89,6 +92,16 @@ export default function CompanyDetailsPage() {
         },
         enabled: !!companyId
     });
+
+    // Pagination Logic
+    const indexOfLastItem = currentPage * itemsPerPage;
+    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+    const currentAssessments = companyAssessments.slice(indexOfFirstItem, indexOfLastItem);
+    const totalPages = Math.ceil(companyAssessments.length / itemsPerPage);
+
+    const handlePageChange = (pageNumber: number) => {
+        setCurrentPage(pageNumber);
+    };
 
     // Update Permissions Mutation
     const updatePermissionsMutation = useMutation({
@@ -124,7 +137,8 @@ export default function CompanyDetailsPage() {
         queryFn: async () => {
             try {
                 const res = await assessmentService.listAssessments({ limit: 100 });
-                if (Array.isArray(res.data)) return res.data;
+                // Handle different structure safely
+                if (res.data && Array.isArray(res.data)) return res.data;
                 if (res.data?.data) return res.data.data;
                 if (res.data?.assessments) return res.data.assessments;
                 return [];
@@ -136,20 +150,10 @@ export default function CompanyDetailsPage() {
         enabled: showAssignModal
     });
 
-    // Filter assessments by search
-    const filteredAssessments = allAssessments.filter((a: any) =>
-        a.title?.toLowerCase().includes(assessmentSearch.toLowerCase())
+    // Filter assessments by search for Modal
+    const filteredAssignAssessments = allAssessments.filter((a: any) =>
+        a.title?.toLowerCase().includes(assessmentAssignSearch.toLowerCase())
     );
-
-    // Get question count helper
-    const getQuestionCount = (assessment: any) => {
-        if (assessment.sections && Array.isArray(assessment.sections)) {
-            return assessment.sections.reduce((acc: number, section: any) => {
-                return acc + (section.questions?.length || section.questionCount || 0);
-            }, 0);
-        }
-        return assessment.totalQuestions || assessment.questionCount || 0;
-    };
 
     // Assign Assessment Mutation
     const assignAssessmentMutation = useMutation({
@@ -160,7 +164,7 @@ export default function CompanyDetailsPage() {
             showToast('Assessment assigned successfully', 'success');
             setShowAssignModal(false);
             setSelectedAssessmentId('');
-            setAssessmentSearch('');
+            setAssessmentAssignSearch('');
         },
         onError: () => {
             showToast('Failed to assign assessment', 'error');
@@ -175,6 +179,7 @@ export default function CompanyDetailsPage() {
             queryClient.invalidateQueries({ queryKey: ['company', companyId] });
             showToast('Admin added successfully! Setup email sent.', 'success');
             setShowAddAdminModal(false);
+            setAddAdminForm({ name: '', email: '' });
         },
         onError: (error: any) => {
             const message = error.response?.data?.message || 'Failed to add admin';
@@ -199,7 +204,7 @@ export default function CompanyDetailsPage() {
 
     if (isLoadingCompany) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
+            <div className="min-h-screen flex items-center justify-center bg-background">
                 <Loader2 className="w-8 h-8 animate-spin text-primary" />
             </div>
         );
@@ -207,14 +212,14 @@ export default function CompanyDetailsPage() {
 
     if (!company) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center p-8">
+            <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-background">
                 <div className="text-center">
                     <Building2 size={48} className="text-muted-foreground mx-auto mb-4" />
                     <h2 className="text-2xl font-bold mb-2">Company Not Found</h2>
                     <p className="text-muted-foreground mb-6">The company you're looking for doesn't exist.</p>
                     <button
                         onClick={() => router.push('/organizer/companies')}
-                        className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+                        className="px-4 py-2 bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground rounded-lg hover:bg-gradient-to-br from-indigo-600 to-violet-600/90 transition-colors"
                     >
                         Back to Companies
                     </button>
@@ -224,426 +229,335 @@ export default function CompanyDetailsPage() {
     }
 
     return (
-        <div className="min-h-screen bg-background">
-            {/* Header / Hero Section */}
-            <div className="relative overflow-hidden bg-gradient-to-br from-purple-900 via-violet-900 to-slate-900 text-white">
-                <div className="absolute top-0 right-0 w-96 h-96 bg-purple-500/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
-                <div className="absolute bottom-0 left-0 w-64 h-64 bg-violet-500/20 rounded-full translate-y-1/2 -translate-x-1/2 blur-2xl"></div>
+        <div className="min-h-screen bg-background font-sans text-foreground">
 
-                <div className="relative z-10 max-w-7xl mx-auto px-8 py-12">
-                    {/* Back Button & Actions */}
-                    <div className="flex items-center justify-between mb-6">
-                        <button
-                            onClick={() => router.push('/organizer/companies')}
-                            className="flex items-center gap-2 text-white/80 hover:text-white transition-colors group"
-                        >
-                            <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
-                            <span className="font-medium">Back to Companies</span>
-                        </button>
+            {/* Full Width Gradient Banner - Now containing company info */}
+            <div className="w-full h-[280px] bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 relative overflow-hidden">
+                <div className="absolute inset-0 opacity-10 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] bg-repeat opacity-40 mix-blend-overlay"></div>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"></div>
 
-                        <div className="flex items-center gap-3">
-                            <button
-                                onClick={() => setShowAssignModal(true)}
-                                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white font-bold rounded-lg transition-all shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50"
-                            >
-                                <Plus size={18} />
-                                <span>Assign Assessment</span>
-                            </button>
+                {/* Back Button */}
+                <button
+                    onClick={() => router.push('/organizer/companies')}
+                    className="absolute top-6 left-6 flex items-center gap-2 text-white hover:text-white/80 transition-colors bg-black/20 backdrop-blur-md px-4 py-2 rounded-full text-sm font-medium z-20 hover:bg-black/30"
+                >
+                    <ArrowLeft size={16} />
+                    <span>Back</span>
+                </button>
 
-                            <button
-                                onClick={() => router.push(`/organizer/companies/${companyId}/history`)}
-                                className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 rounded-lg transition-colors"
-                            >
-                                <History size={18} />
-                                <span className="font-medium">View History</span>
-                            </button>
+                {/* Company Info Inside Banner */}
+                <div className="absolute bottom-0 left-0 w-full p-8 md:p-10 z-20">
+                    <div className="max-w-[1600px] mx-auto flex flex-col md:flex-row items-end gap-8">
+                        {/* Avatar */}
+                        <div className="w-32 h-32 md:w-40 md:h-40 rounded-3xl border-4 border-white/20 bg-white shadow-2xl flex items-center justify-center overflow-hidden shrink-0 backdrop-blur-sm">
+                            {company.logoUrl ? (
+                                <img src={company.logoUrl} alt={company.name} className="w-full h-full object-cover" />
+                            ) : (
+                                <Building2 size={56} className="text-purple-600" />
+                            )}
                         </div>
-                    </div>
 
-                    <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
-                        <div className="w-24 h-24 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20 shadow-inner shrink-0">
-                            <Building2 size={40} className="text-purple-200" />
-                        </div>
-                        <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-2 flex-wrap">
-                                <h1 className="text-4xl font-black tracking-tight">{company.name}</h1>
-                                <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${company.status === 'APPROVED'
-                                    ? 'bg-green-500/20 border-green-400/30 text-green-300'
-                                    : company.status === 'REJECTED'
-                                        ? 'bg-red-500/20 border-red-400/30 text-red-300'
-                                        : 'bg-amber-500/20 border-amber-400/30 text-amber-300'
+                        {/* Text Info (White on Gradient) */}
+                        <div className="flex-1 mb-2">
+                            <h1 className="text-4xl md:text-5xl font-Inter tracking-tight text-white mb-3 drop-shadow-md">{company.name}</h1>
+
+                            <div className="flex flex-wrap items-center gap-4 text-white/90 text-sm md:text-base font-medium">
+                                <span className="flex items-center gap-1.5"><Briefcase size={16} /> {company.industry || 'Technology'}</span>
+                                <span className="text-white/40">•</span>
+                                <a href={company.website || '#'} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 hover:text-white hover:underline transition-colors">
+                                    <Globe size={16} /> {company.website || 'No website'}
+                                </a>
+                                <span className="text-white/40">•</span>
+                                <span className={`capitalize font-bold px-2.5 py-0.5 rounded-full text-xs border ${company.status === 'APPROVED' ? 'bg-green-500/20 border-green-400 text-green-100' :
+                                    company.status === 'REJECTED' ? 'bg-red-500/20 border-red-400 text-red-100' :
+                                        'bg-amber-500/20 border-amber-400 text-amber-100'
                                     }`}>
-                                    {company.status}
+                                    {company.status?.toLowerCase()}
                                 </span>
                             </div>
-                            <p className="text-indigo-100/70 text-lg leading-relaxed max-w-3xl">
-                                {company.description || 'Professional organization profile. Manage company settings and view details here.'}
-                            </p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Main Content */}
-            <div className="max-w-7xl mx-auto px-8 py-8">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    {/* Main Details Column */}
-                    <div className="lg:col-span-2 space-y-6">
-                        {/* Core Information Card */}
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="bg-card border border-border rounded-2xl p-8 shadow-sm"
-                        >
-                            <h3 className="text-lg font-bold flex items-center gap-2 mb-6 text-foreground">
-                                <Briefcase className="text-primary" size={20} />
-                                Corporate Identity
-                            </h3>
+            {/* Sub-Header Actions Bar */}
+            <div className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-30">
+                <div className="max-w-[1600px] mx-auto px-4 md:px-10 py-4 flex items-center justify-end gap-3">
+                    <button
+                        onClick={() => setShowAssignModal(true)}
+                        className="flex items-center gap-2 px-5 py-2 bg-secondary hover:bg-secondary/80 text-secondary-foreground font-semibold rounded-full transition-all border border-border text-sm"
+                    >
+                        <Plus size={16} />
+                        Assign Assessment
+                    </button>
+                    <button
+                        onClick={() => router.push(`/assessments/create?companyId=${companyId}&fresh=true`)}
+                        className="flex items-center gap-2 px-6 py-3 bg-gradient-to-br from-indigo-600 to-violet-600 hover:bg-gradient-to-br from-indigo-600 to-violet-600/90 text-primary-foreground font-bold rounded-full transition-all shadow-md hover:shadow-lg text-sm"
+                    >
+                        <FileCode2 size={18} />
+                        Create New Assessment
+                    </button>
+                    <button
+                        onClick={() => router.push(`/organizer/companies/${companyId}/history`)}
+                        className="p-3 bg-secondary hover:bg-secondary/80 text-secondary-foreground rounded-full transition-all border border-border"
+                        title="View History"
+                    >
+                        <History size={18} />
+                    </button>
+                </div>
+            </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-1">
-                                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Company Name</label>
-                                    <p className="text-base font-medium text-foreground">{company.name}</p>
-                                </div>
+            {/* Main Content Two-Column Layout */}
+            <div className="max-w-[1600px] mx-auto px-4 md:px-8 py-8 pb-20">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
 
-                                <div className="space-y-1">
-                                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Industry / Sector</label>
-                                    <div className="flex items-center gap-2">
-                                        <span className="px-3 py-1 bg-muted rounded-lg text-sm font-medium text-foreground">
-                                            {(company as any).industry || (company as any).sector || 'Technology'}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-1 md:col-span-2">
-                                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Website</label>
-                                    {company.website ? (
-                                        <a
-                                            href={company.website}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="flex items-center gap-2 text-primary hover:underline text-base"
-                                        >
-                                            <Globe size={16} />
-                                            {company.website}
-                                        </a>
-                                    ) : (
-                                        <span className="text-muted-foreground flex items-center gap-2">
-                                            <Globe size={16} className="opacity-50" />
-                                            No website provided
-                                        </span>
-                                    )}
-                                </div>
-
-                                <div className="space-y-1 md:col-span-2">
-                                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Description</label>
-                                    <p className="text-sm text-muted-foreground leading-relaxed bg-muted/30 p-4 rounded-xl border border-border/50">
-                                        {company.description || "No description available for this organization."}
+                    {/* Left Column (Sticky Sidebar - Unified Container) */}
+                    <div className="lg:col-span-3">
+                        <div className="bg-card/30 border border-border rounded-3xl p-6 space-y-8 sticky top-24">
+                            {/* Intro Section */}
+                            <div className="space-y-6">
+                                <div>
+                                    <h3 className="text-lg font-bold mb-3 flex items-center gap-2 text-foreground">
+                                        <Briefcase size={18} className="text-primary" />
+                                        About
+                                    </h3>
+                                    <p className="text-sm text-muted-foreground leading-relaxed">
+                                        {company.description || "No description provided for this company."}
                                     </p>
                                 </div>
-                            </div>
-                        </motion.div>
 
-                        {/* Linked Assessments Card */}
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.1 }}
-                            className="bg-card border border-border rounded-2xl p-8 shadow-sm"
-                        >
-                            <h3 className="text-lg font-bold flex items-center gap-2 mb-6 text-foreground">
-                                <FileCode2 className="text-purple-500" size={20} />
-                                Linked Assessments ({companyAssessments.length})
-                            </h3>
-
-                            {isLoadingAssessments ? (
-                                <div className="flex items-center justify-center py-8">
-                                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-                                </div>
-                            ) : companyAssessments.length > 0 ? (
-                                <div className="space-y-3">
-                                    {companyAssessments.map((assessment: any) => (
-                                        <div
-                                            key={assessment.id}
-                                            onClick={() => router.push(`/assessments/${assessment.id}`)}
-                                            className="flex items-center justify-between p-4 rounded-xl bg-muted/30 border border-border/50 hover:bg-muted/50 hover:border-purple-500/30 transition-all group cursor-pointer"
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-600 border border-purple-200/20">
-                                                    <FileCode2 size={18} />
-                                                </div>
-                                                <div>
-                                                    <h4 className="font-bold text-sm text-foreground group-hover:text-purple-600 transition-colors">{assessment.title}</h4>
-                                                    <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                                                        <span>{assessment.totalQuestions || 0} Questions</span>
-                                                        <span>•</span>
-                                                        <span>{assessment.duration || 0} mins</span>
-                                                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ml-1 ${assessment.status === 'PUBLISHED'
-                                                            ? 'bg-green-500/10 text-green-600'
-                                                            : 'bg-muted text-muted-foreground'
-                                                            }`}>
-                                                            {assessment.status}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div className="p-2 text-muted-foreground group-hover:text-purple-600 transition-colors">
-                                                <ArrowUpRight size={16} />
-                                            </div>
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-3 text-sm">
+                                        <Mail size={16} className="text-muted-foreground" />
+                                        <div className="flex flex-col">
+                                            <span className="text-xs font-bold text-muted-foreground uppercase">Contact Email</span>
+                                            <span className="text-foreground font-medium">{company.contactEmail}</span>
                                         </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="text-center py-8 px-4 rounded-xl bg-muted/20 border border-border/50 border-dashed">
-                                    <div className="w-10 h-10 bg-muted/50 rounded-full flex items-center justify-center mx-auto mb-3 text-muted-foreground">
-                                        <Layers size={18} />
                                     </div>
-                                    <p className="text-sm font-medium text-foreground">No Assessments Assigned</p>
-                                    <p className="text-xs text-muted-foreground mt-1">This company hasn't created or been assigned any assessments yet.</p>
+                                    <div className="flex items-center gap-3 text-sm">
+                                        <Clock size={16} className="text-muted-foreground" />
+                                        <div className="flex flex-col">
+                                            <span className="text-xs font-bold text-muted-foreground uppercase">Joined On</span>
+                                            <span className="text-foreground font-medium">{new Date(company.createdAt).toLocaleDateString()}</span>
+                                        </div>
+                                    </div>
                                 </div>
-                            )}
-                        </motion.div>
-                        {/* Admin Users Table */}
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.2 }}
-                            className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden"
-                        >
-                            <div className="p-6 border-b border-border bg-muted/20 flex items-center justify-between">
-                                <h3 className="text-lg font-bold flex items-center gap-2 text-foreground">
-                                    <Users className="text-purple-500" size={20} />
-                                    Admin Users ({company.users?.length || 0})
-                                </h3>
+                            </div>
+
+                            {/* Permissions Section */}
+                            <div className="space-y-4 pt-6 border-t border-border">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-lg font-bold flex items-center gap-2 text-foreground">
+                                        <Shield size={18} className="text-primary" />
+                                        Permissions
+                                    </h3>
+                                    <button onClick={openPermissionsModal} className="text-primary text-xs font-bold hover:underline">Edit</button>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                    {company.permissions?.createAssessment && (
+                                        <span className="bg-green-500/10 text-green-600 text-xs px-2.5 py-1 rounded-full font-bold border border-green-500/20">Create</span>
+                                    )}
+                                    {company.permissions?.deleteAssessment && (
+                                        <span className="bg-red-500/10 text-red-600 text-xs px-2.5 py-1 rounded-full font-bold border border-red-500/20">Delete</span>
+                                    )}
+                                    {company.permissions?.viewAllAssessments && (
+                                        <span className="bg-blue-500/10 text-blue-600 text-xs px-2.5 py-1 rounded-full font-bold border border-blue-500/20">View All</span>
+                                    )}
+                                    {!company.permissions?.createAssessment && !company.permissions?.deleteAssessment && !company.permissions?.viewAllAssessments && (
+                                        <span className="text-muted-foreground text-sm italic">No special permissions</span>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Right Column (Content Feed) */}
+                    <div className="lg:col-span-9 space-y-12">
+
+                        {/* Assessments Table Section */}
+                        <div className="space-y-6">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-2xl font-bold text-foreground">Assessments</h3>
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+                                    <input
+                                        type="text"
+                                        placeholder="Search assessments..."
+                                        className="pl-9 pr-4 py-2 bg-secondary border-none rounded-full text-sm w-64 focus:ring-2 focus:ring-primary/20 transition-all font-medium"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="bg-card/50 rounded-3xl border border-border overflow-hidden">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className="border-b border-border bg-muted/30">
+                                            <th className="text-left px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Assessment</th>
+                                            <th className="text-left px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Duration</th>
+                                            <th className="text-left px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Questions</th>
+                                            <th className="text-left px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</th>
+                                            <th className="text-right px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-border">
+                                        {currentAssessments.length > 0 ? (
+                                            currentAssessments.map((assessment: any) => (
+                                                <tr key={assessment.id} className="hover:bg-muted/30 transition-colors group">
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                                                                <FileCode2 size={20} />
+                                                            </div>
+                                                            <div>
+                                                                <p className="font-bold text-sm text-foreground">{assessment.title}</p>
+                                                                <p className="text-xs text-muted-foreground">ID: {assessment.id.substring(0, 8)}...</p>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <span className="text-sm font-medium text-muted-foreground">{assessment.duration} min</span>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <span className="text-sm font-medium text-muted-foreground">{assessment.totalQuestions || 0}</span>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold capitalize ${assessment.status === 'PUBLISHED' ? 'bg-green-500/10 text-green-600' : 'bg-muted text-muted-foreground'
+                                                            }`}>
+                                                            {assessment.status?.toLowerCase()}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right">
+                                                        <button
+                                                            onClick={() => router.push(`/assessments/${assessment.id}`)}
+                                                            className="p-2 hover:bg-primary/10 text-muted-foreground hover:text-primary rounded-lg transition-colors"
+                                                            title="View Details"
+                                                        >
+                                                            <Eye size={18} />
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        ) : (
+                                            <tr>
+                                                <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground italic">
+                                                    No assessments found for this company.
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+
+                                {companyAssessments.length > 0 && (
+                                    <div className="px-6 py-4 border-t border-border flex items-center justify-between bg-muted/10">
+                                        <p className="text-sm text-muted-foreground">
+                                            Showing <span className="font-medium">{indexOfFirstItem + 1}</span> to <span className="font-medium">{Math.min(indexOfLastItem, companyAssessments.length)}</span> of <span className="font-medium">{companyAssessments.length}</span> results
+                                        </p>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                                                disabled={currentPage === 1}
+                                                className="p-2 rounded-lg hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                            >
+                                                <ChevronLeft size={18} />
+                                            </button>
+                                            <div className="flex items-center gap-1">
+                                                {Array.from({ length: totalPages }, (_, i) => i + 1).map((number) => (
+                                                    <button
+                                                        key={number}
+                                                        onClick={() => handlePageChange(number)}
+                                                        className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${currentPage === number
+                                                            ? 'bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground'
+                                                            : 'hover:bg-muted text-muted-foreground'
+                                                            }`}
+                                                    >
+                                                        {number}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <button
+                                                onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
+                                                disabled={currentPage === totalPages}
+                                                className="p-2 rounded-lg hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                            >
+                                                <ChevronRight size={18} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Admins Table Section */}
+                        <div className="space-y-6">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-2xl font-bold text-foreground">Administrators</h3>
                                 <button
                                     onClick={() => setShowAddAdminModal(true)}
-                                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white font-semibold rounded-lg transition-all shadow-md hover:shadow-lg text-sm"
+                                    className="text-primary text-sm font-bold hover:underline flex items-center gap-1"
                                 >
                                     <Plus size={16} />
                                     Add Admin
                                 </button>
                             </div>
 
-                            {company.users && company.users.length > 0 ? (
-                                <div className="overflow-x-auto">
-                                    <table className="w-full">
-                                        <thead className="bg-muted/30">
-                                            <tr>
-                                                <th className="text-left px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">User</th>
-                                                <th className="text-left px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Email</th>
-                                                <th className="text-left px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Role</th>
-                                                <th className="text-left px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</th>
-                                                <th className="text-right px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-border">
-                                            {company.users.map((user: any) => (
-                                                <tr key={user.id} className="hover:bg-muted/20 transition-colors group">
+                            <div className="bg-card/50 rounded-3xl border border-border overflow-hidden">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className="border-b border-border bg-muted/30">
+                                            <th className="text-left px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">User</th>
+                                            <th className="text-left px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Email</th>
+                                            <th className="text-left px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</th>
+                                            <th className="text-right px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-border">
+                                        {company.users && company.users.length > 0 ? (
+                                            company.users.map((user: any) => (
+                                                <tr key={user.id} className="hover:bg-muted/30 transition-colors group">
                                                     <td className="px-6 py-4">
                                                         <div className="flex items-center gap-3">
-                                                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center text-white font-bold text-sm shadow-md shrink-0">
-                                                                {user.avatarUrl ? (
-                                                                    <img src={user.avatarUrl} alt={user.fullName} className="w-full h-full rounded-full object-cover" />
-                                                                ) : (
-                                                                    user.fullName?.charAt(0)?.toUpperCase() || 'A'
-                                                                )}
+                                                            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white font-bold text-sm overflow-hidden shadow-sm">
+                                                                {user.avatarUrl ? <img src={user.avatarUrl} alt="" className="w-full h-full object-cover" /> : user.fullName?.[0]?.toUpperCase() || <Users size={16} />}
                                                             </div>
-                                                            <span className="font-semibold text-foreground">{user.fullName || 'Unknown User'}</span>
+                                                            <span className="font-bold text-sm text-foreground">{user.fullName || 'Unknown User'}</span>
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-4">
-                                                        <span className="text-sm text-muted-foreground">{user.email}</span>
+                                                        <span className="text-sm font-medium text-muted-foreground">{user.email}</span>
                                                     </td>
                                                     <td className="px-6 py-4">
-                                                        <span className={`px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider ${user.role === 'ADMIN'
-                                                            ? 'bg-purple-500/10 text-purple-600 border border-purple-200/30'
-                                                            : 'bg-muted text-muted-foreground'
-                                                            }`}>
-                                                            {user.role || 'Member'}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-6 py-4">
-                                                        <span className={`px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider ${user.status === 'active' || user.status === 'APPROVED'
-                                                            ? 'bg-green-500/10 text-green-600 border border-green-200/30'
-                                                            : 'bg-amber-500/10 text-amber-600 border border-amber-200/30'
-                                                            }`}>
-                                                            {user.status || 'Pending'}
+                                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-500/10 text-green-600">
+                                                            Active
                                                         </span>
                                                     </td>
                                                     <td className="px-6 py-4 text-right">
                                                         <button
                                                             onClick={() => setRemoveAdminModal({ isOpen: true, user })}
-                                                            className="p-2 hover:bg-red-50 rounded-lg text-muted-foreground hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                                                            className="p-2 hover:bg-destructive/10 text-muted-foreground hover:text-destructive rounded-lg transition-colors"
                                                             title="Remove Admin"
                                                         >
-                                                            <UserMinus size={16} />
+                                                            <UserMinus size={18} />
                                                         </button>
                                                     </td>
                                                 </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            ) : (
-                                <div className="text-center py-12 px-4">
-                                    <div className="w-12 h-12 bg-muted/50 rounded-full flex items-center justify-center mx-auto mb-3 text-muted-foreground">
-                                        <Users size={20} />
-                                    </div>
-                                    <p className="text-sm font-medium text-foreground">No Admin Users</p>
-                                    <p className="text-xs text-muted-foreground mt-1">This company has no admin users assigned yet.</p>
-                                </div>
-                            )}
-                        </motion.div>
-                    </div>
-
-                    {/* Sidebar Column */}
-                    <div className="space-y-6">
-                        {/* Contact Details Card */}
-                        <motion.div
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            className="bg-card border border-border rounded-2xl p-6 shadow-sm"
-                        >
-                            <h3 className="text-base font-bold flex items-center gap-2 mb-4 text-foreground">
-                                <Mail className="text-green-500" size={18} />
-                                Contact Details
-                            </h3>
-
-                            <div className="space-y-4">
-                                <div className="flex items-start gap-3">
-                                    <div className="p-2 bg-muted rounded-lg text-muted-foreground">
-                                        <Mail size={16} />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-xs text-muted-foreground mb-0.5">Email</p>
-                                        <p className="text-sm font-medium text-foreground break-all">{company.contactEmail}</p>
-                                    </div>
-                                </div>
-
-                                <div className="flex items-start gap-3">
-                                    <div className="p-2 bg-muted rounded-lg text-muted-foreground">
-                                        <Phone size={16} />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-xs text-muted-foreground mb-0.5">Phone</p>
-                                        <p className="text-sm font-medium text-foreground">{company.contactPhone || 'Not provided'}</p>
-                                    </div>
-                                </div>
-
-                                <div className="flex items-start gap-3">
-                                    <div className="p-2 bg-muted rounded-lg text-muted-foreground">
-                                        <Users size={16} />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-xs text-muted-foreground mb-0.5">Admin Accounts</p>
-                                        <p className="text-sm font-medium text-foreground">{company.users?.length || 0} Users</p>
-                                    </div>
-                                </div>
+                                            ))
+                                        ) : (
+                                            <tr>
+                                                <td colSpan={4} className="px-6 py-12 text-center text-muted-foreground italic">
+                                                    No admins found for this company.
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
                             </div>
-                        </motion.div>
+                        </div>
 
-                        {/* Permissions Card */}
-                        <motion.div
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            className="bg-card border border-border rounded-2xl p-6 shadow-sm sticky top-8"
-                        >
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-base font-bold flex items-center gap-2 text-foreground">
-                                    <Shield className="text-amber-500" size={18} />
-                                    Platform Permissions
-                                </h3>
-                                <button
-                                    onClick={openPermissionsModal}
-                                    className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground"
-                                    title="Edit Permissions"
-                                >
-                                    <Edit3 size={16} />
-                                </button>
-                            </div>
-
-                            <div className="space-y-3">
-                                <div className={`flex items-center justify-between p-3 rounded-xl border ${company.permissions?.createAssessment
-                                    ? 'bg-green-500/10 border-green-500/20'
-                                    : 'bg-muted border-transparent'
-                                    }`}>
-                                    <span className="text-sm font-medium">Create Assessment</span>
-                                    {company.permissions?.createAssessment ? (
-                                        <CheckCircle size={16} className="text-green-500" />
-                                    ) : (
-                                        <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/30" />
-                                    )}
-                                </div>
-
-                                <div className={`flex items-center justify-between p-3 rounded-xl border ${company.permissions?.deleteAssessment
-                                    ? 'bg-green-500/10 border-green-500/20'
-                                    : 'bg-muted border-transparent'
-                                    }`}>
-                                    <span className="text-sm font-medium">Delete Assessment</span>
-                                    {company.permissions?.deleteAssessment ? (
-                                        <CheckCircle size={16} className="text-green-500" />
-                                    ) : (
-                                        <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/30" />
-                                    )}
-                                </div>
-
-                                <div className={`flex items-center justify-between p-3 rounded-xl border ${company.permissions?.viewAllAssessments
-                                    ? 'bg-green-500/10 border-green-500/20'
-                                    : 'bg-muted border-transparent'
-                                    }`}>
-                                    <span className="text-sm font-medium">View All Content</span>
-                                    {company.permissions?.viewAllAssessments ? (
-                                        <CheckCircle size={16} className="text-green-500" />
-                                    ) : (
-                                        <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/30" />
-                                    )}
-                                </div>
-                            </div>
-                        </motion.div>
-
-                        {/* System Metadata */}
-                        <motion.div
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: 0.1 }}
-                            className="bg-gradient-to-br from-muted/50 to-muted/20 border border-border rounded-2xl p-6"
-                        >
-                            <h3 className="text-sm font-bold flex items-center gap-2 mb-4 text-muted-foreground uppercase tracking-wider">
-                                <Clock size={14} />
-                                System Metadata
-                            </h3>
-
-                            <div className="space-y-4">
-                                <div className="flex items-start gap-3">
-                                    <Calendar size={16} className="text-muted-foreground mt-0.5" />
-                                    <div>
-                                        <p className="text-xs text-muted-foreground">Registered</p>
-                                        <p className="text-sm font-medium text-foreground">
-                                            {new Date((company as any).createdAt || Date.now()).toLocaleDateString('en-US', {
-                                                year: 'numeric',
-                                                month: 'long',
-                                                day: 'numeric'
-                                            })}
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <div className="flex items-start gap-3">
-                                    <User size={16} className="text-muted-foreground mt-0.5" />
-                                    <div>
-                                        <p className="text-xs text-muted-foreground">Company ID</p>
-                                        <p className="text-xs font-mono text-foreground bg-background px-2 py-1 rounded border border-border inline-block">
-                                            {company.id}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        </motion.div>
                     </div>
                 </div>
             </div>
 
-            {/* Permissions Modal */}
+            {/* PERMISSIONS MODAL (Cool Style) */}
             <AnimatePresence>
                 {showPermissionsModal && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -651,7 +565,7 @@ export default function CompanyDetailsPage() {
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-card border border-border w-full max-w-md p-8 rounded-3xl shadow-2xl relative"
+                            className="bg-card border border-border w-full max-w-md p-8 rounded-[24px] shadow-2xl relative"
                         >
                             <button
                                 onClick={() => setShowPermissionsModal(false)}
@@ -662,7 +576,7 @@ export default function CompanyDetailsPage() {
 
                             <div className="flex flex-col items-center mb-6">
                                 <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mb-4 shadow-sm">
-                                    <Shield size={32} />
+                                    <Lock size={32} />
                                 </div>
                                 <h2 className="text-xl font-bold text-foreground">Manage Permissions</h2>
                                 <p className="text-sm text-muted-foreground mt-1">
@@ -698,7 +612,7 @@ export default function CompanyDetailsPage() {
                                 <label className="flex items-center justify-between p-4 rounded-xl border border-border bg-muted/20 cursor-pointer hover:bg-muted/40 transition-colors">
                                     <div className="flex flex-col">
                                         <span className="font-bold text-sm text-foreground">View All Assessments</span>
-                                        <span className="text-xs text-muted-foreground">See assessments from other companies (Caution)</span>
+                                        <span className="text-xs text-muted-foreground">See assessments from other companies</span>
                                     </div>
                                     <input
                                         type="checkbox"
@@ -718,17 +632,9 @@ export default function CompanyDetailsPage() {
                                 </button>
                                 <button
                                     onClick={handleSavePermissions}
-                                    disabled={updatePermissionsMutation.isPending}
-                                    className="flex-1 py-3 rounded-xl font-bold text-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
+                                    className="flex-1 py-3 rounded-xl font-bold text-sm bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground hover:bg-gradient-to-br from-indigo-600 to-violet-600/90 transition-colors shadow-lg shadow-primary/20"
                                 >
-                                    {updatePermissionsMutation.isPending ? (
-                                        <>
-                                            <Loader2 className="w-4 h-4 animate-spin" />
-                                            Updating...
-                                        </>
-                                    ) : (
-                                        'Save Changes'
-                                    )}
+                                    Save Changes
                                 </button>
                             </div>
                         </motion.div>
@@ -736,284 +642,132 @@ export default function CompanyDetailsPage() {
                 )}
             </AnimatePresence>
 
-            {/* Remove Admin Confirmation Modal */}
+            {/* ASSIGN MODAL (Cool Style) */}
             <AnimatePresence>
-                {removeAdminModal.isOpen && removeAdminModal.user && (
+                {showAssignModal && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
                         <motion.div
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-card border border-border w-full max-w-md p-8 rounded-3xl shadow-2xl relative"
+                            className="bg-card w-full max-w-lg p-8 rounded-[24px] shadow-2xl border border-border relative"
                         >
                             <button
-                                onClick={() => setRemoveAdminModal({ isOpen: false, user: null })}
+                                onClick={() => setShowAssignModal(false)}
                                 className="absolute top-6 right-6 p-2 rounded-full hover:bg-muted text-muted-foreground transition-colors"
                             >
                                 <X size={20} />
                             </button>
 
                             <div className="flex flex-col items-center mb-6">
-                                <div className="w-16 h-16 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mb-4 shadow-sm">
-                                    <UserMinus size={32} />
+                                <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mb-4 shadow-sm">
+                                    <Briefcase size={32} />
                                 </div>
-                                <h2 className="text-xl font-bold text-foreground">Remove Admin</h2>
-                                <p className="text-sm text-muted-foreground mt-1 text-center">
-                                    Are you sure you want to remove this admin?
-                                </p>
+                                <h2 className="text-xl font-bold text-foreground">Assign Assessment</h2>
+                                <p className="text-sm text-muted-foreground mt-1">Select an assessment to assign</p>
                             </div>
 
-                            <div className="bg-muted/30 border border-border rounded-xl p-4 mb-6">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg shadow-md shrink-0">
-                                        {removeAdminModal.user.avatarUrl ? (
-                                            <img src={removeAdminModal.user.avatarUrl} alt={removeAdminModal.user.fullName} className="w-full h-full rounded-full object-cover" />
-                                        ) : (
-                                            removeAdminModal.user.fullName?.charAt(0)?.toUpperCase() || 'A'
-                                        )}
-                                    </div>
-                                    <div>
-                                        <h4 className="font-bold text-foreground">{removeAdminModal.user.fullName || 'Unknown User'}</h4>
-                                        <p className="text-sm text-muted-foreground">{removeAdminModal.user.email}</p>
-                                        <span className="text-xs text-muted-foreground mt-1 inline-block">
-                                            Role: <span className="font-medium text-foreground">{removeAdminModal.user.role || 'Member'}</span>
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
+                            <input
+                                type="text"
+                                placeholder="Search assessments..."
+                                value={assessmentAssignSearch}
+                                onChange={(e) => setAssessmentAssignSearch(e.target.value)}
+                                className="w-full p-3 mb-4 rounded-xl border border-border bg-muted/30 focus:bg-background focus:ring-2 focus:ring-primary/20 transition-all outline-none"
+                            />
 
-                            <p className="text-xs text-muted-foreground text-center mb-6 bg-amber-50 border border-amber-200 rounded-lg p-3">
-                                ⚠️ This action cannot be undone. The user will lose access to this company's resources.
-                            </p>
-
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={() => setRemoveAdminModal({ isOpen: false, user: null })}
-                                    className="flex-1 py-3 rounded-xl font-bold text-sm bg-muted text-muted-foreground hover:bg-muted/80 transition-colors"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={() => removeAdminMutation.mutate(removeAdminModal.user.id)}
-                                    disabled={removeAdminMutation.isPending}
-                                    className="flex-1 py-3 rounded-xl font-bold text-sm bg-red-500 text-white hover:bg-red-600 transition-colors shadow-lg shadow-red-500/20 flex items-center justify-center gap-2"
-                                >
-                                    {removeAdminMutation.isPending ? (
-                                        <>
-                                            <Loader2 className="w-4 h-4 animate-spin" />
-                                            Removing...
-                                        </>
-                                    ) : (
-                                        'Remove Admin'
-                                    )}
-                                </button>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
-
-            {/* Assign Assessment Modal */}
-            <AnimatePresence>
-                {showAssignModal && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                            className="bg-card border border-border w-full max-w-3xl rounded-[32px] shadow-2xl relative flex flex-col max-h-[90vh]"
-                        >
-                            {/* Header */}
-                            <div className="relative p-8 pb-6 border-b border-border">
-                                <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-r from-purple-500/10 via-violet-500/10 to-pink-500/10 rounded-t-[32px]" />
-
-                                <button
-                                    onClick={() => {
-                                        setShowAssignModal(false);
-                                        setSelectedAssessmentId('');
-                                        setAssessmentSearch('');
-                                    }}
-                                    className="absolute top-6 right-6 p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-muted-foreground transition-colors z-10"
-                                >
-                                    <X size={20} />
-                                </button>
-
-                                <div className="relative z-10">
-                                    <div className="flex items-center gap-4 mb-4">
-                                        <div className="w-14 h-14 bg-purple-500/10 rounded-2xl flex items-center justify-center text-purple-600 shadow-sm border border-purple-500/20">
-                                            <Briefcase size={28} />
+                            <div className="max-h-60 overflow-y-auto space-y-2 mb-6 pr-1 custom-scrollbar">
+                                {filteredAssignAssessments.map((a: any) => (
+                                    <div
+                                        key={a.id}
+                                        onClick={() => setSelectedAssessmentId(a.id)}
+                                        className={`p-4 rounded-xl border cursor-pointer hover:bg-muted transition-all flex items-center gap-3 ${selectedAssessmentId === a.id ? 'border-blue-500 bg-blue-50/50' : 'border-border'}`}
+                                    >
+                                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${selectedAssessmentId === a.id ? 'border-blue-500' : 'border-muted-foreground/30'}`}>
+                                            {selectedAssessmentId === a.id && <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />}
                                         </div>
                                         <div className="flex-1">
-                                            <h2 className="text-2xl font-bold text-foreground tracking-tight">Assign Assessment</h2>
-                                            <p className="text-muted-foreground text-sm mt-1">
-                                                to <span className="font-bold text-foreground">{company?.name}</span>
-                                            </p>
+                                            <div className="font-bold text-sm text-foreground">{a.title}</div>
+                                            <div className="text-xs text-muted-foreground">{a.totalQuestions || 0} Questions • {a.duration} mins</div>
                                         </div>
-                                        {selectedAssessmentId && (
-                                            <div className="px-4 py-2 bg-purple-500/10 border border-purple-500/20 rounded-xl">
-                                                <span className="text-sm font-bold text-purple-600">1 Selected</span>
-                                            </div>
-                                        )}
                                     </div>
-
-                                    {/* Search Bar */}
-                                    <div className="relative">
-                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                                        <input
-                                            type="text"
-                                            placeholder="Search assessments..."
-                                            value={assessmentSearch}
-                                            onChange={(e) => setAssessmentSearch(e.target.value)}
-                                            className="w-full bg-muted/50 pl-10 pr-4 py-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-purple-500/20 border border-border focus:border-purple-500/50 transition-all"
-                                        />
-                                    </div>
-                                </div>
+                                ))}
                             </div>
-
-                            {/* Assessment Grid */}
-                            <div className="flex-1 overflow-y-auto p-6">
-                                {isLoadingAllAssessments ? (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {[1, 2, 3, 4].map(i => (
-                                            <div key={i} className="h-32 bg-muted/20 animate-pulse rounded-xl" />
-                                        ))}
-                                    </div>
-                                ) : filteredAssessments.length === 0 ? (
-                                    <div className="text-center py-12">
-                                        <div className="w-16 h-16 bg-muted/50 rounded-full flex items-center justify-center mx-auto mb-4">
-                                            <FileCode2 className="text-muted-foreground" size={32} />
-                                        </div>
-                                        <h3 className="text-lg font-semibold text-foreground">No Assessments Found</h3>
-                                        <p className="text-muted-foreground text-sm mt-1">Try adjusting your search.</p>
-                                    </div>
-                                ) : (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {filteredAssessments.map((assessment: any) => {
-                                            const isSelected = selectedAssessmentId === assessment.id;
-                                            const questionCount = getQuestionCount(assessment);
-
-                                            return (
-                                                <motion.button
-                                                    key={assessment.id}
-                                                    layout
-                                                    initial={{ opacity: 0, scale: 0.95 }}
-                                                    animate={{ opacity: 1, scale: 1 }}
-                                                    onClick={() => setSelectedAssessmentId(isSelected ? '' : assessment.id)}
-                                                    className={`
-                                                        relative p-5 rounded-2xl border-2 transition-all text-left group
-                                                        ${isSelected
-                                                            ? 'border-purple-500 bg-purple-500/5 shadow-lg shadow-purple-500/10'
-                                                            : 'border-border hover:border-purple-500/30 hover:bg-muted/30'
-                                                        }
-                                                    `}
-                                                >
-                                                    {/* Selection Indicator */}
-                                                    <div className={`
-                                                        absolute top-4 right-4 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all
-                                                        ${isSelected
-                                                            ? 'border-purple-500 bg-purple-500'
-                                                            : 'border-border bg-background group-hover:border-purple-500/50'
-                                                        }
-                                                    `}>
-                                                        {isSelected && <CheckCircle size={14} className="text-white" />}
-                                                    </div>
-
-                                                    {/* Content */}
-                                                    <div className="pr-8">
-                                                        <div className="flex items-start gap-3 mb-3">
-                                                            <div className={`
-                                                                p-2 rounded-lg transition-colors
-                                                                ${isSelected ? 'bg-purple-500/10 text-purple-600' : 'bg-muted text-muted-foreground'}
-                                                            `}>
-                                                                <FileCode2 size={20} />
-                                                            </div>
-                                                            <div className="flex-1 min-w-0">
-                                                                <h3 className={`font-bold text-base leading-tight mb-1 ${isSelected ? 'text-foreground' : 'text-foreground/90'}`}>
-                                                                    {assessment.title}
-                                                                </h3>
-                                                                <p className="text-xs text-muted-foreground line-clamp-2">
-                                                                    {assessment.description || 'No description available'}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-
-                                                        {/* Meta Info */}
-                                                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                                                            <div className="flex items-center gap-1">
-                                                                <Layers size={12} />
-                                                                <span>{assessment.sections?.length || 0} Sections</span>
-                                                            </div>
-                                                            <div className="flex items-center gap-1">
-                                                                <FileCode2 size={12} />
-                                                                <span>{questionCount} Questions</span>
-                                                            </div>
-                                                            {assessment.duration && (
-                                                                <div className="flex items-center gap-1">
-                                                                    <Clock size={12} />
-                                                                    <span>{assessment.duration}m</span>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </motion.button>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Footer Actions */}
-                            <div className="p-6 border-t border-border bg-muted/20">
-                                <div className="flex gap-4">
-                                    <button
-                                        onClick={() => {
-                                            setShowAssignModal(false);
-                                            setSelectedAssessmentId('');
-                                            setAssessmentSearch('');
-                                        }}
-                                        className="flex-1 py-3.5 rounded-xl font-bold text-sm bg-background border border-border text-foreground hover:bg-muted transition-all"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        onClick={() => assignAssessmentMutation.mutate(selectedAssessmentId)}
-                                        disabled={assignAssessmentMutation.isPending || !selectedAssessmentId}
-                                        className={`
-                                            flex-1 py-3.5 rounded-xl font-bold text-sm text-white shadow-lg flex items-center justify-center gap-2 transition-all
-                                            ${!selectedAssessmentId || assignAssessmentMutation.isPending
-                                                ? 'bg-purple-500/50 cursor-not-allowed opacity-70'
-                                                : 'bg-gradient-to-r from-purple-500 to-violet-600 hover:shadow-purple-500/30 hover:scale-[1.02] active:scale-[0.98]'
-                                            }
-                                        `}
-                                    >
-                                        {assignAssessmentMutation.isPending ? (
-                                            <>
-                                                <Loader2 size={18} className="animate-spin" /> Assigning...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Briefcase size={18} />
-                                                Assign Assessment
-                                            </>
-                                        )}
-                                    </button>
-                                </div>
+                            <div className="flex gap-3">
+                                <button onClick={() => setShowAssignModal(false)} className="flex-1 py-3 rounded-xl font-bold text-sm bg-muted text-muted-foreground hover:bg-muted/80 transition-colors">Cancel</button>
+                                <button
+                                    onClick={() => assignAssessmentMutation.mutate(selectedAssessmentId)}
+                                    disabled={!selectedAssessmentId || assignAssessmentMutation.isPending}
+                                    className="flex-1 py-3 rounded-xl font-bold text-sm bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-lg shadow-blue-500/20 disabled:opacity-50 disabled:shadow-none"
+                                >
+                                    Confirm Assignment
+                                </button>
                             </div>
                         </motion.div>
                     </div>
                 )}
             </AnimatePresence>
 
-            {/* Add Admin Modal */}
-            <AddAdminToCompanyModal
-                isOpen={showAddAdminModal}
-                onClose={() => setShowAddAdminModal(false)}
-                onSubmit={async (data) => {
-                    await addAdminMutation.mutateAsync(data);
-                }}
-                companyName={company?.name || ''}
-                isLoading={addAdminMutation.isPending}
-            />
+            {/* Add Admin Modal (Simple style for now, can be upgraded if requested) */}
+            <AnimatePresence>
+                {showAddAdminModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                        <div className="bg-card w-full max-w-md p-6 rounded-2xl shadow-xl border border-border">
+                            <h3 className="text-lg font-bold mb-4">Add Administrator</h3>
+                            <div className="space-y-4 mb-6">
+                                <div>
+                                    <label className="text-xs font-bold uppercase text-muted-foreground mb-1 block">Name</label>
+                                    <input
+                                        type="text"
+                                        value={addAdminForm.name}
+                                        onChange={(e) => setAddAdminForm({ ...addAdminForm, name: e.target.value })}
+                                        className="w-full p-2.5 border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold uppercase text-muted-foreground mb-1 block">Email</label>
+                                    <input
+                                        type="email"
+                                        value={addAdminForm.email}
+                                        onChange={(e) => setAddAdminForm({ ...addAdminForm, email: e.target.value })}
+                                        className="w-full p-2.5 border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                                    />
+                                </div>
+                            </div>
+                            <div className="flex justify-end gap-2">
+                                <button onClick={() => setShowAddAdminModal(false)} className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground">Cancel</button>
+                                <button
+                                    onClick={() => addAdminMutation.mutate({ adminName: addAdminForm.name, adminEmail: addAdminForm.email })}
+                                    disabled={!addAdminForm.name || !addAdminForm.email || addAdminMutation.isPending}
+                                    className="px-4 py-2 text-sm font-medium bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground rounded-lg disabled:opacity-50 hover:bg-gradient-to-br from-indigo-600 to-violet-600/90"
+                                >
+                                    Add Admin
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Remove Admin Modal */}
+            <AnimatePresence>
+                {removeAdminModal.isOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                        <div className="bg-card w-full max-w-sm p-6 rounded-2xl shadow-xl text-center border border-border">
+                            <h3 className="text-lg font-bold mb-2">Remove Admin?</h3>
+                            <p className="text-sm text-muted-foreground mb-6">Are you sure you want to remove <span className="font-bold text-foreground">{removeAdminModal.user?.fullName}</span>? This action is irreversible.</p>
+                            <div className="flex justify-center gap-2">
+                                <button onClick={() => setRemoveAdminModal({ isOpen: false, user: null })} className="px-4 py-2 text-sm font-medium bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80">Cancel</button>
+                                <button
+                                    onClick={() => removeAdminMutation.mutate(removeAdminModal.user?.id)}
+                                    className="px-4 py-2 text-sm font-medium bg-destructive text-destructive-foreground rounded-lg hover:bg-destructive/90"
+                                >
+                                    Remove
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }

@@ -274,7 +274,7 @@ export default function ParticipantReportPage() {
                     <p className="text-red-600 font-medium">{error || 'Report not found'}</p>
                     <button
                         onClick={() => router.back()}
-                        className="mt-4 px-4 py-2 bg-primary text-white rounded-lg"
+                        className="mt-4 px-4 py-2 bg-gradient-to-br from-indigo-600 to-violet-600 text-white rounded-lg"
                     >
                         Go Back
                     </button>
@@ -401,7 +401,7 @@ export default function ParticipantReportPage() {
                         </button>
                         <button
                             onClick={handlePrint}
-                            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg shadow hover:opacity-90"
+                            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-br from-indigo-600 to-violet-600 text-white rounded-lg shadow hover:opacity-90"
                         >
                             <Printer size={18} />
                             Print
@@ -564,12 +564,12 @@ export default function ParticipantReportPage() {
                                                     <AlertTriangle size={24} />
                                                 )}
                                                 <div>
-                                                    <p className="text-lg font-black uppercase">{report.verdict?.status || report.session?.status || 'N/A'}</p>
+                                                    <p className="text-lg font-Inter uppercase">{report.verdict?.status || report.session?.status || 'N/A'}</p>
                                                     <p className="text-[10px] opacity-75">Final Status</p>
                                                 </div>
                                             </div>
                                             <div className="text-right">
-                                                <p className="text-2xl font-black">{report.verdict?.finalScore || report.scores?.totalScore || 0}</p>
+                                                <p className="text-2xl font-Inter">{report.verdict?.finalScore || report.scores?.totalScore || 0}</p>
                                                 <p className="text-[10px] opacity-75">Score / {report.scores?.maxScore || 0}</p>
                                             </div>
                                         </div>
@@ -653,7 +653,7 @@ export default function ParticipantReportPage() {
                                             <div className="space-y-1">
                                                 <div className="flex items-center justify-between">
                                                     <span className="text-[10px] text-gray-500">Total:</span>
-                                                    <span className="text-lg font-black">{report.violations?.totalCount || 0}</span>
+                                                    <span className="text-lg font-Inter">{report.violations?.totalCount || 0}</span>
                                                 </div>
                                                 <div className="flex items-center justify-between">
                                                     <span className="text-[10px] text-gray-500">Risk:</span>
@@ -977,7 +977,7 @@ export default function ParticipantReportPage() {
                                     <div className="grid grid-cols-3 gap-3">
                                         <div className="bg-gray-50 p-2 rounded-lg border border-gray-200 text-center">
                                             <p className="text-[10px] text-gray-500 mb-0.5">Total Violations</p>
-                                            <p className="text-xl font-black">{report.violations?.totalCount || 0}</p>
+                                            <p className="text-xl font-Inter">{report.violations?.totalCount || 0}</p>
                                         </div>
                                         <div className="bg-gray-50 p-2 rounded-lg border border-gray-200 text-center">
                                             <p className="text-[10px] text-gray-500 mb-0.5">Risk Level</p>
@@ -1024,12 +1024,12 @@ export default function ParticipantReportPage() {
                                                     <AlertTriangle size={24} />
                                                 )}
                                                 <div>
-                                                    <p className="text-lg font-black uppercase">{report.verdict?.status || report.session?.status || 'N/A'}</p>
+                                                    <p className="text-lg font-Inter uppercase">{report.verdict?.status || report.session?.status || 'N/A'}</p>
                                                     <p className="text-[10px] opacity-75">Final Status</p>
                                                 </div>
                                             </div>
                                             <div className="text-right">
-                                                <p className="text-2xl font-black">{report.verdict?.finalScore || report.scores?.totalScore || 0}</p>
+                                                <p className="text-2xl font-Inter">{report.verdict?.finalScore || report.scores?.totalScore || 0}</p>
                                                 <p className="text-[10px] opacity-75">Final Score / {report.scores?.maxScore || 0}</p>
                                             </div>
                                         </div>

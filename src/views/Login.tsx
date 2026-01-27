@@ -110,47 +110,65 @@ export default function Login() {
     const togglePasswordVisibility = () => setShowPassword((p) => !p);
 
     const formSide = (
-        <div className="w-full max-w-sm animate-fade-in-slide-up">
-            <h1 className="text-4xl font-bold mb-10 text-theme-primary text-center">
-                Sign In
+        <div className="w-full max-w-sm">
+            <h1 className="text-3xl font-bold mb-2 text-foreground text-center tracking-tight">
+                Welcome Back
             </h1>
+            <p className="text-muted-foreground text-center mb-10 text-sm">
+                Enter your credentials to access your account.
+            </p>
 
-            <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-6">
+            <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
                 {/* Email */}
-                <div className="relative">
-                    <FaEnvelope className="absolute left-4 top-1/2 -translate-y-1/2 text-theme-secondary opacity-60" />
-                    <input
-                        type="email"
-                        placeholder="Email Address"
-                        {...register("email")}
-                        className="w-full h-14 pl-12 pr-4 border border-theme rounded-xl bg-theme-secondary text-theme-primary placeholder:text-theme-muted focus:outline-none focus:ring-2 focus:ring-[hsl(var(--color-accent))] focus:border-transparent transition-all"
-                    />
-                    {errors.email && <p className="text-[hsl(var(--color-error))] text-sm mt-1">{errors.email.message}</p>}
+                <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-foreground uppercase tracking-wide ml-1">Email Address</label>
+                    <div className="relative group">
+                        <FaEnvelope className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                        <input
+                            type="email"
+                            placeholder="name@company.com"
+                            {...register("email")}
+                            className="w-full h-12 pl-12 pr-4 bg-background border-2 border-border/60 hover:border-border rounded-xl text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all font-medium"
+                        />
+                    </div>
+                    {errors.email && <p className="text-destructive text-xs font-semibold ml-1">{errors.email.message}</p>}
                 </div>
 
                 {/* Password */}
-                <div className="relative">
-                    <FaLock className="absolute left-4 top-1/2 -translate-y-1/2 text-theme-secondary opacity-60" />
-                    <input
-                        type={showPassword ? "text" : "password"}
-                        placeholder="Password"
-                        {...register("password")}
-                        className="w-full h-14 pl-12 pr-14 border border-theme rounded-xl bg-theme-secondary text-theme-primary placeholder:text-theme-muted focus:outline-none focus:ring-2 focus:ring-[hsl(var(--color-accent))] focus:border-transparent transition-all"
-                    />
-                    <button
-                        type="button"
-                        onClick={togglePasswordVisibility}
-                        className="absolute inset-y-0 right-0 flex items-center px-4 text-theme-secondary hover:text-theme-primary transition-colors"
-                    >
-                        {showPassword ? <FaEyeSlash /> : <FaEye />}
-                    </button>
-                    {errors.password && <p className="text-[hsl(var(--color-error))] text-sm mt-1">{errors.password.message}</p>}
+                <div className="space-y-1.5">
+                    <div className="flex justify-between items-center ml-1">
+                        <label className="text-xs font-semibold text-foreground uppercase tracking-wide">Password</label>
+                        <Link href="#" className="text-xs font-semibold text-primary hover:underline">Forgot password?</Link>
+                    </div>
+
+                    <div className="relative group">
+                        <FaLock className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                        <input
+                            type={showPassword ? "text" : "password"}
+                            placeholder="••••••••"
+                            {...register("password")}
+                            className="w-full h-12 pl-12 pr-14 bg-background border-2 border-border/60 hover:border-border rounded-xl text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all font-medium"
+                        />
+                        <button
+                            type="button"
+                            onClick={togglePasswordVisibility}
+                            className="absolute inset-y-0 right-0 flex items-center px-4 text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                            {showPassword ? <FaEyeSlash /> : <FaEye />}
+                        </button>
+                    </div>
+                    {errors.password && <p className="text-destructive text-xs font-semibold ml-1">{errors.password.message}</p>}
+                </div>
+
+                <div className="flex items-center gap-2 my-2">
+                    <input type="checkbox" id="remember" className="rounded border-border text-primary focus:ring-primary" />
+                    <label htmlFor="remember" className="text-sm text-muted-foreground cursor-pointer select-none">Remember for 30 days</label>
                 </div>
 
                 <button
                     type="submit"
                     disabled={loading}
-                    className="button-theme flex items-center justify-center gap-2 mt-4 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full h-12 bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground font-bold rounded-xl hover:opacity-90 transition-all shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                 >
                     {loading ? (
                         <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -159,20 +177,21 @@ export default function Login() {
                         </svg>
                     ) : (
                         <>
-                            <FaUserShield /> Sign In
+                            Sign In <FaUserShield />
                         </>
                     )}
                 </button>
             </form>
 
-            <p className="mt-8 text-center text-sm">
+            <div className="mt-8 text-center text-sm text-foreground">
+                Don't have an account?{" "}
                 <Link
                     href="/partner-signup"
-                    className="text-theme-secondary hover:text-theme-primary transition-colors hover:underline"
+                    className="text-primary font-bold hover:underline"
                 >
-                    Interested in becoming a partner? Register here
+                    Sign up
                 </Link>
-            </p>
+            </div>
         </div >
     );
 

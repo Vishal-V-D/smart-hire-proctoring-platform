@@ -73,6 +73,17 @@ export const invitationService = {
         axiosContestClient.post<BulkInviteResponse>("/invitations/bulk", data),
 
     /**
+     * Bulk invite via comma-separated emails
+     */
+    bulkInviteEmails: (data: { assessmentId: string; emails: string; sendEmail: boolean }) =>
+        axiosContestClient.post<{
+            sent: number;
+            failed: number;
+            errors: { email: string; error: string }[];
+            invitations: Invitation[];
+        }>("/invitations/bulk/emails", data),
+
+    /**
      * Upload CSV for bulk invites
      */
     uploadCsvInvites: (contestId: string, file: File) => {

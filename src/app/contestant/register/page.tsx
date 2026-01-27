@@ -4,11 +4,12 @@ import React, { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  User, GraduationCap, Upload, ArrowRight, Loader2, Mail,
-  Building, Hash, Award, FileText, CreditCard, CheckCircle, Sparkles
+  Building, Hash, Award, FileText, CreditCard, CheckCircle, Sparkles,
+  User, GraduationCap, Upload, Mail, ArrowRight
 } from 'lucide-react';
 import FileUpload from '@/components/contestant/FileUpload';
 import { contestantService } from '@/api/contestantService';
+import Loader from '@/components/Loader';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -28,7 +29,33 @@ export default function RegisterPage() {
   });
 
   const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(true);
   const [error, setError] = useState('');
+
+  React.useEffect(() => {
+    const checkStatus = async () => {
+      if (!email || !assessmentId) {
+        setChecking(false);
+        return;
+      }
+      try {
+        const res = await contestantService.checkRegistrationStatus(assessmentId, email);
+        if (res.data.isRegistered) {
+          // If registered, we might need tokens to redirect to assessment page
+          // But usually, the check API might return session tokens if already registered, 
+          // or we might need to call another API to login.
+          // For now, let's just redirect if we have a token, or show a message.
+          // Based on user request: "Redirect: Optionally, auto-redirect them to the waiting room (/contest/:id/start)"
+          router.push(`/contestant/assessment/${assessmentId}`);
+        }
+      } catch (err) {
+        console.error('Registration status check failed:', err);
+      } finally {
+        setChecking(false);
+      }
+    };
+    checkStatus();
+  }, [email, assessmentId, router]);
 
   const handleResumeUpload = async (file: File) => {
     const res = await contestantService.uploadResume(file);
@@ -88,7 +115,18 @@ export default function RegisterPage() {
 
       router.push(`/contestant/assessment/${assessmentId}`);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Registration failed');
+      if (err.response?.status === 409) {
+        // Handle duplicate registration
+        const { showToast } = await import('@/utils/toast');
+        showToast("You are already registered! Redirecting to instructions...", 'info');
+
+        setError('You are already registered! Redirecting to assessment...');
+        setTimeout(() => {
+          router.push(`/contestant/assessment/${assessmentId}`);
+        }, 2000);
+      } else {
+        setError(err.response?.data?.message || 'Registration failed');
+      }
     } finally {
       setLoading(false);
     }
@@ -104,6 +142,10 @@ export default function RegisterPage() {
 
   const progress = (completedFields / 5) * 100;
   const isFormValid = formData.fullName && formData.college && formData.department && formData.registrationNumber && formData.cgpa;
+
+  if (checking) {
+    return <Loader fullscreen />;
+  }
 
   return (
     <div className="h-screen w-screen flex items-center justify-center p-4 bg-gradient-to-br from-[#f8f7ff] via-[#f0eeff] to-[#e8e5ff] overflow-hidden">
@@ -409,10 +451,9 @@ export default function RegisterPage() {
               className={`w-full py-3 rounded-lg font-semibold text-sm shadow-md transition-all flex items-center justify-center gap-2 ${isFormValid ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-purple-200 hover:shadow-lg' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
             >
               {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Registering...
-                </>
+                <div className="scale-75 h-5 w-12 flex items-center justify-center">
+                  <Loader />
+                </div>
               ) : (
                 <>
                   <Sparkles className="w-4 h-4" />

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle, PenTool, Upload, X, Code, Type, List, CheckSquare, Image as ImageIcon, Trash2, Database, Search, Filter, ChevronLeft, ChevronRight, Download, Archive, FileText, Zap, Loader2 } from 'lucide-react';
+import { CheckCircle, PenTool, Upload, X, Code, Type, List, CheckSquare, Image as ImageIcon, Trash2, Database, Search, Filter, ChevronLeft, ChevronRight, Download, Archive, FileText, Zap } from 'lucide-react';
+import Loader from '@/components/Loader';
 import { Question, SectionType, QuestionType } from '../types';
 import { questionBankService, QuestionBankQuestion, QuestionBankFilters, FilterOptions } from '@/api/questionBankService';
 
@@ -42,6 +43,8 @@ const ManualQuestionModal: React.FC<ManualQuestionModalProps> = ({ isOpen, onClo
     const [correctOptions, setCorrectOptions] = useState<number[]>([]);
     const [correctAnswerText, setCorrectAnswerText] = useState('');
     const [codeStub, setCodeStub] = useState('// Write your solution here\nfunction solve(input) {\n    return input;\n}');
+    const [inputMarks, setInputMarks] = useState<number>(1);
+    const [inputNegativeMarks, setInputNegativeMarks] = useState<number>(0);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const bulkUploadRef = useRef<HTMLInputElement>(null);
@@ -250,7 +253,8 @@ const ManualQuestionModal: React.FC<ManualQuestionModalProps> = ({ isOpen, onClo
                 text,
                 image: image || undefined, // Add image if present
                 type: qType,
-                marks: type === 'coding' ? 10 : 1
+                marks: inputMarks,
+                negativeMarks: inputNegativeMarks > 0 ? inputNegativeMarks : undefined
             };
 
             if (qType === 'single_choice') {
@@ -309,6 +313,8 @@ const ManualQuestionModal: React.FC<ManualQuestionModalProps> = ({ isOpen, onClo
         setCorrectOption(0);
         setCorrectOptions([]);
         setCorrectAnswerText('');
+        setInputMarks(type === 'coding' ? 10 : 1);
+        setInputNegativeMarks(0);
         // Keep code stub defaults
     };
 
@@ -474,10 +480,9 @@ const ManualQuestionModal: React.FC<ManualQuestionModalProps> = ({ isOpen, onClo
                                     className="w-full py-4 bg-gradient-to-r from-primary to-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
                                 >
                                     {isRandomizing ? (
-                                        <>
-                                            <Loader2 size={20} className="animate-spin" />
-                                            Generating Selection...
-                                        </>
+                                        <div className="scale-75 h-5 w-12 flex items-center justify-center">
+                                            <Loader />
+                                        </div>
                                     ) : (
                                         <>
                                             <Zap size={20} fill="currentColor" />
@@ -613,6 +618,44 @@ const ManualQuestionModal: React.FC<ManualQuestionModalProps> = ({ isOpen, onClo
                                     </motion.div>
                                 )}
                             </AnimatePresence>
+
+                            {/* Marks & Negative Marking */}
+                            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border mt-4">
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Marks (Positive)</label>
+                                    <div className="relative">
+                                        <input
+                                            type="number"
+                                            min="0.5"
+                                            step="0.5"
+                                            className="w-full bg-muted/20 border border-border rounded-xl p-4 pl-10 text-sm font-bold focus:border-primary outline-none"
+                                            placeholder="e.g. 5"
+                                            value={inputMarks}
+                                            onChange={e => setInputMarks(parseFloat(e.target.value) || 0)}
+                                        />
+                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">
+                                            +
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider text-red-500/80">Negative Marks</label>
+                                    <div className="relative">
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            step="0.25"
+                                            className="w-full bg-red-500/5 border border-red-500/20 rounded-xl p-4 pl-10 text-sm font-bold focus:border-red-500 outline-none text-red-600"
+                                            placeholder="e.g. 1"
+                                            value={inputNegativeMarks}
+                                            onChange={e => setInputNegativeMarks(parseFloat(e.target.value) || 0)}
+                                        />
+                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-red-500 font-bold">
+                                            -
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     ) : activeTab === 'file' ? (
                         <div className="space-y-6">
@@ -755,7 +798,7 @@ const ManualQuestionModal: React.FC<ManualQuestionModalProps> = ({ isOpen, onClo
                                 <button
                                     onClick={() => bulkUploadRef.current?.click()}
                                     disabled={!uploadDivision || isUploading}
-                                    className="w-full py-3.5 px-4 bg-primary text-primary-foreground rounded-xl font-bold hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                    className="w-full py-3.5 px-4 bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground rounded-xl font-bold hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                 >
                                     {isUploading ? (
                                         <>
@@ -972,7 +1015,7 @@ const ManualQuestionModal: React.FC<ManualQuestionModalProps> = ({ isOpen, onClo
                                                 <div className="flex gap-3">
                                                     {/* Checkbox */}
                                                     <div className={`w-5 h-5 mt-0.5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${isSelected
-                                                        ? 'bg-primary border-primary'
+                                                        ? 'bg-gradient-to-br from-indigo-600 to-violet-600 border-primary'
                                                         : 'border-muted-foreground/30'
                                                         }`}>
                                                         {isSelected && <CheckCircle size={12} className="text-primary-foreground" />}
@@ -1084,7 +1127,7 @@ const ManualQuestionModal: React.FC<ManualQuestionModalProps> = ({ isOpen, onClo
                         <button
                             onClick={handleSave}
                             disabled={activeTab === 'bank' && selectedBankQuestions.size === 0}
-                            className="px-8 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-bold shadow-lg hover:shadow-primary/25 hover:bg-primary/90 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="px-8 py-2.5 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground text-sm font-bold shadow-lg hover:shadow-primary/25 hover:bg-gradient-to-br from-indigo-600 to-violet-600/90 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <CheckCircle size={16} /> {activeTab === 'bank' ? 'Import Selected' : 'Save Question'}
                         </button>

@@ -99,7 +99,7 @@ export default function PartnerRequests() {
         <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
             {/* Header */}
             <div className="flex items-center gap-4">
-                <div className="p-3 bg-primary rounded-2xl text-primary-foreground shadow-lg shadow-primary/20">
+                <div className="p-3 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-2xl text-primary-foreground shadow-lg shadow-primary/20">
                     <FaUserClock size={24} />
                 </div>
                 <div>
@@ -124,7 +124,7 @@ export default function PartnerRequests() {
                         )}
                     </span>
                     {activeTab === 'companies' && (
-                        <motion.div layoutId="tab-underline" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+                        <motion.div layoutId="tab-underline" className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-br from-indigo-600 to-violet-600" />
                     )}
                 </button>
                 <button
@@ -141,7 +141,7 @@ export default function PartnerRequests() {
                         )}
                     </span>
                     {activeTab === 'users' && (
-                        <motion.div layoutId="tab-underline" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+                        <motion.div layoutId="tab-underline" className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-br from-indigo-600 to-violet-600" />
                     )}
                 </button>
             </div>
@@ -194,7 +194,7 @@ export default function PartnerRequests() {
                                         {historyData.map((log: any, idx: number) => (
                                             <div key={idx} className="flex gap-4 p-4 rounded-xl bg-muted/20 border border-border">
                                                 <div className="mt-1">
-                                                    <div className="w-2 h-2 rounded-full bg-primary" />
+                                                    <div className="w-2 h-2 rounded-full bg-gradient-to-br from-indigo-600 to-violet-600" />
                                                 </div>
                                                 <div className="flex-1">
                                                     <div className="flex justify-between items-start">

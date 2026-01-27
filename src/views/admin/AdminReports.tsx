@@ -102,7 +102,7 @@ export default function AdminReports() {
 
                             <Link
                                 href={`/admin/assessments/${a.id}`} // We rely on the single assessment view which has tabs
-                                className="bg-muted/30 p-4 border-t border-border flex items-center justify-between text-sm font-bold text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-all"
+                                className="bg-muted/30 p-4 border-t border-border flex items-center justify-between text-sm font-bold text-primary group-hover:bg-gradient-to-br from-indigo-600 to-violet-600 group-hover:text-primary-foreground transition-all"
                             >
                                 View Analytics
                                 <FaChartBar />

@@ -17,7 +17,6 @@ import {
     Briefcase,
     CheckCircle,
     X,
-    Loader2,
     FileCode2,
     Layers,
     Clock,
@@ -35,6 +34,7 @@ import {
     ArrowUpRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Loader from '@/components/Loader';
 
 export default function CompanyManagement() {
     const queryClient = useQueryClient();
@@ -250,10 +250,7 @@ export default function CompanyManagement() {
             {/* Content */}
             {isLoading ? (
                 <div className="flex flex-col items-center justify-center py-32 bg-card rounded-3xl border border-border">
-                    <div className="relative">
-                        <div className="w-16 h-16 border-4 border-primary/20 rounded-full"></div>
-                        <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin absolute top-0 left-0"></div>
-                    </div>
+                    <Loader />
                     <p className="mt-6 text-foreground font-semibold">Loading Companies...</p>
                     <p className="text-sm text-muted-foreground mt-1">Please wait while we fetch the data</p>
                 </div>
@@ -316,7 +313,7 @@ export default function CompanyManagement() {
                                 <div className="pt-4 border-t border-border grid grid-cols-4 gap-2">
                                     <button
                                         onClick={() => setAssignModalData({ company, isOpen: true })}
-                                        className="col-span-1 flex items-center justify-center gap-2 text-xs font-bold text-primary hover:bg-primary/5 px-2 py-2 rounded-lg transition-colors border border-transparent hover:border-primary/20"
+                                        className="col-span-1 flex items-center justify-center gap-2 text-xs font-bold text-primary hover:bg-gradient-to-br from-indigo-600 to-violet-600 px-2 py-2 rounded-lg transition-colors border border-transparent hover:border-primary/20"
                                         title="Assign Assessment"
                                     >
                                         <Briefcase size={16} /> Assign
@@ -547,10 +544,12 @@ export default function CompanyManagement() {
                                 <button
                                     onClick={handleSavePermissions}
                                     disabled={isUpdatingPermissions}
-                                    className="flex-1 py-3 rounded-xl font-bold text-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
+                                    className="flex-1 py-3 rounded-xl font-bold text-sm bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground hover:bg-gradient-to-br from-indigo-600 to-violet-600/90 transition-colors shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
                                 >
                                     {isUpdatingPermissions ? (
-                                        <>Updating...</>
+                                        <div className="scale-75 h-4 w-10 flex items-center justify-center">
+                                            <Loader />
+                                        </div>
                                     ) : (
                                         <>Save Changes</>
                                     )}
@@ -634,7 +633,7 @@ export default function CompanyManagement() {
                                     </div>
                                     <div>
                                         <div className="flex items-center gap-3 mb-2">
-                                            <h2 className="text-3xl font-black tracking-tight">{companyDetails.name}</h2>
+                                            <h2 className="text-3xl font-Inter tracking-tight">{companyDetails.name}</h2>
                                             <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${companyDetails.status === 'APPROVED' ? 'bg-green-500/20 border-green-400/30 text-green-300' :
                                                 'bg-amber-500/20 border-amber-400/30 text-amber-300'
                                                 }`}>
@@ -711,7 +710,7 @@ export default function CompanyManagement() {
 
                                         {isLoadingCompanyAssessments ? (
                                             <div className="flex items-center justify-center py-8">
-                                                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                                                <Loader />
                                             </div>
                                         ) : companyAssessments.length > 0 ? (
                                             <div className="space-y-3">
@@ -952,7 +951,7 @@ export default function CompanyManagement() {
                                                         <div className={`
                                                             absolute top-4 right-4 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all
                                                             ${isSelected
-                                                                ? 'border-primary bg-primary'
+                                                                ? 'border-primary bg-gradient-to-br from-indigo-600 to-violet-600'
                                                                 : 'border-border bg-background group-hover:border-primary/50'
                                                             }
                                                         `}>
@@ -1029,9 +1028,9 @@ export default function CompanyManagement() {
                                         `}
                                     >
                                         {isAssigning ? (
-                                            <>
-                                                <Loader2 size={18} className="animate-spin" /> Assigning...
-                                            </>
+                                            <div className="scale-75 h-4 w-10 flex items-center justify-center">
+                                                <Loader />
+                                            </div>
                                         ) : (
                                             <>
                                                 <Briefcase size={18} />
@@ -1077,8 +1076,8 @@ export default function CompanyManagement() {
                             <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-4">
                                 {historyLoading ? (
                                     <div className="flex flex-col items-center justify-center py-20 gap-4">
-                                        <Loader2 size={40} className="animate-spin text-primary/40" />
-                                        <p className="text-sm text-muted-foreground animate-pulse">Retrieving audit logs...</p>
+                                        <Loader />
+                                        <p className="text-sm text-muted-foreground animate-pulse mt-4">Retrieving audit logs...</p>
                                     </div>
                                 ) : historyData.length === 0 ? (
                                     <div className="text-center py-20 bg-muted/20 rounded-2xl border border-dashed border-border/60">
@@ -1104,7 +1103,7 @@ export default function CompanyManagement() {
                                                 <div className="space-y-1">
                                                     <div className="flex items-center justify-between gap-4">
                                                         <span className="font-bold text-sm text-foreground">{event.action || event.type}</span>
-                                                        <span className="text-[10px] uppercase font-black text-muted-foreground tracking-widest bg-muted px-2 py-0.5 rounded leading-none shrink-0">
+                                                        <span className="text-[10px] uppercase font-Inter text-muted-foreground tracking-widest bg-muted px-2 py-0.5 rounded leading-none shrink-0">
                                                             {new Date(event.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                                                         </span>
                                                     </div>

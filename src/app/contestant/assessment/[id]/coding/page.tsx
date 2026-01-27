@@ -9,8 +9,9 @@ import remarkGfm from 'remark-gfm';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     Play, Send, ChevronLeft, ChevronRight, ChevronDown, Sun, Moon, Clock, CheckCircle, XCircle,
-    Loader2, Terminal, Code2, FileText, Zap, AlertTriangle, Lock, Tag, BarChart2, Copy
+    Terminal, Code2, FileText, Zap, AlertTriangle, Lock, Tag, BarChart2, Copy, Loader2
 } from 'lucide-react';
+import Loader from '@/components/Loader';
 import { contestantService } from '@/api/contestantService';
 import { codeService, type TestCaseResult, type RunCodeSummary, type SubmitCodeResponse } from '@/api/codeService';
 import AssessmentTimer from '@/components/contestant/AssessmentTimer';
@@ -469,7 +470,7 @@ function CodingPageContent() {
     if (loading) {
         return (
             <div className={`h-screen flex items-center justify-center ${bg}`}>
-                <Loader2 className="w-10 h-10 animate-spin text-[#0f62fe]" />
+                <Loader />
             </div>
         );
     }
@@ -991,7 +992,7 @@ function CodingPageContent() {
                                                     : 'bg-gradient-to-br from-[#da1e28] to-[#ff8389] border-[#fa4d56]'
                                                 }`}>
                                                 <div className="relative z-10">
-                                                    <div className="text-6xl font-black mb-1">{submitResults.score}</div>
+                                                    <div className="text-6xl font-Inter mb-1">{submitResults.score}</div>
                                                     <div className="text-sm font-medium opacity-90 uppercase tracking-widest">Score / 100</div>
                                                 </div>
 

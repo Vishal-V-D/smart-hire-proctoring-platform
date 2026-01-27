@@ -423,7 +423,7 @@ const CodingQuestionDisplay: React.FC<CodingQuestionDisplayProps> = ({
                                                 key={key}
                                                 onClick={() => setActiveCodeTab(key as any)}
                                                 className={`text-xs font-medium px-3 py-1.5 rounded-md transition-all ${activeCodeTab === key
-                                                        ? 'bg-primary text-primary-foreground'
+                                                        ? 'bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground'
                                                         : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                                                     }`}
                                             >

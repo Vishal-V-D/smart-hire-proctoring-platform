@@ -341,7 +341,7 @@ export default function AdvancedResultsTable({
                                             {/* Score */}
                                             <td className="px-4 py-3 text-center">
                                                 <div className="inline-flex flex-col items-center">
-                                                    <span className={`text-lg font-black ${result.finalScore >= 80 ? 'text-emerald-400' :
+                                                    <span className={`text-lg font-Inter ${result.finalScore >= 80 ? 'text-emerald-400' :
                                                         result.finalScore >= 50 ? 'text-white' : 'text-red-400'
                                                         }`}>
                                                         {result.finalScore}
@@ -440,11 +440,11 @@ export default function AdvancedResultsTable({
                                                             </h4>
                                                             <div className="grid grid-cols-2 gap-3 mb-3">
                                                                 <div className="bg-orange-500/10 border border-orange-500/20 p-2 rounded-lg text-center">
-                                                                    <div className="text-lg font-black text-orange-500">{result.resultDetails.violationDetails.tabSwitchCount}</div>
+                                                                    <div className="text-lg font-Inter text-orange-500">{result.resultDetails.violationDetails.tabSwitchCount}</div>
                                                                     <div className="text-[10px] text-orange-500/70 font-bold uppercase">Tab Switches</div>
                                                                 </div>
                                                                 <div className="bg-red-500/10 border border-red-500/20 p-2 rounded-lg text-center">
-                                                                    <div className="text-lg font-black text-red-500">{result.resultDetails.violationDetails.externalPasteCount}</div>
+                                                                    <div className="text-lg font-Inter text-red-500">{result.resultDetails.violationDetails.externalPasteCount}</div>
                                                                     <div className="text-[10px] text-red-500/70 font-bold uppercase">Pastes</div>
                                                                 </div>
                                                             </div>

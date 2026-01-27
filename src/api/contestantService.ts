@@ -140,6 +140,16 @@ export const contestantService = {
             token: string; // JWT
         }>(`${API_BASE}/register`, data),
 
+    /**
+     * Check if user is already registered for this contest
+     * GET /contestant/registration/:contestId/check
+     */
+    checkRegistrationStatus: (assessmentId: string, email: string) =>
+        axiosContestClient.get<{ success: boolean; isRegistered: boolean }>(
+            `/contest/registration/${assessmentId}/check`,
+            { params: { email } }
+        ),
+
     // ========== SESSION ENDPOINTS ==========
 
     /**

@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { contestantService } from '@/api/contestantService';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
+import Loader from '@/components/Loader';
 
 export default function InvitationPage() {
     const router = useRouter();
@@ -77,7 +78,7 @@ export default function InvitationPage() {
                     <p className="text-muted-foreground mb-6">{errorMessage}</p>
                     <button
                         onClick={() => router.push('/')}
-                        className="px-6 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90 transition-opacity"
+                        className="px-6 py-2 bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground rounded-lg font-medium hover:opacity-90 transition-opacity"
                     >
                         Go Home
                     </button>
@@ -86,20 +87,5 @@ export default function InvitationPage() {
         );
     }
 
-    return (
-        <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
-            <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex flex-col items-center gap-4"
-            >
-                <div className="relative">
-                    <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full"></div>
-                    <Loader2 className="w-12 h-12 text-primary animate-spin relative z-10" />
-                </div>
-                <h2 className="text-xl font-semibold text-foreground">Verifying Invitation...</h2>
-                <p className="text-muted-foreground text-sm">Please wait while we validate your access.</p>
-            </motion.div>
-        </div>
-    );
+    return <Loader fullscreen />;
 }

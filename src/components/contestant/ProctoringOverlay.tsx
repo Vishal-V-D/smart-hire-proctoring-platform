@@ -862,7 +862,7 @@ const ProctoringOverlay: React.FC<ProctoringOverlayProps> = ({
                         </p>
                         <button
                             onClick={() => document.documentElement.requestFullscreen()}
-                            className="px-6 py-3 bg-primary text-primary-foreground rounded-lg font-semibold hover:opacity-90"
+                            className="px-6 py-3 bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground rounded-lg font-semibold hover:opacity-90"
                         >
                             Enter Fullscreen
                         </button>

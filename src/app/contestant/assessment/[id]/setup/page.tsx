@@ -3,8 +3,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Shield, Camera, Mic, Monitor, Chrome, CheckCircle2, AlertTriangle, ArrowRight, Loader2 } from 'lucide-react';
+import { Shield, Camera, Mic, Monitor, Chrome, CheckCircle2, AlertTriangle, ArrowRight } from 'lucide-react';
 import { contestantService } from '@/api/contestantService';
+import Loader from '@/components/Loader';
 
 export default function SetupPage() {
     const router = useRouter();
@@ -150,7 +151,7 @@ export default function SetupPage() {
                                     ) : (
                                         <button
                                             onClick={testCamera}
-                                            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:opacity-90"
+                                            className="px-4 py-2 bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground rounded-lg text-sm font-semibold hover:opacity-90"
                                         >
                                             Test Now
                                         </button>
@@ -236,13 +237,12 @@ export default function SetupPage() {
                         <button
                             onClick={handleContinue}
                             disabled={loading || !consent || !allChecksPass}
-                            className="w-full py-4 bg-primary text-primary-foreground rounded-lg font-bold text-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
+                            className="w-full py-4 bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground rounded-lg font-bold text-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
                         >
                             {loading ? (
-                                <>
-                                    <Loader2 className="h-6 w-6 animate-spin" />
-                                    Saving...
-                                </>
+                                <div className="scale-75 h-6 w-16 flex items-center justify-center">
+                                    <Loader />
+                                </div>
                             ) : (
                                 <>
                                     Continue to Assessment

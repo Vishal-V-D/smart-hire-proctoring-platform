@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import {
     FaUserPlus, FaUserShield, FaSearch, FaEllipsisV,
-    FaEnvelope, FaTrashAlt, FaHistory, FaTimes, FaUserClock
+    FaEnvelope, FaTrashAlt, FaTimes
 } from 'react-icons/fa';
 import { companyService } from '@/api/companyService';
 import { showToast } from '@/utils/toast';
@@ -23,6 +23,7 @@ export default function CompanyTeamManagement() {
     const auth = useContext(AuthContext);
     const [team, setTeam] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
     // History State
@@ -30,13 +31,21 @@ export default function CompanyTeamManagement() {
     const [showHistory, setShowHistory] = useState(false);
     const [historyLoading, setHistoryLoading] = useState(false);
 
+
+
     const fetchTeam = async () => {
         setLoading(true);
         try {
             const res = await companyService.getTeamMembers();
             setTeam(res.data.users || []);
-        } catch (err) {
+            setError(null);
+        } catch (err: any) {
             console.error("Failed to load team", err);
+            if (err.response?.status === 403) {
+                setError("You don't have permission to view team members.");
+            } else {
+                setError("Failed to load team members.");
+            }
         } finally {
             setLoading(false);
         }
@@ -44,34 +53,16 @@ export default function CompanyTeamManagement() {
 
     useEffect(() => {
         fetchTeam();
-    }, []);
+    }, [auth?.user]);
 
-    const handleViewHistory = async () => {
-        const companyId = auth?.user?.company?.id;
-        if (!companyId) {
-            showToast("Company information missing", "error");
-            return;
-        }
-        setShowHistory(true);
-        setHistoryLoading(true);
-        setHistoryData([]);
-        try {
-            const res = await companyService.getCompanyHistory(companyId);
-            setHistoryData(res.data);
-        } catch (err) {
-            console.error(err);
-            showToast("Failed to load history", "error");
-        } finally {
-            setHistoryLoading(false);
-        }
-    };
+
 
     return (
         <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                    <div className="p-3 bg-primary rounded-2xl text-primary-foreground shadow-lg shadow-primary/20">
+                    <div className="p-3 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-2xl text-primary-foreground shadow-lg shadow-primary/20">
                         <FaUserShield size={24} />
                     </div>
                     <div>
@@ -80,16 +71,10 @@ export default function CompanyTeamManagement() {
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
-                    <button
-                        onClick={handleViewHistory}
-                        className="bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground px-4 py-3 rounded-xl font-bold transition-all flex items-center gap-2"
-                    >
-                        <FaHistory />
-                        <span>Audit Log</span>
-                    </button>
+
                     <button
                         onClick={() => setIsAddModalOpen(true)}
-                        className="bg-primary text-primary-foreground hover:bg-primary/90 px-6 py-3 rounded-xl font-bold transition-all shadow-md shadow-primary/20 flex items-center gap-2"
+                        className="bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground hover:bg-gradient-to-br from-indigo-600 to-violet-600/90 px-6 py-3 rounded-xl font-bold transition-all shadow-md shadow-primary/20 flex items-center gap-2"
                     >
                         <FaUserPlus />
                         <span>Add Member</span>
@@ -110,6 +95,8 @@ export default function CompanyTeamManagement() {
                     <tbody>
                         {loading ? (
                             <tr><td colSpan={3} className="p-8 text-center">Loading team...</td></tr>
+                        ) : error ? (
+                            <tr><td colSpan={3} className="p-8 text-center text-red-500">{error}</td></tr>
                         ) : team.length === 0 ? (
                             <tr><td colSpan={3} className="p-8 text-center text-muted-foreground">No team members found.</td></tr>
                         ) : (
@@ -155,59 +142,7 @@ export default function CompanyTeamManagement() {
                 />
             )}
 
-            {/* History Modal */}
-            <AnimatePresence>
-                {showHistory && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-card border border-border w-full max-w-2xl max-h-[80vh] flex flex-col rounded-[24px] shadow-2xl overflow-hidden"
-                        >
-                            <div className="p-6 border-b border-border flex items-center justify-between bg-muted/30">
-                                <h3 className="text-xl font-bold flex items-center gap-2">
-                                    <FaHistory className="text-primary" /> Audit History
-                                </h3>
-                                <button onClick={() => setShowHistory(false)} className="p-2 hover:bg-muted rounded-full">
-                                    <FaTimes />
-                                </button>
-                            </div>
-                            <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
-                                {historyLoading ? (
-                                    <div className="text-center py-8">Loading history...</div>
-                                ) : historyData.length === 0 ? (
-                                    <div className="text-center py-8 text-muted-foreground">No history found.</div>
-                                ) : (
-                                    <div className="space-y-4">
-                                        {historyData.map((log: any, idx: number) => (
-                                            <div key={idx} className="flex gap-4 p-4 rounded-xl bg-muted/20 border border-border">
-                                                <div className="mt-1">
-                                                    <div className="w-2 h-2 rounded-full bg-primary" />
-                                                </div>
-                                                <div className="flex-1">
-                                                    <div className="flex justify-between items-start">
-                                                        <h4 className="font-bold text-sm">{log.action || 'Action'}</h4>
-                                                        <span className="text-xs text-muted-foreground whitespace-nowrap">
-                                                            {log.timestamp ? new Date(log.timestamp).toLocaleString() : 'N/A'}
-                                                        </span>
-                                                    </div>
-                                                    <p className="text-sm text-muted-foreground mt-1">{log.description}</p>
-                                                    {log.performedBy && (
-                                                        <p className="text-xs text-primary mt-2 flex items-center gap-1">
-                                                            <FaUserClock size={10} /> {log.performedBy}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
+
         </div>
     );
 }
@@ -269,7 +204,7 @@ function AddMemberModal({ onClose, onSuccess }: { onClose: () => void, onSuccess
 
                     <div className="flex justify-end gap-3 pt-4">
                         <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground">Cancel</button>
-                        <button type="submit" disabled={isSubmitting} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-bold text-sm">
+                        <button type="submit" disabled={isSubmitting} className="px-4 py-2 bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground rounded-lg font-bold text-sm">
                             {isSubmitting ? 'Adding...' : 'Add Member'}
                         </button>
                     </div>

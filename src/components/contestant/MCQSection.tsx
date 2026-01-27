@@ -4,8 +4,9 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     ChevronLeft, ChevronRight, Bookmark, BookmarkCheck,
-    Layers, CheckCircle, Flag, Cloud, CloudOff, Loader2, AlertCircle, ArrowRight
+    Layers, CheckCircle, Flag, Cloud, CloudOff, AlertCircle, ArrowRight
 } from 'lucide-react';
+import Loader from '@/components/Loader';
 import { contestantService, type AssessmentSection, type AssessmentQuestion, type SaveAnswerRequest } from '@/api/contestantService';
 
 // Theme colors passed from parent or context could be better, but we'll stick to local for now or props.
@@ -214,7 +215,7 @@ export default function MCQSection({ assessmentId, section, theme, onComplete, o
     if (loading) {
         return (
             <div className={`flex-1 flex items-center justify-center`}>
-                <div className="w-8 h-8 border-2 border-[#0f62fe] border-t-transparent rounded-full animate-spin" />
+                <Loader />
             </div>
         );
     }
@@ -330,7 +331,11 @@ export default function MCQSection({ assessmentId, section, theme, onComplete, o
                                                 saveStatus === 'saved' ? 'bg-[#42be65]/10 text-[#42be65]' :
                                                     'bg-[#da1e28]/10 text-[#da1e28]'
                                                 }`}>
-                                                {saveStatus === 'saving' && <Loader2 className="w-3 h-3 animate-spin" />}
+                                                {saveStatus === 'saving' && (
+                                                    <div className="scale-x-50 scale-y-50 h-3 w-8 flex items-center justify-center">
+                                                        <Loader />
+                                                    </div>
+                                                )}
                                                 {saveStatus === 'saved' && <Cloud className="w-3 h-3" />}
                                                 {saveStatus === 'error' && <CloudOff className="w-3 h-3" />}
                                                 <span>
@@ -475,7 +480,7 @@ export default function MCQSection({ assessmentId, section, theme, onComplete, o
                                         You have solved <span className="font-bold text-[#42be65]">{answeredCount} of {questions.length}</span> questions.
                                     </p>
                                     <p className={`text-sm ${textSecondary}`}>
-                                        {confirmationType === 'submit' 
+                                        {confirmationType === 'submit'
                                             ? 'Are you sure you want to submit your assessment? You cannot change your answers after submission.'
                                             : `Move to the next section? You won't be able to edit this section's answers later.`
                                         }

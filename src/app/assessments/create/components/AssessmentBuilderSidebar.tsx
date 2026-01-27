@@ -667,7 +667,7 @@ export const AssessmentBuilderSidebar: React.FC<AssessmentBuilderSidebarProps> =
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id as any)}
                                 className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition-all duration-200 ${activeTab === tab.id
-                                    ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
+                                    ? 'bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground shadow-lg shadow-primary/20'
                                     : 'text-muted-foreground hover:text-primary hover:bg-primary/5'
                                     }`}
                             >
@@ -883,7 +883,7 @@ export const AssessmentBuilderSidebar: React.FC<AssessmentBuilderSidebarProps> =
                                 </div>
 
                                 <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-3 custom-scrollbar pr-2">
-                                    <div className="text-[10px] font-black uppercase text-foreground/60 tracking-widest pl-1 mt-2 mb-1">Categories</div>
+                                    <div className="text-[10px] font-Inter uppercase text-foreground/60 tracking-widest pl-1 mt-2 mb-1">Categories</div>
                                     {ASSESSMENT_CATEGORIES.map(category => (
                                         <div key={category.id} className="group">
                                             <div className={`rounded-xl transition-all duration-300 overflow-hidden border ${expandedCategories.includes(category.id) ? 'bg-muted/20 border-border/40 pb-2 shadow-sm' : 'bg-card border-border/20 hover:border-foreground/20 hover:shadow-sm'}`}>
@@ -925,7 +925,7 @@ export const AssessmentBuilderSidebar: React.FC<AssessmentBuilderSidebarProps> =
                                                                 {selectedSubCategories[category.id]?.length > 0 && (
                                                                     <button
                                                                         onClick={() => handleAddSection(category.id, category.sectionType)}
-                                                                        className="w-full py-2.5 mt-2 rounded-lg text-[10px] uppercase font-black flex items-center justify-center gap-2 text-background bg-foreground hover:opacity-90 transition-all shadow-md active:scale-[0.98] tracking-widest"
+                                                                        className="w-full py-2.5 mt-2 rounded-lg text-[10px] uppercase font-Inter flex items-center justify-center gap-2 text-background bg-foreground hover:opacity-90 transition-all shadow-md active:scale-[0.98] tracking-widest"
                                                                     >
                                                                         <Plus size={12} strokeWidth={3} /> Add Selection
                                                                     </button>
@@ -1057,7 +1057,7 @@ export const AssessmentBuilderSidebar: React.FC<AssessmentBuilderSidebarProps> =
                                 ) : (
                                     <div className="flex flex-col h-full">
                                         <div className="flex items-center justify-between mb-2 px-1">
-                                            <h4 className="text-[10px] font-black uppercase text-foreground/50 tracking-widest">Sections ({sections.length})</h4>
+                                            <h4 className="text-[10px] font-Inter uppercase text-foreground/50 tracking-widest">Sections ({sections.length})</h4>
                                             <button
                                                 onClick={() => {
                                                     if (confirm("Are you sure you want to clear all sections?")) {

@@ -116,7 +116,7 @@ const StatsModal = ({ isOpen, onClose, participants, stats, assessment }: StatsM
             
             {/* --- SIDEBAR --- */}
             <aside className={`${isSidebarOpen ? 'w-[400px]' : 'w-[100px]'} h-full bg-card border-r border-border/50 flex flex-col relative transition-all duration-500 shadow-2xl`}>
-                <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="absolute -right-4 top-24 z-50 p-2 rounded-full bg-primary text-primary-foreground shadow-lg hover:scale-110 transition-all">
+                <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="absolute -right-4 top-24 z-50 p-2 rounded-full bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground shadow-lg hover:scale-110 transition-all">
                     {isSidebarOpen ? <ChevronLeft size={20} /> : <ChevronRight size={20} />}
                 </button>
 
@@ -125,30 +125,30 @@ const StatsModal = ({ isOpen, onClose, participants, stats, assessment }: StatsM
                         <button onClick={onClose} className="mb-6 p-2.5 rounded-xl bg-secondary text-muted-foreground hover:text-primary transition-all group">
                             <X size={18} className="group-hover:rotate-90 transition-transform duration-300" />
                         </button>
-                        <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em] mb-2">Operational Context</p>
-                        <h2 className="text-xl font-black text-foreground uppercase leading-tight mb-8 border-l-4 border-primary pl-4 tracking-tighter">
+                        <p className="text-[10px] font-Inter text-primary uppercase tracking-[0.3em] mb-2">Operational Context</p>
+                        <h2 className="text-xl font-Inter text-foreground uppercase leading-tight mb-8 border-l-4 border-primary pl-4 tracking-tighter">
                             {assessment?.title || "Neural Evaluation"}
                         </h2>
-                        <h1 className="text-4xl font-black tracking-tighter text-foreground mb-1 leading-none uppercase">
+                        <h1 className="text-4xl font-Inter tracking-tighter text-foreground mb-1 leading-none uppercase">
                             Cohort <br /><span className="text-primary italic tracking-tight">Intelligence</span>
                         </h1>
-                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">Neural Analytics Engine</p>
+                        <p className="text-[10px] font-Inter text-muted-foreground uppercase tracking-[0.3em]">Neural Analytics Engine</p>
                     </div>
 
                     <div className="space-y-12">
                         <div>
-                            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1 flex items-center gap-2"><Users size={12} /> Filtered Nodes</p>
+                            <p className="text-[10px] font-Inter text-muted-foreground uppercase tracking-widest mb-1 flex items-center gap-2"><Users size={12} /> Filtered Nodes</p>
                             <div className="flex items-baseline gap-2">
-                                <span className="text-7xl font-black tracking-tighter">{filteredData.length}</span>
-                                <span className="text-xs font-black text-success">TARGETS</span>
+                                <span className="text-7xl font-Inter tracking-tighter">{filteredData.length}</span>
+                                <span className="text-xs font-Inter text-success">TARGETS</span>
                             </div>
                         </div>
 
                         <div>
-                            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1 flex items-center gap-2"><TrendingUp size={12} /> Adaptive Avg</p>
+                            <p className="text-[10px] font-Inter text-muted-foreground uppercase tracking-widest mb-1 flex items-center gap-2"><TrendingUp size={12} /> Adaptive Avg</p>
                             <div className="flex items-baseline gap-1">
-                                <span className="text-7xl font-black tracking-tighter text-success">{currentAvgScore}</span>
-                                <span className="text-3xl font-black text-muted-foreground">%</span>
+                                <span className="text-7xl font-Inter tracking-tighter text-success">{currentAvgScore}</span>
+                                <span className="text-3xl font-Inter text-muted-foreground">%</span>
                             </div>
                         </div>
                     </div>
@@ -163,7 +163,7 @@ const StatsModal = ({ isOpen, onClose, participants, stats, assessment }: StatsM
                     <div className="flex flex-wrap items-center gap-6 bg-card border border-border/60 p-5 rounded-[2rem] shadow-xl backdrop-blur-xl sticky top-0 z-50">
                         <div className="flex items-center gap-3 px-4 border-r border-border/50">
                             <Filter size={18} className="text-primary" />
-                            <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Filter Engine</span>
+                            <span className="text-[10px] font-Inter text-muted-foreground uppercase tracking-[0.2em]">Filter Engine</span>
                         </div>
                         
                         <div className="flex flex-1 items-center gap-4">
@@ -171,7 +171,7 @@ const StatsModal = ({ isOpen, onClose, participants, stats, assessment }: StatsM
                                 <select 
                                     value={selectedDept} 
                                     onChange={(e) => setSelectedDept(e.target.value)} 
-                                    className="w-full bg-secondary/40 border border-border/50 text-[11px] font-black px-5 py-3 rounded-2xl outline-none cursor-pointer appearance-none uppercase tracking-tighter hover:bg-secondary/60 focus:ring-2 focus:ring-primary/20 transition-all"
+                                    className="w-full bg-secondary/40 border border-border/50 text-[11px] font-Inter px-5 py-3 rounded-2xl outline-none cursor-pointer appearance-none uppercase tracking-tighter hover:bg-secondary/60 focus:ring-2 focus:ring-primary/20 transition-all"
                                 >
                                     <option value="all">🌐 ALL DEPARTMENTS</option>
                                     {departments.map(d => <option key={d} value={d}>{d}</option>)}
@@ -185,7 +185,7 @@ const StatsModal = ({ isOpen, onClose, participants, stats, assessment }: StatsM
                                 <select 
                                     value={selectedCollege} 
                                     onChange={(e) => setSelectedCollege(e.target.value)} 
-                                    className="w-full bg-secondary/40 border border-border/50 text-[11px] font-black px-5 py-3 rounded-2xl outline-none cursor-pointer appearance-none uppercase tracking-tighter hover:bg-secondary/60 focus:ring-2 focus:ring-primary/20 transition-all"
+                                    className="w-full bg-secondary/40 border border-border/50 text-[11px] font-Inter px-5 py-3 rounded-2xl outline-none cursor-pointer appearance-none uppercase tracking-tighter hover:bg-secondary/60 focus:ring-2 focus:ring-primary/20 transition-all"
                                 >
                                     <option value="all">🏫 ALL COLLEGES</option>
                                     {colleges.map(c => <option key={c} value={c}>{c}</option>)}
@@ -198,7 +198,7 @@ const StatsModal = ({ isOpen, onClose, participants, stats, assessment }: StatsM
                             {(selectedDept !== 'all' || selectedCollege !== 'all') && (
                                 <button 
                                     onClick={() => { setSelectedDept('all'); setSelectedCollege('all'); }}
-                                    className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-danger/10 text-danger text-[10px] font-black uppercase tracking-widest hover:bg-danger hover:text-white transition-all animate-in slide-in-from-right-4"
+                                    className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-danger/10 text-danger text-[10px] font-Inter uppercase tracking-widest hover:bg-danger hover:text-white transition-all animate-in slide-in-from-right-4"
                                 >
                                     <RefreshCcw size={14} /> Reset Filters
                                 </button>
@@ -210,12 +210,12 @@ const StatsModal = ({ isOpen, onClose, participants, stats, assessment }: StatsM
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <section className="bg-card rounded-[2.5rem] p-8 border border-border/60 shadow-sm flex flex-col md:flex-row items-center gap-8 min-h-[350px]">
                             <div className="flex-1">
-                                <h3 className="text-xs font-black uppercase tracking-tighter flex items-center gap-2 mb-2 text-foreground">
+                                <h3 className="text-xs font-Inter uppercase tracking-tighter flex items-center gap-2 mb-2 text-foreground">
                                     <BrainCircuit size={16} className="text-primary" /> Matrix Analysis
                                 </h3>
                                 <div className="space-y-3 mt-6">
                                     {performanceRadar.map((p, i) => (
-                                        <div key={i} className="flex justify-between items-center text-[10px] font-black border-b border-border/50 pb-2">
+                                        <div key={i} className="flex justify-between items-center text-[10px] font-Inter border-b border-border/50 pb-2">
                                             <span className="text-muted-foreground uppercase">{p.metric}</span>
                                             <span className="text-primary">{p.value}%</span>
                                         </div>
@@ -235,7 +235,7 @@ const StatsModal = ({ isOpen, onClose, participants, stats, assessment }: StatsM
 
                         <section className="bg-card rounded-[2.5rem] p-8 border border-border/60 shadow-sm flex flex-col md:flex-row items-center min-h-[350px]">
                             <div className="md:w-1/2">
-                                <h3 className="text-xs font-black uppercase tracking-tighter flex items-center gap-2 mb-6 text-foreground">
+                                <h3 className="text-xs font-Inter uppercase tracking-tighter flex items-center gap-2 mb-6 text-foreground">
                                     <Target size={16} className="text-emerald-500" /> Answer Accuracy
                                 </h3>
                                 <div className="space-y-6">
@@ -243,8 +243,8 @@ const StatsModal = ({ isOpen, onClose, participants, stats, assessment }: StatsM
                                         <div key={i} className="flex items-center gap-4">
                                             <div className="w-4 h-4 rounded-md" style={{ backgroundColor: item.fill }} />
                                             <div>
-                                                <p className="text-[10px] font-black text-muted-foreground uppercase leading-none mb-1">{item.name}</p>
-                                                <p className="text-3xl font-black tracking-tighter">{item.value.toLocaleString()}</p>
+                                                <p className="text-[10px] font-Inter text-muted-foreground uppercase leading-none mb-1">{item.name}</p>
+                                                <p className="text-3xl font-Inter tracking-tighter">{item.value.toLocaleString()}</p>
                                             </div>
                                         </div>
                                     ))}
@@ -266,15 +266,15 @@ const StatsModal = ({ isOpen, onClose, participants, stats, assessment }: StatsM
                     {/* TEMPORAL RADIAL */}
                     <section className="bg-card rounded-[2.5rem] p-8 border border-border/60 shadow-sm min-h-[380px] flex flex-col md:flex-row items-center gap-10">
                         <div className="md:w-1/3">
-                            <h3 className="text-xs font-black uppercase tracking-tighter flex items-center gap-2 mb-4 text-foreground">
+                            <h3 className="text-xs font-Inter uppercase tracking-tighter flex items-center gap-2 mb-4 text-foreground">
                                 <Clock size={16} className="text-amber-500" /> Temporal Distribution
                             </h3>
                             <div className="grid grid-cols-1 gap-3 mt-8">
                                     {sectionTimeData.map((s: any, i: number) => (
                                     <div key={i} className="flex items-center gap-3 p-3 rounded-2xl bg-muted/20 border border-border/40">
                                         <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: s.fill }} />
-                                        <span className="text-[10px] font-black uppercase tracking-tighter text-muted-foreground truncate">{s.name}</span>
-                                        <span className="ml-auto text-xs font-black">{s.minutes}m</span>
+                                        <span className="text-[10px] font-Inter uppercase tracking-tighter text-muted-foreground truncate">{s.name}</span>
+                                        <span className="ml-auto text-xs font-Inter">{s.minutes}m</span>
                                     </div>
                                 ))}
                             </div>
@@ -292,7 +292,7 @@ const StatsModal = ({ isOpen, onClose, participants, stats, assessment }: StatsM
                     {/* BENCHMARKING GRID */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <section className="bg-card rounded-[2.5rem] p-8 border border-border/60 shadow-sm flex flex-col items-center">
-                            <h3 className="w-full text-xs font-black uppercase tracking-tighter flex items-center gap-2 mb-8 text-foreground">
+                            <h3 className="w-full text-xs font-Inter uppercase tracking-tighter flex items-center gap-2 mb-8 text-foreground">
                                 <Activity size={16} className="text-primary" /> Grade Spectrum
                             </h3>
                             <div className="h-64 w-full">
@@ -309,7 +309,7 @@ const StatsModal = ({ isOpen, onClose, participants, stats, assessment }: StatsM
                         </section>
 
                         <section className="bg-card rounded-[2.5rem] p-8 border border-border/60 shadow-sm flex flex-col items-center">
-                            <h3 className="w-full text-xs font-black uppercase tracking-tighter flex items-center gap-2 mb-8 text-foreground">
+                            <h3 className="w-full text-xs font-Inter uppercase tracking-tighter flex items-center gap-2 mb-8 text-foreground">
                                 <Zap size={16} className="text-primary" /> Efficiency Score Trend
                             </h3>
                             <div className="h-64 w-full">
@@ -333,7 +333,7 @@ const StatsModal = ({ isOpen, onClose, participants, stats, assessment }: StatsM
                     <section className="bg-card rounded-[2.5rem] border border-border/60 shadow-2xl overflow-hidden">
                         <div className="p-10 border-b border-border/40 flex justify-between items-center bg-muted/10">
                             <div>
-                                <h3 className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-foreground">
+                                <h3 className="text-xs font-Inter uppercase tracking-widest flex items-center gap-2 text-foreground">
                                     <Trophy size={18} className="text-amber-500" /> Elite Performers
                                 </h3>
                                 <p className="text-[10px] text-muted-foreground font-bold mt-1 uppercase tracking-tighter">Current Cohort Spectrum (Showing Top 15)</p>
@@ -344,11 +344,11 @@ const StatsModal = ({ isOpen, onClose, participants, stats, assessment }: StatsM
                             <table className="w-full text-left border-collapse">
                                 <thead>
                                     <tr className="bg-muted/30 border-b border-border/40">
-                                        <th className="py-5 px-8 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Rank</th>
-                                        <th className="py-5 px-6 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Node Name</th>
-                                        <th className="py-5 px-6 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Department</th>
-                                        <th className="py-5 px-6 text-[10px] font-black text-muted-foreground uppercase tracking-widest">College</th>
-                                        <th className="py-5 px-8 text-[10px] font-black text-muted-foreground uppercase tracking-widest text-right">Efficiency</th>
+                                        <th className="py-5 px-8 text-[10px] font-Inter text-muted-foreground uppercase tracking-widest">Rank</th>
+                                        <th className="py-5 px-6 text-[10px] font-Inter text-muted-foreground uppercase tracking-widest">Node Name</th>
+                                        <th className="py-5 px-6 text-[10px] font-Inter text-muted-foreground uppercase tracking-widest">Department</th>
+                                        <th className="py-5 px-6 text-[10px] font-Inter text-muted-foreground uppercase tracking-widest">College</th>
+                                        <th className="py-5 px-8 text-[10px] font-Inter text-muted-foreground uppercase tracking-widest text-right">Efficiency</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -358,7 +358,7 @@ const StatsModal = ({ isOpen, onClose, participants, stats, assessment }: StatsM
                                         .map((p, i) => (
                                             <tr key={i} className="border-b border-border/30 hover:bg-muted/20 transition-colors group">
                                                 <td className="py-5 px-8">
-                                                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-black ${
+                                                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-Inter ${
                                                         i === 0 ? 'bg-amber-500 text-white shadow-lg' : 
                                                         i === 1 ? 'bg-slate-400 text-white' : 
                                                         i === 2 ? 'bg-amber-700 text-white' : 
@@ -368,7 +368,7 @@ const StatsModal = ({ isOpen, onClose, participants, stats, assessment }: StatsM
                                                     </div>
                                                 </td>
                                                 <td className="py-5 px-6">
-                                                    <span className="text-xs font-black text-foreground uppercase tracking-tight">
+                                                    <span className="text-xs font-Inter text-foreground uppercase tracking-tight">
                                                         {p.registration?.fullName || 'Anonymous'}
                                                     </span>
                                                 </td>
@@ -378,12 +378,12 @@ const StatsModal = ({ isOpen, onClose, participants, stats, assessment }: StatsM
                                                     </span>
                                                 </td>
                                                 <td className="py-5 px-6">
-                                                    <span className="text-[10px] font-black text-foreground/70 uppercase">
+                                                    <span className="text-[10px] font-Inter text-foreground/70 uppercase">
                                                         {p.registration?.college || 'N/A'}
                                                     </span>
                                                 </td>
                                                 <td className="py-5 px-8 text-right">
-                                                    <span className="text-sm font-black text-primary tracking-tighter">
+                                                    <span className="text-sm font-Inter text-primary tracking-tighter">
                                                         {Math.round(p.scores?.percentage || 0)}%
                                                     </span>
                                                 </td>

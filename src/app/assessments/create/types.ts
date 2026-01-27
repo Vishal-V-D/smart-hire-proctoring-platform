@@ -84,6 +84,7 @@ export interface Question {
     correctAnswer?: string | string[]; // Single (string) or Multiple (string[]) or Fill-in (string)
     codeStub?: string; // For Coding questions
     marks?: number;
+    negativeMarks?: number;
     // For coding problems linked from problem bank
     problemId?: string;
     problemData?: any; // Full CodingProblem data

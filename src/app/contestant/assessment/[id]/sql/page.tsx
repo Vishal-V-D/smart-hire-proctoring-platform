@@ -8,8 +8,9 @@ import remarkGfm from 'remark-gfm';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     Play, Send, ChevronLeft, ChevronRight, ChevronDown, Sun, Moon, CheckCircle, XCircle,
-    Loader2, Terminal, Database, Zap, AlertTriangle, Lock, BarChart2, Copy, RotateCcw
+    Terminal, Database, Zap, AlertTriangle, Lock, BarChart2, Copy, RotateCcw, Loader2
 } from 'lucide-react';
+import Loader from '@/components/Loader';
 import { contestantService } from '@/api/contestantService';
 import { sqlQuestionService } from '@/api/sqlQuestionService';
 import { codeService, type TestCaseResult, type RunCodeSummary, type SubmitCodeResponse } from '@/api/codeService';
@@ -22,7 +23,7 @@ import { socketService } from '@/api/socketService';
 const Editor = dynamic(() => import('@monaco-editor/react'), { ssr: false });
 
 const LANGUAGES = [
-    { id: 'sql', name: 'Standard SQL' },
+    { id: 'sqlite', name: 'SQLite' },
     { id: 'mysql', name: 'MySQL' },
     { id: 'postgresql', name: 'PostgreSQL' },
 ];
@@ -153,6 +154,13 @@ function SQLPageContent() {
         userResult: any[];
         expectedResult: any[];
         feedback: string;
+        hiddenTotal?: number;
+        hiddenPassed?: number;
+        hiddenTestResults?: any[];
+        testCasesStats?: {
+            sample: { total: number; passed: number };
+            hidden: { total: number; passed: number };
+        };
     } | null>(null);
 
     const [activeTab, setActiveTab] = useState<'result' | 'expected'>('result');
@@ -368,7 +376,11 @@ function SQLPageContent() {
                     score: payload.result.score,
                     userResult: payload.result.userResult || payload.result.output || [],
                     expectedResult: payload.result.expectedResult || payload.result.expectedOutput || [],
-                    feedback: payload.result.feedback || ''
+                    feedback: payload.result.feedback || '',
+                    hiddenTotal: payload.result.hiddenTotal,
+                    hiddenPassed: payload.result.hiddenPassed,
+                    hiddenTestResults: payload.result.hiddenTestResults,
+                    testCasesStats: payload.result.testCasesStats
                 });
                 setSqlError(null);
                 setActiveTab('result');
@@ -403,12 +415,12 @@ function SQLPageContent() {
         setSqlCheckResult(null);
 
         // Determine language
-        let newLanguage = 'sql';
+        let newLanguage = 'sqlite';
         if (problem.dialect) {
             const d = problem.dialect.toLowerCase();
             if (d.includes('postgres')) newLanguage = 'postgresql';
             else if (d.includes('mysql')) newLanguage = 'mysql';
-            else if (d.includes('sqlite')) newLanguage = 'sqlite';
+            else if (d.includes('sqlite') || d === 'sql') newLanguage = 'sqlite';
         }
         setLanguage(newLanguage);
 
@@ -483,7 +495,8 @@ function SQLPageContent() {
         try {
             const response = await sqlQuestionService.runQuery({
                 questionId: problem.id,
-                query: code
+                query: code,
+                dialect: language
             });
 
             console.log('✅ [SQL RUN] Job Queued:', response.data);
@@ -535,7 +548,8 @@ function SQLPageContent() {
                 questionId: problem.id,
                 query: code,
                 assessmentId: assessmentId,
-                sectionId: sections[currentSectionIndex]?.id
+                sectionId: sections[currentSectionIndex]?.id,
+                dialect: language
             });
 
             console.log('✅ [SQL SUBMIT] Job Queued:', response.data);
@@ -725,7 +739,7 @@ function SQLPageContent() {
     if (loading) {
         return (
             <div className={`h-screen flex items-center justify-center ${bg}`}>
-                <Loader2 className="w-10 h-10 animate-spin text-[#0f62fe]" />
+                <Loader />
             </div>
         );
     }
@@ -880,6 +894,10 @@ function SQLPageContent() {
                             )}
                         </div>
 
+                        {/* Problem Statement Header */}
+                        <h3 className={`text-sm font-bold uppercase tracking-wider mb-3 flex items-center gap-2 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
+                            Problem Statement
+                        </h3>
                         <div className={`prose max-w-none ${theme === 'dark' ? 'prose-invert' : ''} mb-8`}>
                             {problem?.description ? (
                                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
@@ -890,7 +908,7 @@ function SQLPageContent() {
                             )}
                         </div>
 
-                        {/* Input Tables - Database Schema */}
+                        {/* Schema Information (Input Tables) */}
                         {problem?.inputTables && (() => {
                             try {
                                 let tables = typeof problem.inputTables === 'string'
@@ -909,15 +927,132 @@ function SQLPageContent() {
                                 return (
                                     <div className="mb-6">
                                         <h3 className={`text-sm font-bold uppercase tracking-wider mb-3 flex items-center gap-2 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
-                                            <Database size={14} /> Input Table(s)
+                                            <Database size={14} /> Schema Information
+                                        </h3>
+                                        <div className="space-y-4">
+                                            {tables.map((t: any, idx: number) => {
+                                                // Adapter for different table structures
+                                                // 1. Standard format: { name: "...", columns: [...], rows: [...] }
+                                                // 2. Schema format: { table_name: "...", info: "...", table: { header: [...], rows: [...] } }
+
+                                                const tableName = t.name || t.table_name || `Table ${idx + 1}`;
+                                                const tableInfo = t.info || '';
+
+                                                let columns: string[] = t.columns || [];
+                                                let rows: any[] = t.rows || [];
+
+                                                if (t.table && t.table.header && t.table.rows) {
+                                                    columns = t.table.header;
+                                                    rows = t.table.rows;
+                                                }
+
+                                                return (
+                                                    <div key={idx} className={`rounded-lg border overflow-hidden ${theme === 'dark' ? 'bg-[#1e1e1e] border-[#393939]' : 'bg-white border-gray-200'}`}>
+                                                        <div className={`px-4 py-2.5 border-b flex flex-col gap-1 ${theme === 'dark' ? 'bg-[#262626] border-[#393939] text-gray-200' : 'bg-gray-50 border-gray-200 text-gray-900'}`}>
+                                                            <div className="flex items-center gap-2 font-bold text-sm">
+                                                                <Database size={14} className="text-emerald-500" />
+                                                                <span className="font-semibold">{tableName}</span>
+                                                                {rows && <span className="text-[10px] opacity-60 font-normal ml-auto">({rows.length} {rows.length === 1 ? 'row' : 'rows'})</span>}
+                                                            </div>
+                                                            {tableInfo && (
+                                                                <div className={`text-xs opacity-70 font-normal ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                                    {tableInfo}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <div className="overflow-x-auto">
+                                                            <table className="w-full text-xs">
+                                                                <thead className={`${theme === 'dark' ? 'bg-[#262626]/70' : 'bg-gray-100'}`}>
+                                                                    <tr>
+                                                                        {columns.map((col: string, cIdx: number) => (
+                                                                            <th key={cIdx} className={`px-4 py-2.5 text-left font-mono font-semibold border-b ${theme === 'dark' ? 'border-[#393939] text-gray-300' : 'border-gray-200 text-gray-700'}`}>
+                                                                                {col}
+                                                                            </th>
+                                                                        ))}
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    {rows.map((row: any, rIdx: number) => (
+                                                                        <tr key={rIdx} className={`border-b last:border-0 ${theme === 'dark' ? 'border-[#393939] hover:bg-[#262626]' : 'border-gray-100 hover:bg-gray-50'}`}>
+                                                                            {columns.map((col: string, cIdx: number) => {
+                                                                                // Handle both object-based (row[col]) and array-based (row[cIdx]) rows
+                                                                                let cellValue: any;
+                                                                                if (Array.isArray(row)) {
+                                                                                    cellValue = row[cIdx];
+                                                                                } else {
+                                                                                    cellValue = row[col];
+                                                                                }
+
+                                                                                return (
+                                                                                    <td key={cIdx} className={`px-4 py-2 font-mono ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
+                                                                                        {cellValue !== undefined ? String(cellValue) : '-'}
+                                                                                    </td>
+                                                                                );
+                                                                            })}
+                                                                        </tr>
+                                                                    ))}
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                );
+                            } catch (e) {
+                                console.error("❌ Failed to parse inputTables:", e, problem.inputTables);
+                                return (
+                                    <div className={`mb-6 p-4 rounded-lg border ${theme === 'dark' ? 'bg-red-500/10 border-red-500/30 text-red-400' : 'bg-red-50 border-red-200 text-red-600'}`}>
+                                        <p className="text-sm font-medium">Failed to load schema information</p>
+                                    </div>
+                                );
+                            }
+                        })()}
+
+                        {/* Sample Data (Parsed from Schema Setup) */}
+                        {problem?.schemaSetup && (() => {
+                            try {
+                                const insertRegex = /INSERT INTO\s+([`'"]?(\w+)[`'"]?)\s*\(([^)]+)\)\s*VALUES\s*([\s\S]+?);/gmi;
+                                const tables: any[] = [];
+                                let match;
+                                const regex = new RegExp(insertRegex);
+
+                                while ((match = regex.exec(problem.schemaSetup)) !== null) {
+                                    const tableName = match[2];
+                                    const columns = match[3].split(',').map(c => c.trim().replace(/[`'"]/g, ''));
+                                    const valuesBlock = match[4];
+
+                                    const rows = valuesBlock.split(/\)\s*,\s*\(/).map(rowStr => {
+                                        let cleanRow = rowStr.trim();
+                                        if (cleanRow.startsWith('(')) cleanRow = cleanRow.substring(1);
+                                        if (cleanRow.endsWith(')')) cleanRow = cleanRow.substring(0, cleanRow.length - 1);
+                                        return cleanRow.split(',').map(v => {
+                                            const val = v.trim();
+                                            if (val.startsWith("'") && val.endsWith("'")) return val.slice(1, -1);
+                                            return val;
+                                        });
+                                    });
+
+                                    tables.push({ name: tableName, columns, rows });
+                                }
+
+                                if (tables.length === 0) return null;
+
+                                return (
+                                    <div className="mb-6">
+                                        <h3 className={`text-sm font-bold uppercase tracking-wider mb-3 flex items-center gap-2 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
+                                            <Database size={14} /> Sample Data
                                         </h3>
                                         <div className="space-y-4">
                                             {tables.map((table: any, idx: number) => (
                                                 <div key={idx} className={`rounded-lg border overflow-hidden ${theme === 'dark' ? 'bg-[#1e1e1e] border-[#393939]' : 'bg-white border-gray-200'}`}>
-                                                    <div className={`px-4 py-2.5 text-sm font-bold border-b flex items-center gap-2 ${theme === 'dark' ? 'bg-[#262626] border-[#393939] text-gray-200' : 'bg-gray-50 border-gray-200 text-gray-900'}`}>
-                                                        <Database size={14} className="text-emerald-500" />
-                                                        <span className="font-semibold">{table.name}</span>
-                                                        {table.rows && <span className="text-[10px] opacity-60 font-normal ml-auto">({table.rows.length} {table.rows.length === 1 ? 'row' : 'rows'})</span>}
+                                                    <div className={`px-4 py-2.5 border-b flex flex-col gap-1 ${theme === 'dark' ? 'bg-[#262626] border-[#393939] text-gray-200' : 'bg-gray-50 border-gray-200 text-gray-900'}`}>
+                                                        <div className="flex items-center gap-2 font-bold text-sm">
+                                                            <Database size={14} className="text-emerald-500" />
+                                                            <span className="font-semibold">{table.name}</span>
+                                                            {table.rows && <span className="text-[10px] opacity-60 font-normal ml-auto">({table.rows.length} {table.rows.length === 1 ? 'row' : 'rows'})</span>}
+                                                        </div>
                                                     </div>
                                                     <div className="overflow-x-auto">
                                                         <table className="w-full text-xs">
@@ -931,13 +1066,16 @@ function SQLPageContent() {
                                                                 </tr>
                                                             </thead>
                                                             <tbody>
-                                                                {table.rows && table.rows.map((row: any, rIdx: number) => (
+                                                                {table.rows.map((row: any, rIdx: number) => (
                                                                     <tr key={rIdx} className={`border-b last:border-0 ${theme === 'dark' ? 'border-[#393939] hover:bg-[#262626]' : 'border-gray-100 hover:bg-gray-50'}`}>
-                                                                        {table.columns && table.columns.map((col: string, cIdx: number) => (
-                                                                            <td key={cIdx} className={`px-4 py-2 font-mono ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
-                                                                                {row[col] !== undefined ? String(row[col]) : '-'}
-                                                                            </td>
-                                                                        ))}
+                                                                        {table.columns.map((col: string, cIdx: number) => {
+                                                                            const cellValue = row[cIdx];
+                                                                            return (
+                                                                                <td key={cIdx} className={`px-4 py-2 font-mono ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
+                                                                                    {cellValue !== undefined ? String(cellValue) : '-'}
+                                                                                </td>
+                                                                            );
+                                                                        })}
                                                                     </tr>
                                                                 ))}
                                                             </tbody>
@@ -949,12 +1087,8 @@ function SQLPageContent() {
                                     </div>
                                 );
                             } catch (e) {
-                                console.error("❌ Failed to parse inputTables:", e, problem.inputTables);
-                                return (
-                                    <div className={`mb-6 p-4 rounded-lg border ${theme === 'dark' ? 'bg-red-500/10 border-red-500/30 text-red-400' : 'bg-red-50 border-red-200 text-red-600'}`}>
-                                        <p className="text-sm font-medium">Failed to load input tables</p>
-                                    </div>
-                                );
+                                console.error("Failed to parse schemaSetup:", e);
+                                return null;
                             }
                         })()}
 
@@ -970,11 +1104,22 @@ function SQLPageContent() {
                                     if (data.length > 0) {
                                         const firstItem = data[0];
                                         // Check if it's an array of tables (has rows/columns keys)
-                                        if (firstItem && typeof firstItem === 'object' && 'rows' in firstItem && 'columns' in firstItem) {
+                                        if (firstItem && typeof firstItem === 'object' && !Array.isArray(firstItem) && 'rows' in firstItem && 'columns' in firstItem) {
                                             tablesToRender = data;
                                         } else {
-                                            // Assume raw rows (Query Output) - infer columns from first row
-                                            const columns = firstItem ? Object.keys(firstItem) : [];
+                                            // Assume raw rows (Query Output)
+                                            // 1. Array of Objects: keys are columns
+                                            // 2. Array of Arrays: columns unknown (use indices or generic names)
+
+                                            let columns: string[] = [];
+                                            if (Array.isArray(firstItem)) {
+                                                // Array of arrays - use indices? Or just don't show header?
+                                                // Better: "Col 1", "Col 2"...
+                                                columns = firstItem.map((_, i) => `Col ${i + 1}`);
+                                            } else if (typeof firstItem === 'object') {
+                                                columns = Object.keys(firstItem);
+                                            }
+
                                             tablesToRender = [{
                                                 name: 'Expected Output',
                                                 columns: columns,
@@ -987,7 +1132,6 @@ function SQLPageContent() {
                                     if ('rows' in data && 'columns' in data) {
                                         tablesToRender = [data];
                                     }
-                                    // Or single wrapper object containing 'expectedResult'? 
                                 }
 
                                 if (tablesToRender.length === 0) return null;
@@ -1019,11 +1163,19 @@ function SQLPageContent() {
                                                             <tbody>
                                                                 {table.rows && table.rows.map((row: any, rIdx: number) => (
                                                                     <tr key={rIdx} className={`border-b last:border-0 ${theme === 'dark' ? 'border-[#393939] hover:bg-[#262626]' : 'border-gray-100 hover:bg-gray-50'}`}>
-                                                                        {table.columns && table.columns.map((col: string, cIdx: number) => (
-                                                                            <td key={cIdx} className={`px-4 py-2 font-mono ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
-                                                                                {row[col] !== undefined ? String(row[col]) : '-'}
-                                                                            </td>
-                                                                        ))}
+                                                                        {table.columns && table.columns.map((col: string, cIdx: number) => {
+                                                                            let cellValue: any;
+                                                                            if (Array.isArray(row)) {
+                                                                                cellValue = row[cIdx];
+                                                                            } else {
+                                                                                cellValue = row[col];
+                                                                            }
+                                                                            return (
+                                                                                <td key={cIdx} className={`px-4 py-2 font-mono ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
+                                                                                    {cellValue !== undefined ? String(cellValue) : '-'}
+                                                                                </td>
+                                                                            );
+                                                                        })}
                                                                     </tr>
                                                                 ))}
                                                             </tbody>
@@ -1070,13 +1222,13 @@ function SQLPageContent() {
                                     return (
                                         <div className="mb-6">
                                             <h3 className={`text-sm font-bold uppercase tracking-wider mb-3 opacity-80 flex items-center gap-2 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
-                                                <Zap size={14} /> Sample Cases
+                                                <Zap size={14} /> Test Cases
                                             </h3>
                                             <div className="space-y-4">
                                                 {samples.map((sample: any, idx: number) => (
                                                     <div key={idx} className={`rounded-lg border overflow-hidden ${theme === 'dark' ? 'border-[#393939]' : 'border-gray-200'}`}>
                                                         <div className={`px-4 py-2 text-xs font-bold border-b opacity-70 flex justify-between ${theme === 'dark' ? 'bg-[#262626] border-[#393939]' : 'bg-gray-100 border-gray-200'}`}>
-                                                            <span>Sample {idx + 1}</span>
+                                                            <span>Case {idx + 1}</span>
                                                         </div>
                                                         <div className="p-3 space-y-3">
                                                             <div>
@@ -1276,6 +1428,91 @@ function SQLPageContent() {
                                             <p className="opacity-90">{sqlCheckResult.feedback}</p>
                                         </div>
 
+                                        {/* Test Cases Stats (New Structure) */}
+                                        {sqlCheckResult.testCasesStats ? (
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                {/* Sample Cases */}
+                                                <div className={`p-3 rounded border ${theme === 'dark' ? 'bg-[#1e1e1e] border-[#393939]' : 'bg-gray-50 border-gray-200'}`}>
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <span className="text-xs font-bold uppercase tracking-wider opacity-70 flex items-center gap-2">
+                                                            <Terminal size={12} /> Sample Cases
+                                                        </span>
+                                                        <span className={`text-xs font-bold ${sqlCheckResult.testCasesStats.sample.passed === sqlCheckResult.testCasesStats.sample.total ? 'text-green-500' : 'text-amber-500'}`}>
+                                                            {sqlCheckResult.testCasesStats.sample.passed}/{sqlCheckResult.testCasesStats.sample.total} Passed
+                                                        </span>
+                                                    </div>
+                                                    <div className="h-1.5 w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                                        <div
+                                                            className={`h-full ${sqlCheckResult.testCasesStats.sample.passed === sqlCheckResult.testCasesStats.sample.total ? 'bg-green-500' : 'bg-amber-500'}`}
+                                                            style={{ width: `${((sqlCheckResult.testCasesStats.sample.passed || 0) / (sqlCheckResult.testCasesStats.sample.total || 1)) * 100}%` }}
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                {/* Hidden Cases */}
+                                                <div className={`p-3 rounded border ${theme === 'dark' ? 'bg-[#1e1e1e] border-[#393939]' : 'bg-gray-50 border-gray-200'}`}>
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <span className="text-xs font-bold uppercase tracking-wider opacity-70 flex items-center gap-2">
+                                                            <Lock size={12} /> Hidden Cases
+                                                        </span>
+                                                        <span className={`text-xs font-bold ${sqlCheckResult.testCasesStats.hidden.passed === sqlCheckResult.testCasesStats.hidden.total ? 'text-green-500' : 'text-amber-500'}`}>
+                                                            {sqlCheckResult.testCasesStats.hidden.passed}/{sqlCheckResult.testCasesStats.hidden.total} Passed
+                                                        </span>
+                                                    </div>
+                                                    <div className="h-1.5 w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                                        <div
+                                                            className={`h-full ${sqlCheckResult.testCasesStats.hidden.passed === sqlCheckResult.testCasesStats.hidden.total ? 'bg-green-500' : 'bg-amber-500'}`}
+                                                            style={{ width: `${((sqlCheckResult.testCasesStats.hidden.passed || 0) / (sqlCheckResult.testCasesStats.hidden.total || 1)) * 100}%` }}
+                                                        />
+                                                    </div>
+
+                                                    {/* Detailed Hidden Results (Dots) */}
+                                                    {sqlCheckResult.hiddenTestResults && sqlCheckResult.hiddenTestResults.length > 0 && (
+                                                        <div className="mt-3 grid grid-cols-5 gap-1">
+                                                            {sqlCheckResult.hiddenTestResults.map((res: any, idx: number) => (
+                                                                <div
+                                                                    key={idx}
+                                                                    title={`Test Case ${res.index || idx + 1}: ${res.status}`}
+                                                                    className={`h-1.5 rounded-full ${res.passed ? 'bg-green-500' : 'bg-red-500'}`}
+                                                                />
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ) : sqlCheckResult.hiddenTotal !== undefined ? (
+                                            /* Fallback for old Hidden Stats Only */
+                                            <div className={`p-3 rounded border ${theme === 'dark' ? 'bg-[#1e1e1e] border-[#393939]' : 'bg-gray-50 border-gray-200'}`}>
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <span className="text-xs font-bold uppercase tracking-wider opacity-70 flex items-center gap-2">
+                                                        <Lock size={12} /> Hidden Test Cases
+                                                    </span>
+                                                    <span className={`text-xs font-bold ${sqlCheckResult.hiddenPassed === sqlCheckResult.hiddenTotal ? 'text-green-500' : 'text-amber-500'}`}>
+                                                        {sqlCheckResult.hiddenPassed}/{sqlCheckResult.hiddenTotal} Passed
+                                                    </span>
+                                                </div>
+                                                <div className="h-1.5 w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                                    <div
+                                                        className={`h-full ${sqlCheckResult.hiddenPassed === sqlCheckResult.hiddenTotal ? 'bg-green-500' : 'bg-amber-500'}`}
+                                                        style={{ width: `${((sqlCheckResult.hiddenPassed || 0) / (sqlCheckResult.hiddenTotal || 1)) * 100}%` }}
+                                                    />
+                                                </div>
+
+                                                {/* Detailed Hidden Results */}
+                                                {sqlCheckResult.hiddenTestResults && sqlCheckResult.hiddenTestResults.length > 0 && (
+                                                    <div className="mt-3 grid grid-cols-5 gap-1">
+                                                        {sqlCheckResult.hiddenTestResults.map((res: any, idx: number) => (
+                                                            <div
+                                                                key={idx}
+                                                                title={`Test Case ${res.index || idx + 1}: ${res.status}`}
+                                                                className={`h-1.5 rounded-full ${res.passed ? 'bg-green-500' : 'bg-red-500'}`}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ) : null}
+
                                         {/* User Result Table */}
                                         {sqlCheckResult.userResult && sqlCheckResult.userResult.length > 0 && (
                                             <div>
@@ -1428,7 +1665,7 @@ function SQLPageContent() {
                             <button
                                 onClick={() => handleFinalSubmit(false)}
                                 disabled={submitting}
-                                className="flex-1 py-3 rounded-xl bg-primary text-primary-foreground font-bold hover:opacity-90 transition-all active:scale-[0.98] flex items-center justify-center gap-2 shadow-lg shadow-primary/25 disabled:opacity-70 disabled:cursor-not-allowed disabled:shadow-none"
+                                className="flex-1 py-3 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground font-bold hover:opacity-90 transition-all active:scale-[0.98] flex items-center justify-center gap-2 shadow-lg shadow-primary/25 disabled:opacity-70 disabled:cursor-not-allowed disabled:shadow-none"
                             >
                                 {submitting ? (
                                     <>

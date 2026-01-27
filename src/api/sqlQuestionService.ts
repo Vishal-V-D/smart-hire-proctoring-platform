@@ -31,6 +31,7 @@ export type SQLQuestionFilters = {
     topic?: string;
     subdivision?: string;
     division?: string;
+    tags?: string; // Comma separated if needed, or just string match
     search?: string;
     page?: number;
     limit?: number;
@@ -62,6 +63,7 @@ export const sqlQuestionService = {
         if (filters.search) params.append('search', filters.search);
         if (filters.page) params.append('page', filters.page.toString());
         if (filters.limit) params.append('limit', filters.limit.toString());
+        if (filters.tags) params.append('tags', filters.tags);
 
         return axiosContestClient.get<SQLQuestionListResponse>(`${API_BASE}/questions?${params.toString()}`);
     },
@@ -76,7 +78,7 @@ export const sqlQuestionService = {
     },
 
     // Run SQL Query (Test without submitting)
-    runQuery: (data: { questionId: string; query: string }) => {
+    runQuery: (data: { questionId: string; query: string; dialect?: string }) => {
         return axiosContestClient.post<SQLRunResponse>(`${API_BASE}/run`, data);
     },
 
@@ -87,6 +89,7 @@ export const sqlQuestionService = {
         sessionId?: string;
         assessmentId?: string;
         sectionId?: string;
+        dialect?: string;
     }) => {
         return axiosContestClient.post<SQLSubmitResponse>(`${API_BASE}/submit`, data);
     },
@@ -126,6 +129,25 @@ export type SQLSubmitResponse = {
     executionTime: number;
     error?: string;
     message?: string; // Additional error/info message
+    // Hidden Test Case Results
+    hiddenTotal?: number;
+    hiddenPassed?: number;
+    hiddenTestResults?: Array<{
+        index: number;
+        passed: boolean;
+        status: string;
+        output?: any;
+    }>;
+    testCasesStats?: {
+        sample: {
+            total: number;
+            passed: number;
+        };
+        hidden: {
+            total: number;
+            passed: number;
+        };
+    };
 };
 
 
@@ -134,6 +156,8 @@ export type SQLFilterOptions = {
     difficulties: string[];
     topics: string[];
     subdivisions: string[];
+    divisions: string[];
+    tags: string[];
 };
 
 export type SQLFiltersResponse = {

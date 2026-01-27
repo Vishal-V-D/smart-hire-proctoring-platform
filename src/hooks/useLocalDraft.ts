@@ -10,9 +10,22 @@ export function useLocalDraft<T>(key: string, data: T, shouldSave: boolean = tru
             const saved = localStorage.getItem(key);
             if (saved) {
                 const parsed = JSON.parse(saved);
+                const timestamp = new Date(parsed.timestamp);
+
+                // Check for expiration (7 days)
+                const now = new Date();
+                const diffTime = Math.abs(now.getTime() - timestamp.getTime());
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                if (diffDays > 7) {
+                    console.log(`🧹 [Local Draft] Expired (${diffDays} days old). Clearing:`, key);
+                    localStorage.removeItem(key);
+                    return null;
+                }
+
                 return {
                     data: parsed.data as T,
-                    timestamp: new Date(parsed.timestamp)
+                    timestamp: timestamp
                 };
             }
         } catch (e) {

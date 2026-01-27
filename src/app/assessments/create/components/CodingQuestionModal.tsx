@@ -5,6 +5,7 @@ import {
     ChevronLeft, ChevronRight, FileJson, Zap, Tag, BarChart2,
     AlertCircle, CheckCheck, Loader2
 } from 'lucide-react';
+import Loader from '@/components/Loader';
 import { Question } from '../types';
 import {
     codingQuestionService,
@@ -488,10 +489,9 @@ const CodingQuestionModal: React.FC<CodingQuestionModalProps> = ({ isOpen, onClo
                                     className="w-full py-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-purple-500/20 hover:shadow-purple-500/30 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
                                 >
                                     {isRandomizing ? (
-                                        <>
-                                            <Loader2 size={20} className="animate-spin" />
-                                            Generating Selection...
-                                        </>
+                                        <div className="scale-75 h-5 w-12 flex items-center justify-center">
+                                            <Loader />
+                                        </div>
                                     ) : (
                                         <>
                                             <Zap size={20} fill="currentColor" />
@@ -694,7 +694,11 @@ const CodingQuestionModal: React.FC<CodingQuestionModalProps> = ({ isOpen, onClo
                                                 'bg-red-500/10 border border-red-500/20'
                                             }`}
                                     >
-                                        {uploadStatus === 'loading' && <Loader2 size={20} className="text-blue-600 animate-spin" />}
+                                        {uploadStatus === 'loading' && (
+                                            <div className="scale-50 h-5 w-10 flex items-center justify-center -ml-2">
+                                                <Loader />
+                                            </div>
+                                        )}
                                         {uploadStatus === 'success' && <CheckCheck size={20} className="text-green-600" />}
                                         {uploadStatus === 'error' && <AlertCircle size={20} className="text-red-600" />}
                                         <span className={`text-sm font-medium ${uploadStatus === 'loading' ? 'text-blue-600' :
@@ -749,10 +753,9 @@ const CodingQuestionModal: React.FC<CodingQuestionModalProps> = ({ isOpen, onClo
                                 className="w-full py-3.5 px-4 bg-emerald-500 text-white rounded-xl font-bold hover:bg-emerald-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                             >
                                 {uploadStatus === 'loading' ? (
-                                    <>
-                                        <Loader2 size={18} className="animate-spin" />
-                                        Uploading...
-                                    </>
+                                    <div className="scale-75 h-5 w-12 flex items-center justify-center">
+                                        <Loader />
+                                    </div>
                                 ) : (
                                     <>
                                         <Zap size={18} />

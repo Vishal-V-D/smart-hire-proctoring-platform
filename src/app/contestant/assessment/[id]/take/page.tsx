@@ -6,9 +6,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     ChevronLeft, ChevronRight, AlertTriangle, CheckCircle,
-    Sun, Moon, Clock, Send, Sparkles, Target, Loader2,
+    Sun, Moon, Clock, Send, Sparkles, Target,
     Flag, Lock, Layers, Bookmark, BookmarkCheck
 } from 'lucide-react';
+import Loader from '@/components/Loader';
 
 import AssessmentTimer from '@/components/contestant/AssessmentTimer';
 import { contestantService, type AssessmentSection, type AssessmentQuestion } from '@/api/contestantService';
@@ -574,10 +575,9 @@ export default function TakeAssessmentPage() {
                             initial={{ scale: 0.8, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             transition={{ delay: 0.1, type: "spring", stiffness: 200 }}
-                            className="relative"
+                            className="relative flex items-center justify-center w-24 h-24 bg-black/40 rounded-3xl border border-white/10 backdrop-blur-xl shadow-2xl overflow-hidden"
                         >
-                            <div className="w-16 h-16 border-4 border-[#0f62fe]/30 border-t-[#0f62fe] rounded-full animate-spin" />
-                            <div className="absolute inset-0 w-16 h-16 border-4 border-transparent border-b-[#0f62fe]/50 rounded-full animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1s' }} />
+                            <Loader />
                         </motion.div>
                         <motion.div
                             initial={{ y: 10, opacity: 0 }}
@@ -670,9 +670,7 @@ export default function TakeAssessmentPage() {
                                     >
                                         <div className="flex items-center gap-3 min-w-0">
                                             {isLocked ? (
-                                                <div className="w-7 h-7 rounded-lg bg-[#42be65]/10 flex items-center justify-center">
-                                                    <Lock className="w-3.5 h-3.5 text-[#42be65]" />
-                                                </div>
+                                                <Lock className="w-3.5 h-3.5 text-[#42be65]" />
                                             ) : (
                                                 <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold transition-colors ${isCurrent
                                                     ? 'bg-[#0f62fe] text-white'
@@ -1068,7 +1066,11 @@ export default function TakeAssessmentPage() {
                                     Cancel
                                 </button>
                                 <button onClick={handleSubmit} disabled={submitting} className="flex-1 py-2.5 bg-[#0f62fe] hover:bg-[#0353e9] text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2">
-                                    {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Submit'}
+                                    {submitting ? (
+                                        <div className="scale-50 h-4 w-4 flex items-center justify-center">
+                                            <Loader />
+                                        </div>
+                                    ) : 'Submit'}
                                 </button>
                             </div>
                         </motion.div>
@@ -1110,7 +1112,14 @@ export default function TakeAssessmentPage() {
                                     Cancel
                                 </button>
                                 <button onClick={handleConfirmSectionFinish} disabled={isNavigatingToNextSection} className="flex-1 py-2.5 bg-[#0f62fe] hover:bg-[#0353e9] text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2">
-                                    {isNavigatingToNextSection ? <><Loader2 className="w-4 h-4 animate-spin" /> Loading...</> : 'Yes, Proceed'}
+                                    {isNavigatingToNextSection ? (
+                                        <div className="flex items-center gap-2">
+                                            <div className="scale-50 h-4 w-4 flex items-center justify-center">
+                                                <Loader />
+                                            </div>
+                                            Loading...
+                                        </div>
+                                    ) : 'Yes, Proceed'}
                                 </button>
                             </div>
                         </motion.div>

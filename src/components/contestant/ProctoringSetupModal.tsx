@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Shield, Camera, Mic, Monitor, Chrome, CheckCircle2, AlertTriangle, ArrowRight, ArrowLeft, Loader2, X, Sparkles, Lock, Eye, Volume2, CameraIcon, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Shield, Camera, Mic, Monitor, Chrome, CheckCircle2, AlertTriangle, ArrowRight, ArrowLeft, X, Sparkles, Lock, Eye, Volume2, CameraIcon, ChevronRight, ChevronLeft } from 'lucide-react';
 import { contestantService, SystemChecks, ProctoringSettings } from '@/api/contestantService';
+import Loader from '@/components/Loader';
 
 interface ProctoringSetupModalProps {
     isOpen: boolean;
@@ -592,10 +593,9 @@ export default function ProctoringSetupModal({ isOpen, onClose, onComplete, asse
                                                     className="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center gap-2 disabled:opacity-50"
                                                 >
                                                     {testingCamera ? (
-                                                        <>
-                                                            <Loader2 className="w-5 h-5 animate-spin" />
-                                                            Requesting Access...
-                                                        </>
+                                                        <div className="scale-50 h-5 w-12 flex items-center justify-center -ml-2">
+                                                            <Loader />
+                                                        </div>
                                                     ) : (
                                                         <>
                                                             <Eye className="w-5 h-5" />
@@ -627,10 +627,9 @@ export default function ProctoringSetupModal({ isOpen, onClose, onComplete, asse
                                                                 className="px-5 py-2.5 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl text-sm font-bold shadow-lg hover:shadow-xl transition-all flex items-center gap-2 disabled:opacity-50"
                                                             >
                                                                 {uploadingPhoto ? (
-                                                                    <>
-                                                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                                                        Verifying...
-                                                                    </>
+                                                                    <div className="scale-50 h-4 w-10 flex items-center justify-center">
+                                                                        <Loader />
+                                                                    </div>
                                                                 ) : (
                                                                     <>
                                                                         <CheckCircle2 className="w-4 h-4" />
@@ -739,10 +738,9 @@ export default function ProctoringSetupModal({ isOpen, onClose, onComplete, asse
                                                     className="px-4 py-1.5 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg font-semibold shadow hover:shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50 text-xs"
                                                 >
                                                     {testingScreen ? (
-                                                        <>
-                                                            <Loader2 className="w-3 h-3 animate-spin" />
-                                                            Requesting...
-                                                        </>
+                                                        <div className="scale-75 h-4 w-10 flex items-center justify-center">
+                                                            <Loader />
+                                                        </div>
                                                     ) : (
                                                         <>
                                                             <Monitor className="w-3 h-3" />
@@ -892,10 +890,9 @@ export default function ProctoringSetupModal({ isOpen, onClose, onComplete, asse
                                     }`}
                             >
                                 {loading ? (
-                                    <>
-                                        <Loader2 className="w-5 h-5 animate-spin" />
-                                        Starting...
-                                    </>
+                                    <div className="scale-75 h-5 w-12 flex items-center justify-center">
+                                        <Loader />
+                                    </div>
                                 ) : (
                                     <>
                                         <Sparkles className="w-5 h-5" />

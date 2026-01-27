@@ -55,58 +55,57 @@ export default function AssessmentPreview({
     const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
 
     return (
-        <div className="fixed inset-0 z-[200] bg-background flex flex-col w-full h-full overflow-hidden">
-            {/* --- Hero Section with Glassmorphism --- */}
-            <div className="shrink-0 relative z-10">
-                {/* Gradient Background */}
-                <div className="absolute inset-0 bg-gradient-to-r from-primary/20 via-primary/5 to-background border-b border-primary/10 blur-xl opacity-50 -z-10" />
-                <div className="absolute inset-0 bg-grid-white/[0.02] bg-[length:20px_20px] -z-10" />
+        <div className="fixed inset-0 z-[200] bg-background flex flex-col w-full h-full overflow-hidden font-inter">
+            {/* --- Premium Header --- */}
+            <div className="shrink-0 relative overflow-hidden">
+                {/* Mesh Gradient Overlay */}
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,var(--color-primary)_0%,transparent_30%),radial-gradient(circle_at_70%_60%,var(--color-primary)_0%,transparent_30%)] opacity-[0.03] pointer-events-none" />
 
-                <div className="px-8 py-12 border-b border-border/40 bg-card/10 backdrop-blur-md">
-                    <div className="flex flex-col md:flex-row items-center justify-between gap-8">
+                <div className="px-10 py-5 border-b border-border/40 bg-card/40 backdrop-blur-xl relative z-10">
+                    <div className="max-w-[1600px] mx-auto flex flex-col md:flex-row items-center justify-between gap-10">
                         {/* Title & Description */}
-                        <div className="flex-1 min-w-0 space-y-2">
+                        <div className="flex-1 min-w-0">
                             <motion.div
-                                initial={{ opacity: 0, x: -20 }}
+                                initial={{ opacity: 0, x: -15 }}
                                 animate={{ opacity: 1, x: 0 }}
-                                className="flex items-center gap-3"
+                                className="flex items-center gap-4 mb-1.5"
                             >
-                                <div className="h-8 w-1 bg-primary rounded-full" />
-                                <h1 className="text-4xl font-black text-foreground tracking-tight">{config.title || "Untitled Assessment"}</h1>
+                                <div className="h-7 w-1.5 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-full shadow-[0_0_15px_rgba(123,92,250,0.4)]" />
+                                <h1 className="text-2xl font-bold text-foreground tracking-tight flex items-center gap-3">
+                                    {config.title || "Untitled Assessment"}
+                                    <span className="text-[9px] font-Inter bg-primary/10 text-primary px-2 py-0.5 rounded-full uppercase tracking-widest border border-primary/20">Live Preview</span>
+                                </h1>
                             </motion.div>
                             <motion.p
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 transition={{ delay: 0.1 }}
-                                className="text-sm text-muted-foreground/80 font-medium max-w-2xl leading-relaxed"
+                                className="text-xs text-muted-foreground/80 font-medium max-w-3xl leading-relaxed"
                             >
                                 {config.description || "No description provided."}
                             </motion.p>
                         </div>
 
-                        {/* 3D Stats Cards */}
-                        <div className="flex items-center gap-4 shrink-0">
+                        {/* High-End Stats Bar */}
+                        <div className="flex items-center bg-background/40 border border-border/50 rounded-2xl p-1 shadow-inner backdrop-blur-md">
                             {[
-                                { label: 'Questions', value: totalQuestions, icon: FileText, color: 'text-foreground', bg: 'bg-background/50' },
-                                { label: 'Total Marks', value: totalMarks, icon: CheckCircle, color: 'text-primary', bg: 'bg-primary/10' },
-                                { label: 'Duration', value: `${totalTime}m`, icon: Clock, color: 'text-blue-500', bg: 'bg-blue-500/10' },
-                                { label: 'Sections', value: sections.length, icon: Layers, color: 'text-purple-500', bg: 'bg-purple-500/10' },
+                                { label: 'Questions', value: totalQuestions, icon: FileText, color: 'text-foreground' },
+                                { label: 'Total Marks', value: totalMarks, icon: CheckCircle, color: 'text-primary' },
+                                { label: 'Duration', value: `${totalTime}m`, icon: Clock, color: 'text-foreground' },
+                                { label: 'Sections', value: sections.length, icon: Layers, color: 'text-foreground' },
                             ].map((stat, idx) => (
-                                <motion.div
-                                    key={idx}
-                                    initial={{ opacity: 0, scale: 0.8 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    transition={{ delay: 0.2 + (idx * 0.1) }}
-                                    className={`relative group overflow-hidden rounded-2xl border border-border/50 ${stat.bg} p-4 w-32 backdrop-blur-sm hover:-translate-y-1 transition-all duration-300`}
-                                >
-                                    <div className="flex flex-col items-center justify-center text-center gap-1.5">
-                                        <stat.icon size={20} className={`${stat.color} opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-transform`} />
-                                        <div className={`text-2xl font-black ${stat.color} tracking-tight`}>{stat.value}</div>
-                                        <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{stat.label}</div>
-                                    </div>
-                                    {/* Shine Effect */}
-                                    <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/10 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 pointer-events-none" />
-                                </motion.div>
+                                <React.Fragment key={idx}>
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 5 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: 0.1 + (idx * 0.05) }}
+                                        className="px-6 py-2 flex flex-col items-center justify-center transition-all hover:bg-white/5 rounded-xl group cursor-default"
+                                    >
+                                        <div className={`text-xl font-bold ${stat.color} tracking-tighter transition-transform group-hover:scale-110`}>{stat.value}</div>
+                                        <div className="text-[9px] font-bold uppercase tracking-[0.15em] text-muted-foreground/60 transition-colors group-hover:text-muted-foreground/90">{stat.label}</div>
+                                    </motion.div>
+                                    {idx < 3 && <div className="h-8 w-px bg-border/40 my-auto" />}
+                                </React.Fragment>
                             ))}
                         </div>
                     </div>
@@ -114,109 +113,119 @@ export default function AssessmentPreview({
             </div>
 
             {/* --- Main Content Grid --- */}
-            <div className="flex-1 overflow-hidden p-8 pb-32">
-                <div className="h-full grid grid-cols-12 gap-8">
-                    {/* LEFT: Structure Table (8 cols) - Taller */}
-                    <div className="col-span-8 flex flex-col bg-card border border-border rounded-xl overflow-hidden" style={{ maxHeight: 'calc(100vh - 280px)' }}>
+            <div className="flex-1 overflow-hidden p-6">
+                <div className="h-full grid grid-cols-12 gap-6">
+                    {/* LEFT: Structure Table */}
+                    <div className="col-span-8 flex flex-col bg-card border border-border rounded-xl overflow-hidden shadow-sm">
                         {/* Table Header */}
-                        <div className="px-6 py-4 border-b border-border bg-muted flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <Layers size={18} className="text-purple-600" />
-                                <h3 className="text-xs font-bold text-foreground">Structure Breakdown</h3>
+                        <div className="px-5 py-3 border-b border-border bg-muted/30 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <Layers size={16} className="text-primary/70" />
+                                <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">Assessment Structure</h3>
                             </div>
-                            <span className="text-[10px] font-bold px-3 py-1 rounded-full bg-background border border-border text-muted-foreground">
-                                {sections.length} Sections
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-background border border-border text-muted-foreground">
+                                {sections.length} SECTIONS
                             </span>
                         </div>
 
-                        {/* Clean Table */}
+                        {/* Lean Table */}
                         <div className="flex-1 overflow-y-auto">
-                            <table className="w-full">
-                                <thead className="bg-muted border-b border-border sticky top-0">
+                            <table className="w-full border-collapse">
+                                <thead className="bg-muted/50 border-b border-border sticky top-0 z-10">
                                     <tr>
-                                        <th className="text-left py-3 px-4 text-[10px] font-bold uppercase text-muted-foreground">#</th>
-                                        <th className="text-left py-3 px-4 text-[10px] font-bold uppercase text-muted-foreground">Section</th>
-                                        <th className="text-center py-3 px-4 text-[10px] font-bold uppercase text-muted-foreground">Type</th>
-                                        <th className="text-center py-3 px-4 text-[10px] font-bold uppercase text-muted-foreground">Questions</th>
-                                        <th className="text-center py-3 px-4 text-[10px] font-bold uppercase text-muted-foreground">Duration</th>
-                                        <th className="text-center py-3 px-4 text-[10px] font-bold uppercase text-muted-foreground">Marks/Q</th>
-                                        <th className="text-right py-3 px-4 text-[10px] font-bold uppercase text-muted-foreground">Total</th>
-                                        <th className="text-right py-3 px-4 text-[10px] font-bold uppercase text-muted-foreground">Actions</th>
+                                        <th className="text-left py-2 px-4 text-[9px] font-bold uppercase tracking-widest text-muted-foreground/80 w-12">#</th>
+                                        <th className="text-left py-2 px-4 text-[9px] font-bold uppercase tracking-widest text-muted-foreground/80">Section</th>
+                                        <th className="text-center py-2 px-4 text-[9px] font-bold uppercase tracking-widest text-muted-foreground/80">Type</th>
+                                        <th className="text-center py-2 px-4 text-[9px] font-bold uppercase tracking-widest text-muted-foreground/80">Qns</th>
+                                        <th className="text-center py-2 px-4 text-[9px] font-bold uppercase tracking-widest text-muted-foreground/80">Time</th>
+                                        <th className="text-center py-2 px-4 text-[9px] font-bold uppercase tracking-widest text-muted-foreground/80">Marks</th>
+                                        <th className="text-center py-2 px-4 text-[9px] font-bold uppercase tracking-widest text-red-500/60">Neg</th>
+                                        <th className="text-right py-2 px-4 text-[9px] font-bold uppercase tracking-widest text-muted-foreground/80">Total</th>
+                                        <th className="text-right py-2 px-4 text-[9px] font-bold uppercase tracking-widest text-muted-foreground/80 w-24">Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-border">
+                                <tbody className="divide-y divide-border/50">
                                     {sections.map((s, idx) => {
                                         const colors = getColorClasses(s.themeColor || 'gray');
                                         return (
-                                            <tr key={s.id} className="hover:bg-muted/20 transition-colors">
-                                                <td className="py-2 px-4">
-                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold ${colors.badge}`}>
-                                                        {idx + 1}
+                                            <tr key={s.id} className="hover:bg-muted/10 transition-colors group">
+                                                <td className="py-2.5 px-4">
+                                                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold ${colors.badge}`}>
+                                                        {String(idx + 1).padStart(2, '0')}
                                                     </div>
                                                 </td>
-                                                <td className="py-2 px-4">
-                                                    <div className="font-semibold text-xs text-foreground">{s.title}</div>
-                                                    <div className="text-[10px] text-muted-foreground mt-0.5">{s.difficulty}</div>
+                                                <td className="py-2.5 px-4 font-inter">
+                                                    <div className="font-bold text-xs text-foreground">{s.title}</div>
+                                                    <div className="text-[9px] text-muted-foreground font-medium uppercase tracking-tighter">{s.difficulty} Level</div>
                                                 </td>
-                                                <td className="py-3 px-4 text-center">
-                                                    <span className="inline-block px-2 py-1 rounded-md bg-secondary text-secondary-foreground text-[10px] font-medium">
+                                                <td className="py-2.5 px-4 text-center">
+                                                    <span className="inline-block px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground text-[9px] font-bold uppercase tracking-tighter">
                                                         {s.type.replace('_', ' ')}
                                                     </span>
                                                 </td>
-                                                <td className="py-3 px-4 text-center">
-                                                    <span className="text-sm font-medium text-foreground">{s.questions?.length || 0}</span>
+                                                <td className="py-2.5 px-4 text-center font-inter">
+                                                    <span className="text-xs font-bold text-foreground">{s.questions?.length || 0}</span>
                                                 </td>
-                                                <td className="py-3 px-4 text-center">
+                                                <td className="py-2.5 px-4 text-center font-inter">
                                                     {editingSectionId === s.id && onUpdateSection ? (
                                                         <input
                                                             type="number"
                                                             min="1"
                                                             value={s.timeLimit}
                                                             onChange={(e) => onUpdateSection(s.id, { timeLimit: parseInt(e.target.value) || 1 })}
-                                                            className="w-16 bg-background border border-primary rounded px-2 py-1 text-sm font-medium text-center focus:border-primary outline-none"
+                                                            className="w-12 bg-background border border-primary rounded px-1.5 py-0.5 text-xs font-bold text-center outline-none focus:ring-1 focus:ring-primary/30"
                                                             autoFocus
                                                         />
                                                     ) : (
-                                                        <span className="text-sm font-medium text-foreground">{s.timeLimit}m</span>
+                                                        <span className="text-xs font-bold text-foreground">{s.timeLimit}m</span>
                                                     )}
                                                 </td>
-                                                <td className="py-3 px-4 text-center">
+                                                <td className="py-2.5 px-4 text-center font-inter">
                                                     {editingSectionId === s.id && onUpdateSection ? (
                                                         <input
                                                             type="number"
                                                             min="1"
                                                             value={s.marksPerQuestion}
                                                             onChange={(e) => onUpdateSection(s.id, { marksPerQuestion: parseInt(e.target.value) || 1 })}
-                                                            className="w-16 bg-background border border-primary rounded px-2 py-1 text-sm font-medium text-center focus:border-primary outline-none"
+                                                            className="w-12 bg-background border border-primary rounded px-1.5 py-0.5 text-xs font-bold text-center outline-none focus:ring-1 focus:ring-primary/30"
                                                         />
                                                     ) : (
-                                                        <span className="text-sm font-medium text-foreground">{s.marksPerQuestion}</span>
+                                                        <span className="text-xs font-bold text-foreground">{s.marksPerQuestion}</span>
                                                     )}
                                                 </td>
-                                                <td className="py-3 px-4 text-right">
-                                                    <span className={`text-sm font-bold ${colors.text}`}>{calculateSectionMarks(s)}</span>
+                                                <td className="py-2.5 px-4 text-center font-inter">
+                                                    {editingSectionId === s.id && onUpdateSection ? (
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            step="0.25"
+                                                            value={s.negativeMarking || 0}
+                                                            onChange={(e) => onUpdateSection(s.id, { negativeMarking: parseFloat(e.target.value) || 0 })}
+                                                            className="w-12 bg-background border border-red-500/20 rounded px-1.5 py-0.5 text-xs font-bold text-center outline-none focus:border-red-500/50 text-red-600"
+                                                        />
+                                                    ) : (
+                                                        <span className="text-xs font-bold text-red-500/70">{s.negativeMarking || 0}</span>
+                                                    )}
                                                 </td>
-                                                <td className="py-3 px-4 text-right">
-                                                    <div className="flex items-center justify-end gap-1">
+                                                <td className="py-2.5 px-4 text-right font-inter">
+                                                    <span className={`text-xs font-bold ${colors.text}`}>{calculateSectionMarks(s)}</span>
+                                                </td>
+                                                <td className="py-2.5 px-4 text-right">
+                                                    <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                         {onUpdateSection && (
                                                             <button
                                                                 onClick={() => setEditingSectionId(editingSectionId === s.id ? null : s.id)}
-                                                                className={`p-1.5 rounded-lg transition-colors ${editingSectionId === s.id
-                                                                    ? 'bg-primary/10 text-primary'
-                                                                    : 'hover:bg-primary/10 text-muted-foreground hover:text-primary'
-                                                                    }`}
-                                                                title={editingSectionId === s.id ? "Done editing" : "Edit section"}
+                                                                className={`p-1 rounded bg-muted/30 transition-colors ${editingSectionId === s.id ? 'text-primary' : 'text-muted-foreground hover:text-primary'}`}
                                                             >
-                                                                {editingSectionId === s.id ? <Check size={16} /> : <Edit3 size={16} />}
+                                                                {editingSectionId === s.id ? <Check size={14} /> : <Edit3 size={14} />}
                                                             </button>
                                                         )}
                                                         {onDeleteSection && (
                                                             <button
                                                                 onClick={() => onDeleteSection(s.id)}
-                                                                className="p-1.5 hover:bg-red-500/10 text-red-500 rounded-lg transition-colors"
-                                                                title="Delete section"
+                                                                className="p-1 rounded bg-muted/30 text-muted-foreground hover:text-red-500 transition-colors"
                                                             >
-                                                                <X size={16} />
+                                                                <X size={14} />
                                                             </button>
                                                         )}
                                                     </div>
@@ -225,147 +234,100 @@ export default function AssessmentPreview({
                                         );
                                     })}
                                 </tbody>
-                                <tfoot className="bg-muted border-t border-border sticky bottom-0">
-                                    <tr>
-                                        <td colSpan={3} className="py-3 px-4">
-                                            <span className="text-xs font-bold uppercase text-muted-foreground">Totals</span>
-                                        </td>
-                                        <td className="py-3 px-4 text-center">
-                                            <span className="text-sm font-bold text-foreground">{totalQuestions}</span>
-                                        </td>
-                                        <td className="py-3 px-4 text-center">
-                                            <span className="text-sm font-bold text-foreground">{totalTime}m</span>
-                                        </td>
-                                        <td className="py-3 px-4 text-center">-</td>
-                                        <td className="py-3 px-4 text-right">
-                                            <span className="text-sm font-bold text-primary">{totalMarks}</span>
-                                        </td>
+                                <tfoot className="bg-muted/30 border-t border-border sticky bottom-0 z-10">
+                                    <tr className="divide-x divide-border/20">
+                                        <td colSpan={3} className="py-2 px-4 uppercase text-[9px] font-bold text-muted-foreground/70">Final Metrics</td>
+                                        <td className="py-2 px-4 text-center text-xs font-bold text-foreground">{totalQuestions}</td>
+                                        <td className="py-2 px-4 text-center text-xs font-bold text-foreground">{totalTime}m</td>
+                                        <td className="py-2 px-4 text-center">-</td>
+                                        <td className="py-2 px-4 text-center">-</td>
+                                        <td className="py-2 px-4 text-right text-xs font-bold text-primary">{totalMarks}</td>
+                                        <td className="py-2 px-4"></td>
                                     </tr>
                                 </tfoot>
                             </table>
                         </div>
                     </div>
 
-                    {/* RIGHT: Security Settings (4 cols) - Shorter */}
-                    <div className="col-span-4 flex flex-col bg-card border border-border rounded-xl overflow-hidden" style={{ maxHeight: 'calc(100vh - 280px)' }}>
+                    {/* RIGHT: Security Panel */}
+                    <div className="col-span-4 flex flex-col bg-card border border-border rounded-xl overflow-hidden shadow-sm">
                         {/* Header */}
-                        <div className="px-6 py-4 border-b border-border bg-muted/30 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <Shield size={18} className="text-emerald-600" />
-                                <h3 className="text-sm font-bold text-foreground">Security Configuration</h3>
+                        <div className="px-5 py-3 border-b border-border bg-muted/30 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <Shield size={16} className="text-primary/70" />
+                                <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">Security Profile</h3>
                             </div>
-                            {config.proctoring.enabled ? (
-                                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
-                                    <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                                    <span className="text-xs font-bold uppercase">Enabled</span>
-                                </div>
-                            ) : (
-                                <div className="px-3 py-1 rounded-full bg-muted text-muted-foreground text-xs font-bold border border-border">Disabled</div>
-                            )}
+                            <div className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-tighter ${config.proctoring.enabled ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : 'bg-muted text-muted-foreground border border-border'}`}>
+                                {config.proctoring.enabled ? 'PROCTORING ON' : 'PROCTORING OFF'}
+                            </div>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto">
-                            {/* Complete Feature List - 2 Columns */}
-                            <div className="grid grid-cols-2 gap-x-4">
-                                {/* Column 1 */}
-                                <table className="w-full">
-                                    <tbody className="divide-y divide-border">
-                                        {[
-                                            { label: 'Video Monitoring', value: config.proctoring.videoMonitoring },
-                                            { label: 'Screen Recording', value: config.proctoring.screenRecording },
-                                            { label: 'Audio Monitoring', value: config.proctoring.audioMonitoring },
-                                            { label: 'Audio Recording', value: config.proctoring.audioRecording },
-                                            { label: 'Image Monitoring', value: config.proctoring.imageMonitoring },
-                                            { label: 'Face Detection', value: config.proctoring.faceDetection },
-                                            { label: 'Person Detection', value: config.proctoring.personDetection },
-                                            { label: 'Eye Tracking', value: config.proctoring.eyeTracking },
-                                            { label: 'Object Detection', value: config.proctoring.objectDetection },
-                                        ].map((item, idx) => (
-                                            <tr key={idx} className={`${item.value ? 'bg-emerald-500/5' : ''} hover:bg-muted/20 transition-colors`}>
-                                                <td className="py-2.5 px-4">
-                                                    <span className={`text-xs font-medium ${item.value ? 'text-foreground' : 'text-muted-foreground'}`}>
-                                                        {item.label}
-                                                    </span>
-                                                </td>
-                                                <td className="py-2.5 px-4 text-right w-12">
-                                                    {item.value ? (
-                                                        <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center ml-auto">
-                                                            <Check size={12} className="text-white" strokeWidth={3} />
-                                                        </div>
-                                                    ) : (
-                                                        <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center ml-auto">
-                                                            <X size={12} className="text-muted-foreground" strokeWidth={3} />
-                                                        </div>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-
-                                {/* Column 2 */}
-                                <table className="w-full">
-                                    <tbody className="divide-y divide-border">
-                                        {[
-                                            { label: 'Noise Detection', value: config.proctoring.noiseDetection },
-                                            { label: 'Force Fullscreen', value: config.proctoring.fullscreen },
-                                            { label: 'Disable Copy/Paste', value: config.proctoring.disableCopyPaste },
-                                            { label: 'Block Right Click', value: config.proctoring.blockRightClick },
-                                            { label: 'Block Ext. Monitor', value: config.proctoring.blockExternalMonitor },
-                                            { label: 'Tab Switch Limit', value: config.proctoring.tabSwitchLimit > 0, extra: config.proctoring.tabSwitchLimit > 0 ? `${config.proctoring.tabSwitchLimit} allowed` : null },
-                                            { label: 'ID Card Verification', value: config.proctoring.verifyIDCard },
-                                            { label: 'Face Verification', value: config.proctoring.verifyFace },
-                                        ].map((item, idx) => (
-                                            <tr key={idx} className={`${item.value ? 'bg-emerald-500/5' : ''} hover:bg-muted/20 transition-colors`}>
-                                                <td className="py-2.5 px-4">
-                                                    <span className={`text-xs font-medium ${item.value ? 'text-foreground' : 'text-muted-foreground'}`}>
-                                                        {item.label}
-                                                    </span>
-                                                    {item.extra && (
-                                                        <span className="text-xs text-muted-foreground ml-2">({item.extra})</span>
-                                                    )}
-                                                </td>
-                                                <td className="py-2.5 px-4 text-right w-12">
-                                                    {item.value ? (
-                                                        <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center ml-auto">
-                                                            <Check size={12} className="text-white" strokeWidth={3} />
-                                                        </div>
-                                                    ) : (
-                                                        <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center ml-auto">
-                                                            <X size={12} className="text-muted-foreground" strokeWidth={3} />
-                                                        </div>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                        <div className="flex-1 overflow-y-auto p-4">
+                            <div className="grid grid-cols-1 gap-1">
+                                {[
+                                    { label: 'Webcam Monitoring', value: config.proctoring.videoMonitoring },
+                                    { label: 'Screen Recording', value: config.proctoring.screenRecording },
+                                    { label: 'Audio Intelligence', value: config.proctoring.audioMonitoring },
+                                    { label: 'Environment Recording', value: config.proctoring.audioRecording },
+                                    { label: 'Snapshots/Photo', value: config.proctoring.imageMonitoring },
+                                    { label: 'Identity Verification', value: config.proctoring.verifyIDCard },
+                                    { label: 'AI Face Match', value: config.proctoring.verifyFace },
+                                    { label: 'AI Face Detection', value: config.proctoring.faceDetection },
+                                    { label: 'Object Detection', value: config.proctoring.objectDetection },
+                                    { label: 'Gaze/Eye Tracking', value: config.proctoring.eyeTracking },
+                                    { label: 'Noise Detection', value: config.proctoring.noiseDetection },
+                                    { divider: true },
+                                    { label: 'Force Fullscreen', value: config.proctoring.fullscreen },
+                                    { label: 'Restrict Copy/Paste', value: config.proctoring.disableCopyPaste },
+                                    { label: 'Disable Right Click', value: config.proctoring.blockRightClick },
+                                    { label: 'Detect Ext. Monitors', value: config.proctoring.blockExternalMonitor },
+                                    { label: 'Tab Switch Tolerance', value: config.proctoring.tabSwitchLimit > 0, extra: config.proctoring.tabSwitchLimit > 0 ? `${config.proctoring.tabSwitchLimit}x` : null },
+                                ].map((item, idx) => (
+                                    item.divider ? (
+                                        <div key={idx} className="h-px bg-border/50 my-1" />
+                                    ) : (
+                                        <div key={idx} className={`flex items-center justify-between px-3 py-1.5 rounded-lg transition-colors ${item.value ? 'bg-muted/20' : 'opacity-60'}`}>
+                                            <div className="flex flex-col">
+                                                <span className="text-[11px] font-bold text-foreground/90">{item.label}</span>
+                                                {item.extra && <span className="text-[9px] text-primary/70 font-bold uppercase tracking-tighter">{item.extra}</span>}
+                                            </div>
+                                            <div className={`w-4 h-4 rounded-full flex items-center justify-center ${item.value ? 'text-primary' : 'text-muted-foreground'}`}>
+                                                {item.value ? <CheckCircle size={14} strokeWidth={3} /> : <X size={12} strokeWidth={3} />}
+                                            </div>
+                                        </div>
+                                    )
+                                ))}
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* --- Floating Actions (Keep As Is) --- */}
-            <div className="absolute bottom-6 right-6 z-30">
-                <div className="bg-background/95 backdrop-blur-xl border border-border shadow-2xl rounded-xl p-2 flex items-center gap-2">
+            {/* --- Floating Action Bar --- */}
+            <div className="shrink-0 px-8 py-4 bg-background border-t border-border flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Preview Mode</span>
+                    <div className="h-4 w-px bg-border" />
+                    <span className="text-[10px] font-medium text-muted-foreground italic">Review carefully before publishing.</span>
+                </div>
+                <div className="flex items-center gap-3">
                     <button
                         onClick={onBack}
-                        className="text-muted-foreground hover:text-foreground hover:bg-muted font-medium text-xs px-5 py-2.5 rounded-lg transition-all"
+                        className="px-5 py-2 rounded-lg text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-muted transition-all uppercase tracking-wider"
                     >
                         Back to Editor
                     </button>
                     {onSaveDraft && (
                         <button
                             onClick={onSaveDraft}
-                            className="text-primary hover:bg-primary/10 font-medium text-xs px-5 py-2.5 rounded-lg transition-all flex items-center gap-1.5"
+                            className="px-5 py-2 rounded-lg text-xs font-bold text-primary hover:bg-primary/5 border border-primary/20 transition-all uppercase tracking-wider"
                         >
-                            <Save size={14} /> Save Draft
+                            Save Draft
                         </button>
                     )}
                     <button
                         onClick={onPublish}
-                        className="bg-primary text-primary-foreground px-6 py-2.5 rounded-lg text-xs font-bold hover:opacity-90 transition-all flex items-center gap-1.5 shadow-lg shadow-primary/25"
+                        className="bg-gradient-to-br from-indigo-600 to-violet-600 text-white px-8 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest hover:brightness-110 shadow-lg shadow-primary/20 transition-all flex items-center gap-2"
                     >
                         {isEditMode ? 'Update' : 'Publish'} <ArrowRight size={14} />
                     </button>

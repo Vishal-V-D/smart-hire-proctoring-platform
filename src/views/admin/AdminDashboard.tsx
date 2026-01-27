@@ -24,13 +24,18 @@ import {
     Globe,
     Mail,
     Settings,
-    User
+    User,
+    Plus,
+    Search,
+    Filter,
+    Bell
 } from 'lucide-react';
 import Link from 'next/link';
 import { AuthContext } from '@/components/AuthProviderClient';
 import { useNotifications } from '@/context/NotificationContext';
 import { contestService } from '@/api/contestService';
 import { ThemeContext } from '@/context/ThemeContext';
+import AssessmentSkeleton from '@/components/admin/AssessmentSkeleton';
 
 export default function AdminDashboard() {
     const auth = useContext(AuthContext);
@@ -68,231 +73,199 @@ export default function AdminDashboard() {
     const totalParticipants = assessments.reduce((sum, a) => sum + (a.participantCount || 0), 0);
 
     return (
-        <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500 bg-background text-foreground">
+        <div className="min-h-screen bg-muted/5 p-6 md:p-10 animate-in fade-in duration-500">
+            <div className="max-w-[1600px] mx-auto space-y-10">
 
-            {/* Hero Welcome Banner */}
-            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-primary/90 to-primary/70 p-8 md:p-10 shadow-2xl">
-                {/* Decorative elements */}
-                <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
-                <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2 blur-2xl" />
-                <div className="absolute top-1/2 right-1/4 w-32 h-32 bg-white/5 rounded-full blur-xl" />
-
-                {/* Theme Toggle */}
-                <button
-                    onClick={toggleTheme}
-                    className="absolute top-6 right-6 z-20 p-3 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full text-white transition-all shadow-lg border border-white/20 group"
-                    title="Toggle Theme"
-                >
-                    {theme === 'dark' ? <Sun size={20} className="group-hover:rotate-90 transition-transform" /> : <Moon size={20} className="group-hover:-rotate-12 transition-transform" />}
-                </button>
-
-                <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                    <div className="space-y-4 max-w-2xl">
-                        <div className="flex flex-col gap-2">
-                            <div className="flex items-center gap-2">
-                                <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
-                                    <Building2 className="text-white" size={20} />
-                                </div>
-                                <span className="text-white/70 text-sm font-bold uppercase tracking-widest">
-                                    {companyInfo?.name || auth?.user?.companyName || auth?.user?.company?.name || auth?.user?.organizationName || 'Company Admin'}
-                                </span>
-                            </div>
-                            <h1 className="text-3xl md:text-5xl font-black text-white leading-tight">
-                                Welcome back, {auth?.user?.fullName || 'Admin'}! 👋
-                            </h1>
-                            <div className="flex flex-wrap items-center gap-3 mt-1">
-                                <span className="text-white/60 text-sm font-medium">Session Info:</span>
-                                <span className="px-2 py-0.5 bg-white/10 text-white/90 text-[11px] font-bold rounded-lg border border-white/10 backdrop-blur-sm flex items-center gap-1.5">
-                                    <User size={12} className="text-white/60" /> @{auth?.user?.username || 'admin'}
-                                </span>
-                                <span className="px-2 py-0.5 bg-white/10 text-white/90 text-[11px] font-bold rounded-lg border border-white/10 backdrop-blur-sm flex items-center gap-1.5 uppercase tracking-tighter">
-                                    <Shield size={12} className="text-white/60" /> {auth?.user?.role || 'Admin'}
-                                </span>
-                                <span className="px-2 py-0.5 bg-white/10 text-white/90 text-[11px] font-bold rounded-lg border border-white/10 backdrop-blur-sm flex items-center gap-1.5 overflow-hidden max-w-[200px] truncate">
-                                    <Mail size={12} className="text-white/60" /> {auth?.user?.email}
-                                </span>
-                            </div>
+                {/* 1. Top Header Area (Clean & Minimal) */}
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-border/40 pb-6">
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-muted-foreground text-sm font-medium">
+                            <Building2 size={16} />
+                            <span>{companyInfo?.name || auth?.user?.companyName || 'Organization Admin'}</span>
                         </div>
-                        <div className="text-white/80 text-lg leading-relaxed max-w-xl">
-                            {typeof auth?.user?.companyDetails === 'string'
-                                ? auth.user.companyDetails
-                                : auth?.user?.company?.description || "Monitor assessments, review participant reports, and track proctoring violations in real-time."}
-                        </div>
+                        <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground">
+                            Welcome back, {auth?.user?.fullName?.split(' ')[0] || 'Admin'}
+                        </h1>
+                        <p className="text-muted-foreground max-w-xl">
+                            Here's what's happening with your assessments today.
+                        </p>
                     </div>
 
-                    <div className="flex flex-col gap-3 shrink-0">
-                        <div className="bg-white/15 backdrop-blur-md rounded-2xl p-5 border border-white/20 min-w-[180px]">
-                            <div className="flex items-center gap-3 mb-2">
-                                <LayoutDashboard className="text-white/70" size={20} />
-                                <span className="text-white/70 text-sm font-medium">Assessments</span>
-                            </div>
-                            <p className="text-4xl font-black text-white">{assessments.length}</p>
-                        </div>
-                        <div className="bg-white/15 backdrop-blur-md rounded-2xl p-5 border border-white/20">
-                            <div className="flex items-center gap-3 mb-2">
-                                <Users className="text-white/70" size={20} />
-                                <span className="text-white/70 text-sm font-medium">Total Participants</span>
-                            </div>
-                            <p className="text-4xl font-black text-white">{totalParticipants}</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-
-
-            {/* Quick Actions / Features Overview */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border border-blue-500/20 rounded-2xl p-5 group hover:border-blue-500/40 transition-all">
-                    <div className="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                        <Eye className="text-blue-500" size={24} />
-                    </div>
-                    <h3 className="font-bold text-foreground mb-1">Live Monitoring</h3>
-                    <p className="text-xs text-muted-foreground">Watch participant activity and proctoring feeds in real-time</p>
-                </div>
-
-                <div className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 border border-purple-500/20 rounded-2xl p-5 group hover:border-purple-500/40 transition-all">
-                    <div className="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                        <BarChart3 className="text-purple-500" size={24} />
-                    </div>
-                    <h3 className="font-bold text-foreground mb-1">Detailed Reports</h3>
-                    <p className="text-xs text-muted-foreground">Access comprehensive performance analytics and scores</p>
-                </div>
-
-                <div className="bg-gradient-to-br from-amber-500/10 to-amber-600/5 border border-amber-500/20 rounded-2xl p-5 group hover:border-amber-500/40 transition-all">
-                    <div className="w-12 h-12 bg-amber-500/20 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                        <AlertTriangle className="text-amber-500" size={24} />
-                    </div>
-                    <h3 className="font-bold text-foreground mb-1">Violation Tracking</h3>
-                    <p className="text-xs text-muted-foreground">Review flagged incidents and suspicious activities</p>
-                </div>
-
-                <div className="bg-gradient-to-br from-green-500/10 to-green-600/5 border border-green-500/20 rounded-2xl p-5 group hover:border-green-500/40 transition-all">
-                    <div className="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                        <FileText className="text-green-500" size={24} />
-                    </div>
-                    <h3 className="font-bold text-foreground mb-1">Export Data</h3>
-                    <p className="text-xs text-muted-foreground">Download reports and participant data in CSV format</p>
-                </div>
-            </div>
-
-            {/* Section Header */}
-            <div className="flex items-center justify-between pt-4">
-                <div className="flex items-center gap-3">
-                    <div className="p-2 bg-primary/10 rounded-xl">
-                        <LayoutDashboard className="text-primary" size={20} />
-                    </div>
-                    <div>
-                        <h2 className="text-xl font-bold text-foreground">Your Assessments</h2>
-                        <p className="text-sm text-muted-foreground">Click on any assessment to view detailed reports and monitoring</p>
-                    </div>
-                </div>
-                <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2 text-sm pr-4 border-r border-border">
-                        <span className="px-3 py-1.5 bg-green-500/10 text-green-600 rounded-full font-bold text-xs">
-                            {activeCount} Active
-                        </span>
-                        <span className="px-3 py-1.5 bg-muted text-muted-foreground rounded-full font-bold text-xs">
-                            {assessments.length} Total
-                        </span>
-                    </div>
-                    <Link
-                        href="/admin/assessments"
-                        className="flex items-center gap-2 text-sm font-bold text-primary hover:underline group/all"
-                    >
-                        View All Assessments
-                        <ArrowRight size={16} className="group-hover/all:translate-x-1 transition-transform" />
-                    </Link>
-                </div>
-            </div>
-
-            {/* Assessments Grid */}
-            {loading ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {[1, 2, 3].map(i => (
-                        <div key={i} className="h-64 bg-muted animate-pulse rounded-2xl" />
-                    ))}
-                </div>
-            ) : assessments.length === 0 ? (
-                <div className="bg-gradient-to-br from-muted/50 to-muted/30 rounded-3xl p-16 text-center border-2 border-dashed border-border">
-                    <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mx-auto mb-6">
-                        <LayoutDashboard className="text-muted-foreground" size={32} />
-                    </div>
-                    <h3 className="text-2xl font-bold text-foreground mb-2">No Assessments Assigned</h3>
-                    <p className="text-muted-foreground max-w-md mx-auto">
-                        You haven't been granted access to any assessments yet. Contact your organization's administrator to get started.
-                    </p>
-                </div>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {assessments.map((a) => (
-                        <Link
-                            key={a.id}
-                            href="/admin/assessments"
-                            className="group bg-card border border-border rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl hover:-translate-y-1 hover:border-primary/30 transition-all duration-300"
-                        >
-                            {/* Status ribbon */}
-                            <div className={`h-1.5 ${a.status === 'active' || a.status === 'published'
-                                ? 'bg-gradient-to-r from-green-500 to-emerald-400'
-                                : a.status === 'draft'
-                                    ? 'bg-gradient-to-r from-gray-400 to-gray-300'
-                                    : 'bg-gradient-to-r from-amber-500 to-yellow-400'
-                                }`} />
-
-                            <div className="p-6 space-y-4">
-                                <div className="flex justify-between items-start gap-2">
-                                    <h3 className="text-lg font-bold text-foreground line-clamp-1 group-hover:text-primary transition-colors">
-                                        {a.title}
-                                    </h3>
-                                    <span className={`shrink-0 px-2.5 py-1 text-[10px] font-bold rounded-lg uppercase tracking-wide ${a.status === 'active' || a.status === 'published'
-                                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800'
-                                        : a.status === 'draft'
-                                            ? 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 border border-gray-200 dark:border-gray-700'
-                                            : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800'
-                                        }`}>
-                                        {a.status}
-                                    </span>
-                                </div>
-
-                                <p className="text-sm text-muted-foreground line-clamp-2 min-h-[40px]">
-                                    {a.description || 'No description available'}
-                                </p>
-
-                                <div className="grid grid-cols-2 gap-4 pt-2 border-t border-border">
-                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                        <CalendarDays size={14} className="text-primary shrink-0" />
-                                        <span>{new Date(a.startDate).toLocaleDateString()}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2 text-xs text-muted-foreground justify-end">
-                                        <Users size={14} className="text-primary shrink-0" />
-                                        <span className="font-medium">{a.participantCount || 0} Submissions</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="bg-muted/30 px-6 py-4 border-t border-border flex items-center justify-between">
-                                <span className="text-sm font-bold text-primary flex items-center gap-2">
-                                    <Eye size={16} />
-                                    View Reports & Monitoring
-                                </span>
-                                <ArrowRight size={18} className="text-primary group-hover:translate-x-1 transition-transform" />
-                            </div>
+                    <div className="flex items-center gap-3">
+                        <Link href="/admin/notifications" className="relative p-2.5 rounded-xl border border-border/50 bg-background text-muted-foreground hover:text-foreground hover:bg-muted transition-all">
+                            <Bell size={20} />
+                            <span className="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full border border-background"></span>
                         </Link>
-                    ))}
+                        <button
+                            onClick={toggleTheme}
+                            className="p-2.5 rounded-xl border border-border/50 bg-background text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
+                        >
+                            {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+                        </button>
+                        <Link href="/admin/assessments/create" className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground rounded-xl font-semibold hover:opacity-90 transition-all shadow-sm group">
+                            <Plus size={18} className="group-hover:rotate-90 transition-transform" />
+                            <span>New Assessment</span>
+                        </Link>
+                    </div>
                 </div>
-            )}
 
-            {/* Footer Tips */}
-            <div className="bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 border border-primary/20 rounded-2xl p-6 flex items-start gap-4">
-                <div className="p-3 bg-primary/15 rounded-xl shrink-0">
-                    <Zap className="text-primary" size={24} />
-                </div>
-                <div>
-                    <h3 className="font-bold text-foreground mb-1">Quick Tip</h3>
-                    <p className="text-sm text-muted-foreground">
-                        Click on any assessment card to access the full monitoring dashboard. You can view live proctoring feeds,
-                        track violations, and generate detailed reports for each participant.
-                    </p>
+                {/* 2. Main Grid Layout */}
+                <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+
+                    {/* Left Column: Assessments List (8 Cols) */}
+                    <div className="xl:col-span-8 space-y-6">
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-xl font-bold flex items-center gap-2">
+                                <LayoutDashboard size={20} className="text-primary" />
+                                Recent Assessments
+                            </h2>
+                            <Link href="/admin/assessments" className="text-sm font-medium text-primary hover:underline flex items-center gap-1">
+                                View All <ArrowRight size={14} />
+                            </Link>
+                        </div>
+
+                        {loading ? (
+                            <AssessmentSkeleton />
+                        ) : assessments.length === 0 ? (
+                            <div className="py-20 text-center border-2 border-dashed border-border/50 rounded-2xl bg-muted/10">
+                                <LayoutDashboard size={40} className="mx-auto text-muted-foreground/30 mb-4" />
+                                <h3 className="font-semibold text-foreground">No assessments yet</h3>
+                                <p className="text-sm text-muted-foreground mt-1">Create your first assessment to get started.</p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                {assessments.map((assessment) => (
+                                    <Link
+                                        key={assessment.id}
+                                        href={`/admin/assessments/${assessment.id}`}
+                                        className="group flex flex-col justify-between bg-card hover:bg-muted/10 border border-border/60 hover:border-primary/20 p-5 rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md"
+                                    >
+                                        <div>
+                                            <div className="flex justify-between items-start mb-3">
+                                                <div className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${assessment.status === 'active' || assessment.status === 'published'
+                                                    ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
+                                                    : assessment.status === 'draft'
+                                                        ? 'bg-slate-500/10 text-slate-600 border-slate-500/20'
+                                                        : 'bg-amber-500/10 text-amber-600 border-amber-500/20'
+                                                    }`}>
+                                                    {assessment.status}
+                                                </div>
+                                                <div className="p-2 rounded-full bg-muted/50 text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                                                    <ArrowRight size={16} className="-rotate-45 group-hover:rotate-0 transition-transform duration-300" />
+                                                </div>
+                                            </div>
+                                            <h3 className="font-bold text-lg text-foreground mb-2 line-clamp-1 group-hover:text-primary transition-colors">
+                                                {assessment.title}
+                                            </h3>
+                                            <p className="text-sm text-muted-foreground line-clamp-2 mb-4 h-10">
+                                                {assessment.description || 'No description provided.'}
+                                            </p>
+                                        </div>
+
+                                        <div className="flex items-center justify-between pt-4 border-t border-border/40 mt-2">
+                                            <div className="flex items-center gap-3 text-xs text-muted-foreground font-medium">
+                                                <div className="flex items-center gap-1.5">
+                                                    <Users size={14} />
+                                                    <span>{assessment.participantCount || 0}</span>
+                                                </div>
+                                                <div className="flex items-center gap-1.5">
+                                                    <Clock size={14} />
+                                                    <span>{assessment.duration || 60}m</span>
+                                                </div>
+                                            </div>
+                                            <span className="text-xs font-semibold text-muted-foreground group-hover:text-foreground">
+                                                {new Date(assessment.startDate).toLocaleDateString()}
+                                            </span>
+                                        </div>
+                                    </Link>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Right Column: Sidebar (4 Cols) */}
+                    <div className="xl:col-span-4 space-y-8">
+
+                        {/* 1. Quick Stats Widget */}
+                        <div className="bg-card border border-border/60 rounded-2xl p-6 shadow-sm">
+                            <h3 className="font-bold text-foreground mb-5 flex items-center gap-2">
+                                <BarChart3 size={18} className="text-muted-foreground" />
+                                Platform Overview
+                            </h3>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="p-4 rounded-xl bg-primary/5 border border-primary/10">
+                                    <p className="text-xs font-bold text-primary mb-1 uppercase tracking-wider">Active</p>
+                                    <p className="text-3xl font-Inter text-foreground">{activeCount}</p>
+                                </div>
+                                <div className="p-4 rounded-xl bg-orange-500/5 border border-orange-500/10">
+                                    <p className="text-xs font-bold text-orange-600 mb-1 uppercase tracking-wider">Total</p>
+                                    <p className="text-3xl font-Inter text-foreground">{assessments.length}</p>
+                                </div>
+                                <div className="col-span-2 p-4 rounded-xl bg-blue-500/5 border border-blue-500/10 flex items-center justify-between">
+                                    <div>
+                                        <p className="text-xs font-bold text-blue-600 mb-1 uppercase tracking-wider">Participants</p>
+                                        <p className="text-3xl font-Inter text-foreground">{totalParticipants}</p>
+                                    </div>
+                                    <Users size={24} className="text-blue-500/30" />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 2. Quick Actions */}
+                        <div className="space-y-4">
+                            <h3 className="font-bold text-foreground flex items-center gap-2 px-1">
+                                <Zap size={18} className="text-muted-foreground" />
+                                Quick Actions
+                            </h3>
+
+                            <Link href="/admin/monitor" className="flex items-center gap-4 p-4 rounded-2xl bg-card border border-border/60 hover:border-primary/30 hover:shadow-md transition-all group">
+                                <div className="p-3 rounded-xl bg-red-500/10 text-red-600 group-hover:scale-110 transition-transform">
+                                    <Eye size={20} />
+                                </div>
+                                <div>
+                                    <h4 className="font-bold text-sm text-foreground">Live Monitoring</h4>
+                                    <p className="text-xs text-muted-foreground">Watch active sessions</p>
+                                </div>
+                                <ArrowRight size={16} className="ml-auto text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
+                            </Link>
+
+                            <Link href="/admin/reports" className="flex items-center gap-4 p-4 rounded-2xl bg-card border border-border/60 hover:border-primary/30 hover:shadow-md transition-all group">
+                                <div className="p-3 rounded-xl bg-purple-500/10 text-purple-600 group-hover:scale-110 transition-transform">
+                                    <FileText size={20} />
+                                </div>
+                                <div>
+                                    <h4 className="font-bold text-sm text-foreground">All Reports</h4>
+                                    <p className="text-xs text-muted-foreground">View past performance</p>
+                                </div>
+                                <ArrowRight size={16} className="ml-auto text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
+                            </Link>
+
+                            <Link href="/admin/violations" className="flex items-center gap-4 p-4 rounded-2xl bg-card border border-border/60 hover:border-primary/30 hover:shadow-md transition-all group">
+                                <div className="p-3 rounded-xl bg-amber-500/10 text-amber-600 group-hover:scale-110 transition-transform">
+                                    <AlertTriangle size={20} />
+                                </div>
+                                <div>
+                                    <h4 className="font-bold text-sm text-foreground">Violations</h4>
+                                    <p className="text-xs text-muted-foreground">Review flagged incidents</p>
+                                </div>
+                                <ArrowRight size={16} className="ml-auto text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
+                            </Link>
+                        </div>
+
+                        {/* 3. System Status / User Info */}
+                        <div className="bg-gradient-to-br from-indigo-600 to-violet-600 rounded-2xl p-6 text-white shadow-xl relative overflow-hidden">
+                            <div className="relative z-10">
+                                <h3 className="font-bold text-lg mb-1">Pro Account</h3>
+                                <p className="text-white/80 text-xs mb-4">You have full access to all features.</p>
+                                <div className="flex items-center gap-2 text-xs font-medium bg-white/20 w-fit px-3 py-1.5 rounded-lg backdrop-blur-md">
+                                    <Shield size={12} />
+                                    <span>Administrator</span>
+                                </div>
+                            </div>
+                            <Sparkles size={80} className="absolute -bottom-4 -right-4 text-white/10 rotate-12" />
+                        </div>
+
+                    </div>
                 </div>
             </div>
         </div>

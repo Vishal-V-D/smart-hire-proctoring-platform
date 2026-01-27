@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     CheckCircle, Upload, X, Code, Database, Search, Filter,
-    ChevronLeft, ChevronRight, FileJson, Zap, Tag, Loader2,
+    ChevronLeft, ChevronRight, FileJson, Zap, Tag,
     CheckCheck, AlertCircle, FileSpreadsheet
 } from 'lucide-react';
+import Loader from '@/components/Loader';
 import { Question } from '../types';
 import { codingQuestionService, CodingProblem } from '@/api/codingQuestionService';
 import { questionBankService, QuestionBankQuestion } from '@/api/questionBankService';
@@ -39,7 +40,9 @@ const SQLQuestionModal: React.FC<SQLQuestionModalProps> = ({ isOpen, onClose, on
         dialects: [],
         difficulties: [],
         topics: [],
-        subdivisions: []
+        subdivisions: [],
+        divisions: [],
+        tags: []
     });
 
     // --- Randomize State ---
@@ -430,25 +433,25 @@ const SQLQuestionModal: React.FC<SQLQuestionModalProps> = ({ isOpen, onClose, on
                                     </div>
                                     <div className="col-span-6 md:col-span-2">
                                         <select
-                                            value={sqlFilters.dialect || ''}
-                                            onChange={(e) => setSqlFilters({ ...sqlFilters, dialect: e.target.value, page: 1 })}
+                                            value={sqlFilters.division || ''}
+                                            onChange={(e) => setSqlFilters({ ...sqlFilters, division: e.target.value, page: 1 })}
                                             className="w-full bg-background border border-border rounded-lg py-2 px-3 text-sm focus:border-blue-500 outline-none cursor-pointer"
                                         >
-                                            <option value="">All Dialects</option>
-                                            {filterOptions.dialects.map(d => (
+                                            <option value="">All Divisions</option>
+                                            {filterOptions.divisions?.map(d => (
                                                 <option key={d} value={d}>{d}</option>
                                             ))}
                                         </select>
                                     </div>
                                     <div className="col-span-6 md:col-span-2">
                                         <select
-                                            value={sqlFilters.difficulty || ''}
-                                            onChange={(e) => setSqlFilters({ ...sqlFilters, difficulty: e.target.value as any || undefined, page: 1 })}
+                                            value={sqlFilters.subdivision || ''}
+                                            onChange={(e) => setSqlFilters({ ...sqlFilters, subdivision: e.target.value, page: 1 })}
                                             className="w-full bg-background border border-border rounded-lg py-2 px-3 text-sm focus:border-blue-500 outline-none cursor-pointer"
                                         >
-                                            <option value="">All Difficulties</option>
-                                            {filterOptions.difficulties.map(d => (
-                                                <option key={d} value={d}>{d}</option>
+                                            <option value="">All Subdivisions</option>
+                                            {filterOptions.subdivisions?.map(s => (
+                                                <option key={s} value={s}>{s}</option>
                                             ))}
                                         </select>
                                     </div>
@@ -459,7 +462,31 @@ const SQLQuestionModal: React.FC<SQLQuestionModalProps> = ({ isOpen, onClose, on
                                             className="w-full bg-background border border-border rounded-lg py-2 px-3 text-sm focus:border-blue-500 outline-none cursor-pointer"
                                         >
                                             <option value="">All Topics</option>
-                                            {filterOptions.topics.map(t => (
+                                            {filterOptions.topics?.map(t => (
+                                                <option key={t} value={t}>{t}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="col-span-6 md:col-span-2">
+                                        <select
+                                            value={sqlFilters.difficulty || ''}
+                                            onChange={(e) => setSqlFilters({ ...sqlFilters, difficulty: e.target.value as any || undefined, page: 1 })}
+                                            className="w-full bg-background border border-border rounded-lg py-2 px-3 text-sm focus:border-blue-500 outline-none cursor-pointer"
+                                        >
+                                            <option value="">All Difficulties</option>
+                                            {filterOptions.difficulties?.map(d => (
+                                                <option key={d} value={d}>{d}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="col-span-6 md:col-span-2">
+                                        <select
+                                            value={sqlFilters.tags || ''}
+                                            onChange={(e) => setSqlFilters({ ...sqlFilters, tags: e.target.value, page: 1 })}
+                                            className="w-full bg-background border border-border rounded-lg py-2 px-3 text-sm focus:border-blue-500 outline-none cursor-pointer"
+                                        >
+                                            <option value="">All Tags</option>
+                                            {filterOptions.tags?.map(t => (
                                                 <option key={t} value={t}>{t}</option>
                                             ))}
                                         </select>
@@ -472,8 +499,8 @@ const SQLQuestionModal: React.FC<SQLQuestionModalProps> = ({ isOpen, onClose, on
                             <div className="flex-1 min-h-[300px] space-y-2">
                                 {isLoadingSql ? (
                                     <div className="flex flex-col items-center justify-center py-20 gap-4 text-muted-foreground">
-                                        <Loader2 size={32} className="animate-spin text-blue-500" />
-                                        <p className="text-sm font-medium">Loading questions...</p>
+                                        <Loader />
+                                        <p className="text-sm font-medium mt-4">Loading questions...</p>
                                     </div>
                                 ) : sqlQuestions.length === 0 ? (
                                     <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground bg-muted/20 rounded-xl border border-dashed border-border">
@@ -595,7 +622,11 @@ const SQLQuestionModal: React.FC<SQLQuestionModalProps> = ({ isOpen, onClose, on
                                                 'bg-red-500/10 border border-red-500/20'
                                             }`}
                                     >
-                                        {uploadStatus === 'loading' && <Loader2 size={20} className="text-blue-600 animate-spin" />}
+                                        {uploadStatus === 'loading' && (
+                                            <div className="scale-75 h-5 w-12 flex items-center justify-center">
+                                                <Loader />
+                                            </div>
+                                        )}
                                         {uploadStatus === 'success' && <CheckCheck size={20} className="text-green-600" />}
                                         {uploadStatus === 'error' && <AlertCircle size={20} className="text-red-600" />}
                                         <span className={`text-sm font-medium ${uploadStatus === 'loading' ? 'text-blue-600' :
@@ -678,10 +709,9 @@ const SQLQuestionModal: React.FC<SQLQuestionModalProps> = ({ isOpen, onClose, on
                                     className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
                                 >
                                     {isRandomizing ? (
-                                        <>
-                                            <Loader2 size={20} className="animate-spin" />
-                                            Generating...
-                                        </>
+                                        <div className="scale-75 h-5 w-12 flex items-center justify-center">
+                                            <Loader />
+                                        </div>
                                     ) : (
                                         <>
                                             <Zap size={20} fill="currentColor" />

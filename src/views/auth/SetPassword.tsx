@@ -103,7 +103,7 @@ export default function SetPassword() {
                 <button
                     type="submit"
                     disabled={loading}
-                    className="bg-primary text-primary-foreground hover:bg-primary/90 px-6 py-4 rounded-xl font-bold transition-all w-full flex items-center justify-center gap-2"
+                    className="bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground hover:bg-gradient-to-br from-indigo-600 to-violet-600/90 px-6 py-4 rounded-xl font-bold transition-all w-full flex items-center justify-center gap-2"
                 >
                     {loading ? (
                         <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>

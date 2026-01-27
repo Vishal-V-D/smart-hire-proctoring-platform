@@ -80,14 +80,14 @@ export default function AdminActivityHistoryPage() {
                     <div className="pt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="p-4 bg-muted/20 rounded-2xl border border-border/50 text-left">
                             <FaCalendarAlt className="text-primary mb-2" />
-                            <span className="text-[10px] uppercase font-black text-muted-foreground tracking-widest block mb-1">Last Active</span>
+                            <span className="text-[10px] uppercase font-Inter text-muted-foreground tracking-widest block mb-1">Last Active</span>
                             <span className="text-sm font-bold text-foreground">
                                 {adminDetails?.admin?.lastLogin ? new Date(adminDetails.admin.lastLogin).toLocaleDateString() : 'Just now'}
                             </span>
                         </div>
                         <div className="p-4 bg-muted/20 rounded-2xl border border-border/50 text-left md:col-span-2">
                             <FaInfoCircle className="text-blue-500 mb-2" />
-                            <span className="text-[10px] uppercase font-black text-muted-foreground tracking-widest block mb-1">Status Overview</span>
+                            <span className="text-[10px] uppercase font-Inter text-muted-foreground tracking-widest block mb-1">Status Overview</span>
                             <p className="text-xs text-muted-foreground leading-relaxed">
                                 This user has been part of the team since <strong>{adminDetails?.admin?.createdAt ? new Date(adminDetails.admin.createdAt).toLocaleDateString() : 'recently'}</strong> and maintains active access to the <strong>{adminDetails?.admin?.accessType || 'Standard'}</strong> features.
                             </p>

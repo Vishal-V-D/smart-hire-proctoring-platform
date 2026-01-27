@@ -103,7 +103,7 @@ export default function AdminSettings() {
                         <Settings className="text-white" size={32} />
                     </div>
                     <div>
-                        <h1 className="text-3xl font-black text-white mb-1">Account Settings</h1>
+                        <h1 className="text-3xl font-Inter text-white mb-1">Account Settings</h1>
                         <p className="text-white/60">Manage your profile and security preferences</p>
                     </div>
                 </div>
@@ -287,7 +287,7 @@ export default function AdminSettings() {
                                     <Sun size={24} className={theme === 'light' ? 'text-primary' : 'text-muted-foreground'} />
                                     <span className={`text-sm font-bold ${theme === 'light' ? 'text-foreground' : 'text-muted-foreground'}`}>Light</span>
                                     {theme === 'light' && (
-                                        <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary animate-pulse" />
+                                        <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-gradient-to-br from-indigo-600 to-violet-600 animate-pulse" />
                                     )}
                                 </button>
 
@@ -302,7 +302,7 @@ export default function AdminSettings() {
                                     <Moon size={24} className={theme === 'dark' ? 'text-primary' : 'text-muted-foreground'} />
                                     <span className={`text-sm font-bold ${theme === 'dark' ? 'text-foreground' : 'text-muted-foreground'}`}>Dark</span>
                                     {theme === 'dark' && (
-                                        <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary animate-pulse" />
+                                        <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-gradient-to-br from-indigo-600 to-violet-600 animate-pulse" />
                                     )}
                                 </button>
 
@@ -317,7 +317,7 @@ export default function AdminSettings() {
                                     <Monitor size={24} className={theme === 'legacy' ? 'text-primary' : 'text-muted-foreground'} />
                                     <span className={`text-sm font-bold ${theme === 'legacy' ? 'text-foreground' : 'text-muted-foreground'}`}>Legacy</span>
                                     {theme === 'legacy' && (
-                                        <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary animate-pulse" />
+                                        <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-gradient-to-br from-indigo-600 to-violet-600 animate-pulse" />
                                     )}
                                 </button>
                             </div>
@@ -420,7 +420,7 @@ export default function AdminSettings() {
                                 <button
                                     type="submit"
                                     disabled={loading}
-                                    className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-xl font-bold hover:bg-primary/90 transition-all disabled:opacity-50 shadow-lg shadow-primary/25"
+                                    className="flex items-center gap-2 bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground px-6 py-3 rounded-xl font-bold hover:bg-gradient-to-br from-indigo-600 to-violet-600/90 transition-all disabled:opacity-50 shadow-lg shadow-primary/25"
                                 >
                                     {loading ? (
                                         <>

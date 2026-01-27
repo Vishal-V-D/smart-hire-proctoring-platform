@@ -56,7 +56,7 @@ export default function CompanyHistoryPage() {
                             <HistoryIcon size={32} />
                         </div>
                         <div>
-                            <h1 className="text-3xl font-black text-foreground tracking-tight">
+                            <h1 className="text-3xl font-Inter text-foreground tracking-tight">
                                 Audit Log
                             </h1>
                             <p className="text-muted-foreground mt-1">
@@ -129,7 +129,7 @@ export default function CompanyHistoryPage() {
                                     <div className="bg-muted/30 hover:bg-muted/50 border border-border/50 p-6 rounded-2xl transition-all group">
                                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
                                             <div className="space-y-1">
-                                                <h4 className="font-black text-foreground text-lg tracking-tight">
+                                                <h4 className="font-Inter text-foreground text-lg tracking-tight">
                                                     {event.action || event.type}
                                                 </h4>
                                                 <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium">
@@ -148,7 +148,7 @@ export default function CompanyHistoryPage() {
                                                     })}
                                                 </div>
                                             </div>
-                                            <div className="px-3 py-1 bg-background border border-border rounded-lg text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                                            <div className="px-3 py-1 bg-background border border-border rounded-lg text-[10px] font-Inter uppercase tracking-widest text-muted-foreground">
                                                 Event ID: #{idx + 1000}
                                             </div>
                                         </div>
@@ -219,7 +219,7 @@ export default function CompanyHistoryPage() {
                                                     <User size={18} className="text-primary" />
                                                 </div>
                                                 <div className="flex flex-col">
-                                                    <span className="text-[10px] uppercase font-black text-muted-foreground tracking-tighter leading-none mb-1">Performed By</span>
+                                                    <span className="text-[10px] uppercase font-Inter text-muted-foreground tracking-tighter leading-none mb-1">Performed By</span>
                                                     <span className="text-sm font-bold text-foreground">
                                                         {event.performedBy?.username || event.performedBy?.fullName || "System Administrator"}
                                                     </span>

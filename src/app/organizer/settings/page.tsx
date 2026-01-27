@@ -93,7 +93,7 @@ const SecuritySettings = () => {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-xl font-bold hover:bg-primary/90 transition-all disabled:opacity-50"
+                        className="flex items-center gap-2 bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground px-6 py-3 rounded-xl font-bold hover:bg-gradient-to-br from-indigo-600 to-violet-600/90 transition-all disabled:opacity-50"
                     >
                         {loading ? 'Updating...' : <><Key size={16} /> Update Password</>}
                     </button>
@@ -277,7 +277,7 @@ const SettingsPage = () => {
                         <button
                             onClick={handleUpdateProfile}
                             disabled={isSaving}
-                            className="px-6 py-2 bg-primary text-primary-foreground rounded-lg font-semibold hover:opacity-90 disabled:opacity-50 transition-all"
+                            className="px-6 py-2 bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground rounded-lg font-semibold hover:opacity-90 disabled:opacity-50 transition-all"
                         >
                             {isSaving ? 'Saving...' : 'Save Changes'}
                         </button>
@@ -309,7 +309,7 @@ const SettingsPage = () => {
                             </div>
                             <div className="flex justify-between items-center">
                                 <span className={`font-bold ${theme === 'light' ? 'text-primary' : 'text-muted-foreground'}`}>Light Mode</span>
-                                {theme === 'light' && <div className="w-3 h-3 bg-primary rounded-full"></div>}
+                                {theme === 'light' && <div className="w-3 h-3 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-full"></div>}
                             </div>
                         </button>
 
@@ -325,7 +325,7 @@ const SettingsPage = () => {
                             </div>
                             <div className="flex justify-between items-center">
                                 <span className={`font-bold ${theme === 'dark' ? 'text-primary' : 'text-muted-foreground'}`}>Dark Mode</span>
-                                {theme === 'dark' && <div className="w-3 h-3 bg-primary rounded-full"></div>}
+                                {theme === 'dark' && <div className="w-3 h-3 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-full"></div>}
                             </div>
                         </button>
 
@@ -340,7 +340,7 @@ const SettingsPage = () => {
                             </div>
                             <div className="flex justify-between items-center">
                                 <span className={`font-bold ${theme === 'legacy' ? 'text-primary' : 'text-muted-foreground'}`}>Legacy Mode</span>
-                                {theme === 'legacy' && <div className="w-3 h-3 bg-primary rounded-full"></div>}
+                                {theme === 'legacy' && <div className="w-3 h-3 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-full"></div>}
                             </div>
                         </button>
                     </div>

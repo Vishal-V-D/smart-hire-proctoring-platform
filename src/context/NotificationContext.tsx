@@ -145,22 +145,11 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
 
         const onConnect = () => {
             setIsConnected(true);
-            toast.success('Connected to server', {
-                position: 'bottom-right',
-                autoClose: 2000,
-                hideProgressBar: true,
-                theme: 'colored',
-            });
         };
 
         const onDisconnect = () => {
             setIsConnected(false);
-            toast.error('Disconnected from server', {
-                position: 'bottom-right',
-                autoClose: 3000,
-                hideProgressBar: true,
-                theme: 'colored',
-            });
+           
         };
 
         socket.on('connect', onConnect);

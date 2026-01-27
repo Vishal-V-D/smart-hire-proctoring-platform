@@ -201,7 +201,7 @@ const CodingQuestionEditModal: React.FC<CodingQuestionEditModalProps> = ({
                         <button
                             onClick={handleSave}
                             disabled={isLoading}
-                            className="px-4 py-2 text-sm font-bold bg-primary text-primary-foreground rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
+                            className="px-4 py-2 text-sm font-bold bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
                         >
                             {isLoading ? (
                                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -330,7 +330,7 @@ const CodingQuestionEditModal: React.FC<CodingQuestionEditModalProps> = ({
                             {activeTab === 'content' && (
                                 <button
                                     onClick={() => setPreviewMode(!previewMode)}
-                                    className={`ml-auto flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${previewMode ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'
+                                    className={`ml-auto flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${previewMode ? 'bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'
                                         }`}
                                 >
                                     <Eye size={12} />
@@ -545,7 +545,7 @@ const CodingQuestionEditModal: React.FC<CodingQuestionEditModalProps> = ({
                                                 key={lang}
                                                 onClick={() => setActiveCodeLang(lang)}
                                                 className={`px-4 py-2 text-xs font-medium rounded-lg transition-all ${activeCodeLang === lang
-                                                    ? 'bg-primary text-primary-foreground'
+                                                    ? 'bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground'
                                                     : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                                                     }`}
                                             >

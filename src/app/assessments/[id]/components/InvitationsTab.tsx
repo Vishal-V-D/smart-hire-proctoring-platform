@@ -18,7 +18,8 @@ import {
     XCircle,
     Trash2
 } from 'lucide-react';
-import { Invitation, InvitationStats } from '@/api/invitationService';
+import { invitationService, Invitation, InvitationStats } from '@/api/invitationService';
+import { useState } from 'react';
 
 interface InvitationsTabProps {
     invitations: Invitation[];
@@ -33,6 +34,7 @@ interface InvitationsTabProps {
     onDelete: (id: string) => void;
     onInvite: () => void;
     onCsvUpload: (file: File) => void;
+    assessmentId: string;
 }
 
 const InvitationsTab = ({
@@ -46,10 +48,79 @@ const InvitationsTab = ({
     onResend,
     onCancel,
     onDelete,
+
     onInvite,
-    onCsvUpload
+    onCsvUpload,
+    assessmentId
 }: InvitationsTabProps) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [showBulkModal, setShowBulkModal] = useState(false);
+    const [bulkEmails, setBulkEmails] = useState('');
+    const [bulkLoading, setBulkLoading] = useState(false);
+    const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0, successes: 0, failures: 0 });
+
+    const handleBulkInvite = async () => {
+        // Just trimming the whole string, backend expects comma separated
+        const emails = bulkEmails.trim();
+        if (!emails) return;
+
+        if (!assessmentId) {
+            const { showToast } = await import('@/utils/toast');
+            showToast("Assessment ID is missing. Please refresh the page.", "error");
+            return;
+        }
+
+        setBulkLoading(true);
+        // Estimate total by comma count for visual
+        const estimatedTotal = emails.split(',').length;
+        setBulkProgress({ current: 0, total: estimatedTotal, successes: 0, failures: 0 });
+
+        const { showToast } = await import('@/utils/toast');
+
+        try {
+            console.log(`Sending bulk invites via new API for assessment ${assessmentId}`);
+
+            // Single API call
+            const response = await invitationService.bulkInviteEmails({
+                assessmentId,
+                emails,
+                sendEmail: true
+            });
+
+            // The backend returns success stats directly
+            const { sent, failed, errors } = response.data;
+
+            // Update progress for visual feedback (jump to 100%)
+            setBulkProgress({
+                current: estimatedTotal,
+                total: estimatedTotal,
+                successes: sent,
+                failures: failed
+            });
+
+            let toastMsg = `Bulk invite complete: ${sent} sent, ${failed} failed`;
+            if (failed > 0 && errors && errors.length > 0) {
+                // Capture first few unique errors to show user
+                const uniqueErrors = Array.from(new Set(errors.map(e => e.error))).slice(0, 3);
+                toastMsg += `. Errors: ${uniqueErrors.join(", ")}`;
+            }
+
+            showToast(toastMsg, failed > 0 ? (sent > 0 ? 'warning' : 'error') : 'success');
+
+            if (sent > 0) {
+                setBulkEmails('');
+                setShowBulkModal(false);
+                onSearch(); // Refresh list
+            }
+
+        } catch (error: any) {
+            console.error(`Failed to send bulk invites`, error.response?.data || error.message);
+            const msg = error.response?.data?.message || error.message || "Unknown error";
+            showToast(`Failed to send bulk invites: ${msg}`, 'error');
+        } finally {
+            setBulkLoading(false);
+        }
+    };
 
     const getStatusStyles = (status: string) => {
         switch (status) {
@@ -155,8 +226,17 @@ const InvitationsTab = ({
                     <input type="file" ref={fileInputRef} accept=".csv" className="hidden" onChange={handleFileChange} />
 
                     <button
+                        onClick={() => setShowBulkModal(true)}
+                        className="flex items-center gap-2 px-4 py-3 bg-card border border-border text-foreground rounded-xl hover:bg-muted transition-all font-medium text-sm"
+                    >
+                        <Users size={16} />
+                        <span>Bulk Invite</span>
+                    </button>
+
+
+                    <button
                         onClick={onInvite}
-                        className="flex items-center gap-2 px-5 py-3 bg-primary text-primary-foreground rounded-xl text-sm font-bold hover:opacity-90 transition-all shadow-sm"
+                        className="flex items-center gap-2 px-5 py-3 bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground rounded-xl text-sm font-bold hover:opacity-90 transition-all shadow-md shadow-indigo-500/20"
                     >
                         <Plus size={18} strokeWidth={2.5} />
                         <span>Invite</span>
@@ -250,6 +330,16 @@ const InvitationsTab = ({
                         </table>
                     )}
                 </div>
+                {/* Bulk Modal */}
+                <BulkInviteModal
+                    isOpen={showBulkModal}
+                    onClose={() => setShowBulkModal(false)}
+                    onSend={handleBulkInvite}
+                    loading={bulkLoading}
+                    progress={bulkProgress}
+                    value={bulkEmails}
+                    onChange={setBulkEmails}
+                />
             </div>
 
             <style jsx global>{`
@@ -268,6 +358,85 @@ const InvitationsTab = ({
 };
 
 // ========== UI COMPONENTS ==========
+
+const BulkInviteModal = ({
+    isOpen,
+    onClose,
+    onSend,
+    loading,
+    progress,
+    value,
+    onChange
+}: any) => {
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-background/80 backdrop-blur-md" onClick={!loading ? onClose : undefined} />
+            <div className="relative bg-card border border-border rounded-[2rem] p-8 max-w-lg w-full shadow-2xl">
+                <div className="flex items-center justify-between mb-6">
+                    <div>
+                        <h3 className="text-2xl font-Inter text-foreground">Bulk Invite</h3>
+                        <p className="text-sm text-muted-foreground mt-1">Enter email addresses separated by commas</p>
+                    </div>
+                    {!loading && (
+                        <button onClick={onClose} className="p-2 hover:bg-muted rounded-xl transition-colors">
+                            <X size={24} />
+                        </button>
+                    )}
+                </div>
+
+                <div className="space-y-4">
+                    <textarea
+                        value={value}
+                        onChange={(e) => onChange(e.target.value)}
+                        disabled={loading}
+                        placeholder="john@example.com, jane@example.com, ..."
+                        className="w-full h-40 bg-muted/50 border border-border focus:border-primary focus:ring-4 focus:ring-primary/10 rounded-2xl p-4 text-sm outline-none transition-all font-medium resize-none"
+                    />
+
+                    {loading && (
+                        <div className="space-y-2">
+                            <div className="flex justify-between text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                                <span>Processing {progress.total} emails...</span>
+                            </div>
+                            <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                                <div
+                                    className="h-full bg-gradient-to-br from-indigo-600 to-violet-600 animate-pulse"
+                                    style={{ width: '100%' }}
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="flex gap-4 mt-6">
+                        <button
+                            onClick={onClose}
+                            disabled={loading}
+                            className="flex-1 px-6 py-3.5 border border-border rounded-2xl font-bold text-sm hover:bg-muted transition-all disabled:opacity-50"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={onSend}
+                            disabled={loading || !value.trim()}
+                            className="flex-[1.5] px-6 py-3.5 bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground rounded-2xl font-Inter text-sm hover:opacity-90 disabled:opacity-50 transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20"
+                        >
+                            {loading ? (
+                                <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin" />
+                            ) : (
+                                <>
+                                    <Send size={18} />
+                                    <span>Send Bulk Invites</span>
+                                </>
+                            )}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 const StatCard = ({ label, value, icon }: { label: string; value: number; icon: React.ReactNode }) => (
     <div className="bg-card border border-border rounded-xl p-4 hover:shadow-md transition-all">

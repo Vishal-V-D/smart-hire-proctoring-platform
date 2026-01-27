@@ -27,6 +27,8 @@ const NewAssessmentPage = () => {
         ? '/admin/assessments'
         : '/organizer/assessments';
 
+    const companyId = searchParams.get('companyId'); // Get companyId if present
+
     // Collapse Sidebar automatically when entering Builder
     const { setCollapsed } = useSidebar();
     useEffect(() => {
@@ -54,28 +56,28 @@ const NewAssessmentPage = () => {
         timeMode: 'section',
         globalTime: 60,
         proctoring: {
-            enabled: false,
+            enabled: true,
             // Monitoring
-            imageMonitoring: false,
-            videoMonitoring: false,
-            screenRecording: false,
-            audioMonitoring: false,
-            audioRecording: false,
+            imageMonitoring: true,
+            videoMonitoring: true,
+            screenRecording: true,
+            audioMonitoring: true,
+            audioRecording: true,
             // AI
-            objectDetection: false,
-            personDetection: false,
-            faceDetection: false,
-            eyeTracking: false,
-            noiseDetection: false,
+            objectDetection: true,
+            personDetection: true,
+            faceDetection: true,
+            eyeTracking: true,
+            noiseDetection: true,
             // Lockdown
-            fullscreen: false,
+            fullscreen: true,
             tabSwitchLimit: 0,
-            disableCopyPaste: false,
-            blockExternalMonitor: false,
-            blockRightClick: false,
+            disableCopyPaste: true,
+            blockExternalMonitor: true,
+            blockRightClick: true,
             // Verification
-            verifyIDCard: false,
-            verifyFace: false,
+            verifyIDCard: true,
+            verifyFace: true,
         },
         navigation: {
             allowPreviousNavigation: true,
@@ -307,6 +309,7 @@ const NewAssessmentPage = () => {
                 globalTime: 0,
                 proctoringSettings: currentConfig.proctoring,
                 navigationSettings: currentConfig.navigation,
+                companyId: companyId || undefined, // Pass companyId if present
                 sections: transformedSections
             };
 
@@ -464,6 +467,7 @@ const NewAssessmentPage = () => {
                         tags: q.tags || [],
                         codeStub: q.codeStub || undefined,
                         marks: q.marks ?? 1,
+                        negativeMarks: q.negativeMarks, // Map negativeMarks
                         orderIndex: q.orderIndex || 0,
                     }));
 
@@ -685,6 +689,7 @@ const NewAssessmentPage = () => {
                 globalTime: 0,
                 proctoringSettings: config.proctoring,
                 navigationSettings: config.navigation,
+                companyId: companyId || undefined,
                 sections: transformedSections
             };
 
@@ -704,7 +709,11 @@ const NewAssessmentPage = () => {
                 setTimeout(() => {
                     // If true edit mode, maybe go to details? For now, list page is safe default for both flow.
                     // Or follow existing pattern:
-                    window.location.href = listPath;
+                    if (companyId) {
+                        router.push(`/organizer/companies/${companyId}`);
+                    } else {
+                        router.push(listPath);
+                    }
                 }, 1000);
             } else {
                 // CREATE new assessment (fallback)
@@ -719,7 +728,11 @@ const NewAssessmentPage = () => {
                 // Navigate to assessment list page after creation
                 console.log("📍 Navigating to assessment list page");
                 setTimeout(() => {
-                    window.location.href = listPath;
+                    if (companyId) {
+                        router.push(`/organizer/companies/${companyId}`);
+                    } else {
+                        router.push(listPath);
+                    }
                 }, 1000);
             }
 
@@ -780,34 +793,34 @@ const NewAssessmentPage = () => {
             </div>
 
             {/* MAIN CONTAINER */}
-            <div className={`relative w-full h-full flex flex-col z-10 perspective-[1000px] ${phase === 'setup' ? 'px-0 md:px-4 py-6' : 'px-0'}`}>
+            <div className={`relative w-full h-full flex flex-col z-10 perspective-[1000px] ${phase === 'setup' ? 'p-0 m-0' : 'px-0'}`}>
 
-                {/* SAVE STATUS INDICATOR */}
-                <div className="absolute top-4 right-4 z-50 flex items-center gap-2 px-3 py-1.5 bg-background/80 backdrop-blur-md border border-border rounded-full shadow-sm text-xs font-medium text-muted-foreground transition-all hover:bg-background/90">
-                    {saveStatus === 'saving' && (
-                        <>
-                            <Loader2 className="animate-spin text-primary" size={12} />
-                            <span className="text-primary">Saving...</span>
-                        </>
-                    )}
-                    {saveStatus === 'saved' && (
-                        <>
-                            <Check size={12} className="text-emerald-500" />
-                            <span className="text-emerald-600">Saved {lastSaved?.toLocaleTimeString()}</span>
-                        </>
-                    )}
-                    {saveStatus === 'error' && (
-                        <div className="flex items-center gap-2 text-destructive" title={saveError || 'Save Failed'}>
-                            <AlertCircle size={12} />
-                            <span>{saveError || 'Save Failed'}</span>
-                        </div>
-                    )}
-                    {saveStatus === 'idle' && !lastSaved && (
-                        <span className="text-muted-foreground/50">Draft - Unsaved</span>
-                    )}
-                    {saveStatus === 'idle' && lastSaved && (
-                        <span className="text-muted-foreground/70">Saved {lastSaved.toLocaleTimeString()}</span>
-                    )}
+                {/* MODERN STATUS INDICATOR - Moved to top-3 right-6 to avoid overlap */}
+                <div className="absolute top-1 right-6 z-[250] flex items-center gap-3 px-4 py-1.5 bg-background/60 backdrop-blur-md border border-border/40 rounded-full shadow-lg transition-all hover:bg-background/80 group">
+                    <div className="flex items-center gap-2">
+                        {saveStatus === 'saving' && (
+                            <div className="relative flex h-2 w-2 mr-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-gradient-to-br from-indigo-600 to-violet-600 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-gradient-to-br from-indigo-600 to-violet-600"></span>
+                            </div>
+                        )}
+                        {saveStatus === 'saved' && (
+                            <div className="flex h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] mr-2"></div>
+                        )}
+                        {saveStatus === 'error' && (
+                            <div className="flex h-2 w-2 rounded-full bg-destructive shadow-[0_0_8px_rgba(239,68,68,0.5)] mr-2"></div>
+                        )}
+                        {saveStatus === 'idle' && (
+                            <div className="flex h-2 w-2 rounded-full bg-muted-foreground/30 mr-2"></div>
+                        )}
+
+                        <span className="text-[9px] font-bold uppercase tracking-[0.1em] text-muted-foreground group-hover:text-foreground transition-colors overflow-hidden whitespace-nowrap">
+                            {saveStatus === 'saving' && "Syncing to Cloud"}
+                            {saveStatus === 'saved' && `Cloud Synced • ${lastSaved?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`}
+                            {saveStatus === 'error' && (saveError || "Cloud Sync Error")}
+                            {saveStatus === 'idle' && (lastSaved ? `Last Sync: ${lastSaved.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : "Local Draft")}
+                        </span>
+                    </div>
                 </div>
 
                 <AnimatePresence mode='wait'>
@@ -866,7 +879,7 @@ const BackgroundShapes = () => (
                 repeat: Infinity,
                 repeatType: "reverse"
             }}
-            className="absolute top-[-10%] left-[-5%] w-[600px] h-[600px] bg-primary rounded-full blur-[120px]"
+            className="absolute top-[-10%] left-[-5%] w-[600px] h-[600px] bg-gradient-to-br from-indigo-600 to-violet-600 rounded-full blur-[120px]"
         />
         <motion.div
             animate={{

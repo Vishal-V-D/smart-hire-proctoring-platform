@@ -312,12 +312,18 @@ const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({ config, sections,
     // --- CALCULATIONS ---
     // Section Score = (questions added) × marksPerQuestion
     const calculateSectionMarks = (section: AssessmentSection) => {
-        const count = section.questions?.length || 0;
-        const marks = Number(section.marksPerQuestion) || 0;
-        return count * marks;
+        if (!section.questions || section.questions.length === 0) return 0;
+
+        return section.questions.reduce((total, q) => {
+            const qMark = q.marks !== undefined ? q.marks : (Number(section.marksPerQuestion) || 0);
+            return total + qMark;
+        }, 0);
     };
 
     const totalMarks = sections.reduce((acc, s) => acc + calculateSectionMarks(s), 0);
+    const totalNegativeMarks = sections.reduce((acc, s) => {
+        return acc + (s.questions || []).reduce((qAcc, q) => qAcc + (q.negativeMarks || s.negativeMarking || 0), 0);
+    }, 0);
     const totalQuestions = sections.reduce((acc, s) => acc + (s.questions?.length || 0), 0);
     const totalTime = sections.reduce((acc, s) => acc + (Number(s.timeLimit) || 0), 0);
 
@@ -512,7 +518,7 @@ const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({ config, sections,
                                         y: [0, -8, 0]
                                     }}
                                     transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-                                    className="absolute -top-2 -right-2 w-3 h-3 rounded-full bg-primary/40 blur-[1px]"
+                                    className="absolute -top-2 -right-2 w-3 h-3 rounded-full bg-gradient-to-br from-indigo-600 to-violet-600/40 blur-[1px]"
                                 />
                                 <motion.div
                                     animate={{
@@ -520,7 +526,7 @@ const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({ config, sections,
                                         y: [0, 6, 0]
                                     }}
                                     transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
-                                    className="absolute -bottom-3 -left-3 w-2 h-2 rounded-full bg-primary/30 blur-[1px]"
+                                    className="absolute -bottom-3 -left-3 w-2 h-2 rounded-full bg-gradient-to-br from-indigo-600 to-violet-600/30 blur-[1px]"
                                 />
                             </div>
 
@@ -600,7 +606,7 @@ const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({ config, sections,
                                             </div>
 
                                             {/* Inline Edit Grid */}
-                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                                                 <div className="space-y-1.5">
                                                     <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider ml-1">Questions Added</label>
                                                     <div className="relative group/input">
@@ -630,12 +636,74 @@ const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({ config, sections,
                                                             min="1"
                                                             className={`w-full bg-muted/20 border border-transparent rounded-xl py-3 px-4 text-sm font-bold outline-none transition-all ${colors.input}`}
                                                             value={section.marksPerQuestion}
-                                                            onChange={(e) => updateSection(section.id, { marksPerQuestion: parseInt(e.target.value) || 0 })}
+                                                            onChange={(e) => {
+                                                                const newMarks = parseInt(e.target.value) || 0;
+                                                                const updatedQuestions = (section.questions || []).map(q => ({ ...q, marks: newMarks }));
+                                                                updateSection(section.id, {
+                                                                    marksPerQuestion: newMarks,
+                                                                    questions: updatedQuestions
+                                                                });
+                                                            }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-1.5 relative group/info">
+                                                    <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider ml-1 flex items-center gap-1 cursor-help hover:text-foreground transition-colors">
+                                                        Neg. Marks
+                                                        <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center ${colors.bg} ${colors.text} border ${colors.border}`}>
+                                                            <span className="text-[9px] font-bold">?</span>
+                                                        </div>
+                                                    </label>
+                                                    <div className={`absolute top-full right-0 mt-3 w-72 bg-card border ${colors.border} p-4 rounded-xl shadow-2xl z-50 hidden group-hover/info:block animate-in fade-in slide-in-from-top-2 duration-200 pointer-events-none`}>
+                                                        <div className={`flex items-center gap-2 mb-2 pb-2 border-b ${colors.border}`}>
+                                                            <div className={`p-1 rounded-md ${colors.bg}`}>
+                                                                <Shield size={12} className={colors.text} />
+                                                            </div>
+                                                            <p className="text-xs font-bold text-foreground">Negative Marking Policy</p>
+                                                        </div>
+                                                        <div className="text-[11px] text-muted-foreground space-y-2">
+                                                            <p>This penalty is calculated for <span className="font-bold text-foreground">each question individually</span>.</p>
+                                                            <p className="opacity-80">If questions have different marks/penalties, they are summed up.</p>
+                                                            <div className={`p-2 rounded-lg font-mono text-[10px] ${colors.bg} ${colors.text} border ${colors.border}`}>
+                                                                Question Score = (Correct ? Marks : -Neg)
+                                                            </div>
+                                                            <div className="space-y-1">
+                                                                <p className="font-bold text-[10px] uppercase tracking-wider opacity-70">Per Question Example:</p>
+                                                                <ul className="space-y-1 ml-1">
+                                                                    <li className="flex items-center justify-between">
+                                                                        <span>Correct Answer</span>
+                                                                        <span className="font-bold text-emerald-500">+1.00</span>
+                                                                    </li>
+                                                                    <li className="flex items-center justify-between">
+                                                                        <span>Wrong Answer</span>
+                                                                        <span className="font-bold text-red-500">-0.25</span>
+                                                                    </li>
+                                                                </ul>
+                                                            </div>
+                                                        </div>
+                                                        {/* Arrow */}
+                                                        <div className={`absolute -top-1.5 right-8 w-3 h-3 bg-card border-t border-l ${colors.border} rotate-45 transform`}></div>
+                                                    </div>
+                                                    <div className="relative group/input">
+                                                        <input
+                                                            type="number"
+                                                            step="0.25"
+                                                            min="0"
+                                                            className={`w-full bg-muted/20 border border-transparent rounded-xl py-3 px-4 text-sm font-bold outline-none transition-all ${colors.input} text-red-500`}
+                                                            value={section.negativeMarking || 0}
+                                                            onChange={(e) => {
+                                                                const newNeg = parseFloat(e.target.value) || 0;
+                                                                const updatedQuestions = (section.questions || []).map(q => ({ ...q, negativeMarks: newNeg }));
+                                                                updateSection(section.id, {
+                                                                    negativeMarking: newNeg,
+                                                                    questions: updatedQuestions
+                                                                });
+                                                            }}
                                                         />
                                                     </div>
                                                 </div>
                                                 <div className={`p-2 rounded-xl flex flex-col justify-center items-center bg-card border border-border shadow-sm`}>
-                                                    <span className={`text-2xl font-black ${colors.text}`}>{(section.questions?.length || 0) * section.marksPerQuestion}</span>
+                                                    <span className={`text-2xl font-Inter ${colors.text}`}>{calculateSectionMarks(section)}</span>
                                                     <span className="text-[10px] font-extrabold text-muted-foreground/70 uppercase tracking-widest">Section Score</span>
                                                 </div>
                                             </div>
@@ -678,6 +746,49 @@ const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({ config, sections,
                                                                                 <div className="text-xs font-bold px-2 py-0.5 bg-muted/50 border border-border/50 rounded-md uppercase tracking-wider text-[10px] text-muted-foreground flex items-center gap-1">
                                                                                     {getQuestionTypeIcon(q.type)} {q.type.replace(/_/g, ' ')}
                                                                                 </div>
+                                                                                {/* Per Question Marks Inputs */}
+                                                                                {isExpanded && (
+                                                                                    <div className="flex items-center gap-3 ml-4" onClick={(e) => e.stopPropagation()}>
+                                                                                        {/* Positive Marks */}
+                                                                                        <div className="flex items-center group/mark">
+                                                                                            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-l-md px-2 py-1 flex items-center justify-center">
+                                                                                                <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-tight">Marks</span>
+                                                                                            </div>
+                                                                                            <input
+                                                                                                type="number"
+                                                                                                min="0.5"
+                                                                                                step="0.5"
+                                                                                                className="w-12 bg-background border-y border-r border-border rounded-r-md py-1 px-1 text-xs font-bold text-center outline-none focus:border-emerald-500 hover:bg-emerald-500/5 transition-all"
+                                                                                                value={q.marks ?? section.marksPerQuestion}
+                                                                                                onChange={(e) => {
+                                                                                                    const newMarks = parseFloat(e.target.value) || 0;
+                                                                                                    const updatedQuestions = section.questions.map(qk => qk.id === q.id ? { ...qk, marks: newMarks } : qk);
+                                                                                                    updateSection(section.id, { questions: updatedQuestions });
+                                                                                                }}
+                                                                                            />
+                                                                                        </div>
+
+                                                                                        {/* Negative Marks */}
+                                                                                        <div className="flex items-center group/neg">
+                                                                                            <div className="bg-red-500/10 border border-red-500/20 rounded-l-md px-2 py-1 flex items-center justify-center">
+                                                                                                <span className="text-[10px] font-bold text-red-600 uppercase tracking-tight">Neg.</span>
+                                                                                            </div>
+                                                                                            <input
+                                                                                                type="number"
+                                                                                                min="0"
+                                                                                                step="0.25"
+                                                                                                className="w-12 bg-background border-y border-r border-border rounded-r-md py-1 px-1 text-xs font-bold text-center outline-none focus:border-red-500 text-red-600 hover:bg-red-500/5 transition-all placeholder:text-red-300"
+                                                                                                value={q.negativeMarks ?? section.negativeMarking ?? 0}
+                                                                                                placeholder={(section.negativeMarking || 0).toString()}
+                                                                                                onChange={(e) => {
+                                                                                                    const newNeg = parseFloat(e.target.value);
+                                                                                                    const updatedQuestions = section.questions.map(qk => qk.id === q.id ? { ...qk, negativeMarks: isNaN(newNeg) ? undefined : newNeg } : qk);
+                                                                                                    updateSection(section.id, { questions: updatedQuestions });
+                                                                                                }}
+                                                                                            />
+                                                                                        </div>
+                                                                                    </div>
+                                                                                )}
                                                                             </div>
                                                                         </div>
 
@@ -756,7 +867,18 @@ const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({ config, sections,
                                                                                         </div>
                                                                                         {q.image && (
                                                                                             <div className="mt-3">
-                                                                                                <img src={q.image} alt="Question" className="max-w-full rounded-lg border border-border" />
+                                                                                                <img
+                                                                                                    src={q.image}
+                                                                                                    alt="Question"
+                                                                                                    className="h-32 w-auto object-contain rounded-lg border border-border cursor-pointer hover:opacity-90 transition-opacity shadow-sm"
+                                                                                                    onClick={() => { setSelectedImage(q.image!); setImageModalOpen(true); }}
+                                                                                                    onError={(e) => {
+                                                                                                        e.currentTarget.style.display = 'none';
+                                                                                                        if (e.currentTarget.parentElement) {
+                                                                                                            e.currentTarget.parentElement.style.display = 'none';
+                                                                                                        }
+                                                                                                    }}
+                                                                                                />
                                                                                             </div>
                                                                                         )}
                                                                                         {/* Options Display */}
@@ -855,7 +977,8 @@ const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({ config, sections,
                         <div className="flex items-center gap-4 px-4 text-xs font-medium text-muted-foreground border-x border-border/20">
                             <span className="flex items-center gap-1.5"><Layers size={14} /> {sections.length} Sections</span>
                             <span className="flex items-center gap-1.5"><Clock size={14} /> {totalTime}m</span>
-                            <span className="flex items-center gap-1.5"><span className="text-primary">★</span> {totalMarks} pts</span>
+                            <span className="flex items-center gap-1.5" title="Total Positive Marks"><span className="text-primary">★</span> {totalMarks} pts</span>
+                            <span className="flex items-center gap-1.5 text-red-500/80" title="Max Potential Negative Deduction"><span className="text-red-500 font-bold">-</span> {totalNegativeMarks} neg</span>
                         </div>
 
                         {onSaveDraft && (
@@ -871,7 +994,7 @@ const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({ config, sections,
                         <button
                             onClick={() => setIsPreviewMode(true)}
                             disabled={sections.length === 0}
-                            className={`bg-primary text-primary-foreground px-6 py-3 rounded-xl font-bold hover:opacity-90 transition-all flex items-center gap-2 shadow-lg shadow-primary/25 disabled:opacity-50 disabled:shadow-none ${sections.length === 0 ? 'cursor-not-allowed' : 'active:scale-95'}`}
+                            className={`bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground px-6 py-3 rounded-xl font-bold hover:opacity-90 transition-all flex items-center gap-2 shadow-lg shadow-primary/25 disabled:opacity-50 disabled:shadow-none ${sections.length === 0 ? 'cursor-not-allowed' : 'active:scale-95'}`}
                         >
                             Review <ArrowRight size={16} />
                         </button>

@@ -88,7 +88,8 @@ const AssessmentReportsTab = ({ assessmentId, assessment }: AssessmentReportsTab
             // Dynamic Section Headers
             ...(assessment?.sections?.flatMap((s: any) => {
                 const cols = [`${s.title} Score`, `${s.title} Time`];
-                if (s.type === 'coding') cols.push(`${s.title} Tests Passed`, `${s.title} Language`);
+                if (s.type === 'coding' || (s.sqlQuestions && s.sqlQuestions.length > 0)) cols.push(`${s.title} Tests Passed`);
+                if (s.type === 'coding') cols.push(`${s.title} Language`);
                 return cols;
             }) || []),
             'Plagiarism %',
@@ -116,27 +117,35 @@ const AssessmentReportsTab = ({ assessmentId, assessment }: AssessmentReportsTab
                         sScore?.timeTaken ? formatDuration(sScore.timeTaken) : '-'
                     ];
 
-                    if (s.type === 'coding') {
+                    if (s.type === 'coding' || (s.sqlQuestions && s.sqlQuestions.length > 0)) {
                         // Tests calculation logic
                         let passed = 0;
                         const sectionQuestions = s.questions?.filter((q: any) => q.type === 'coding') || [];
-                        const matchedProblems = (p.codingProblems || []).filter((prob: any) =>
-                            sectionQuestions.some((q: any) =>
-                                (q.problemId && q.problemId === (prob.problemId || prob.questionId)) ||
-                                (q.id && q.id === (prob.problemId || prob.questionId))
+                        const matchedProblems = [
+                            ...(p.codingProblems || []).filter((prob: any) =>
+                                sectionQuestions.some((q: any) =>
+                                    (q.problemId && q.problemId === (prob.problemId || prob.questionId)) ||
+                                    (q.id && q.id === (prob.problemId || prob.questionId))
+                                )
+                            ),
+                            ...(p.sqlQuestions || []).filter((sq: any) =>
+                                (s.sqlQuestions || []).some((q: any) => q.id === sq.questionId)
                             )
-                        );
+                        ];
+
                         matchedProblems.forEach((prob: any) => passed += (prob.passedTests || 0));
-                        if (passed === 0 && p.scores?.testCases?.total > 0 && s.questions?.length === 1) {
+                        if (passed === 0 && p.scores?.testCases?.total > 0 && (s.questions?.length === 1 || s.sqlQuestions?.length === 1)) {
                             passed = p.scores.testCases.passed;
                         }
                         cols.push(passed);
 
-                        // Extract all unique languages from ALL coding problems
-                        const allLangs = (p.codingProblems || []).map((prob: any) => prob.language).filter(Boolean) as string[];
-                        const uniqueLangs = [...new Set<string>(allLangs)];
-                        const languageStr = uniqueLangs.length > 0 ? uniqueLangs.join(', ') : '-';
-                        cols.push(languageStr);
+                        if (s.type === 'coding') {
+                            // Extract all unique languages from ALL coding problems
+                            const allLangs = (p.codingProblems || []).map((prob: any) => prob.language).filter(Boolean) as string[];
+                            const uniqueLangs = [...new Set<string>(allLangs)];
+                            const languageStr = uniqueLangs.length > 0 ? uniqueLangs.join(', ') : '-';
+                            cols.push(languageStr);
+                        }
                     }
                     return cols;
                 }) || []),
@@ -228,14 +237,19 @@ const AssessmentReportsTab = ({ assessmentId, assessment }: AssessmentReportsTab
                         const section = assessment?.sections?.find((s: any) => s.id === sectionId);
                         if (!section) return 0;
 
-                        // Filter questions for this section
+                        // Filter questions for this section (Coding and SQL)
                         const sectionQuestions = section.questions?.filter((q: any) => q.type === 'coding') || [];
-                        const matchedProblems = (obj.codingProblems || []).filter((prob: any) =>
-                            sectionQuestions.some((q: any) =>
-                                (q.problemId && q.problemId === (prob.problemId || prob.questionId)) ||
-                                (q.id && q.id === (prob.problemId || prob.questionId))
+                        const matchedProblems = [
+                            ...(obj.codingProblems || []).filter((prob: any) =>
+                                sectionQuestions.some((q: any) =>
+                                    (q.problemId && q.problemId === (prob.problemId || prob.questionId)) ||
+                                    (q.id && q.id === (prob.problemId || prob.questionId))
+                                )
+                            ),
+                            ...(obj.sqlQuestions || []).filter((sq: any) =>
+                                (section.sqlQuestions || []).some((q: any) => q.id === sq.questionId)
                             )
-                        );
+                        ];
 
                         let passed = 0;
                         matchedProblems.forEach((prob: any) => {
@@ -243,8 +257,7 @@ const AssessmentReportsTab = ({ assessmentId, assessment }: AssessmentReportsTab
                         });
 
                         // Fallback if no specific problems found but score has test case data
-                        // (Only accurate if section is 100% coding, but good enough fallback)
-                        if (passed === 0 && obj.scores?.testCases?.total > 0 && section.questions?.length === 1) {
+                        if (passed === 0 && obj.scores?.testCases?.total > 0 && (section.questions?.length === 1 || section.sqlQuestions?.length === 1)) {
                             passed = obj.scores.testCases.passed;
                         }
                         return passed;
@@ -399,7 +412,7 @@ const AssessmentReportsTab = ({ assessmentId, assessment }: AssessmentReportsTab
                             <Filter size={16} />
                             <span>Filters</span>
                             {(filters.statuses?.length > 0 || filters.minScore || filters.maxScore || filters.department || filters.college || filters.plagiarismRisk?.length > 0) && (
-                                <span className="w-5 h-5 flex items-center justify-center bg-primary text-primary-foreground text-[10px] rounded-full">!</span>
+                                <span className="w-5 h-5 flex items-center justify-center bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground text-[10px] rounded-full">!</span>
                             )}
                         </button>
 
@@ -502,7 +515,7 @@ const AssessmentReportsTab = ({ assessmentId, assessment }: AssessmentReportsTab
                                 });
                                 setSearchQuery('');
                             }}
-                            className="mt-6 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-bold hover:opacity-90 transition-opacity"
+                            className="mt-6 px-4 py-2 bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground rounded-lg text-sm font-bold hover:opacity-90 transition-opacity"
                         >
                             Clear all filters
                         </button>
@@ -555,10 +568,10 @@ const AssessmentReportsTab = ({ assessmentId, assessment }: AssessmentReportsTab
                                                     </div>
                                                 </div>
                                             </th>
-                                            {section.type === 'coding' && (
+                                            {(section.type === 'coding' || (section.sqlQuestions && section.sqlQuestions.length > 0)) && (
                                                 <>
                                                     <th
-                                                        className="py-3 px-4 text-center border-l-0 border-r-0 border-border bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors group"
+                                                        className={`py-3 px-4 text-center border-l-0 border-r-0 border-border bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors group`}
                                                         onClick={() => handleSort(`SECTION_${section.id}_time`)}
                                                     >
                                                         <div className="flex items-center justify-center gap-1">
@@ -567,7 +580,7 @@ const AssessmentReportsTab = ({ assessmentId, assessment }: AssessmentReportsTab
                                                         </div>
                                                     </th>
                                                     <th
-                                                        className="py-3 px-4 text-center border-r border-border bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors group"
+                                                        className={`py-3 px-4 text-center ${section.type === 'coding' ? 'border-r-0' : 'border-r'} border-border bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors group`}
                                                         onClick={() => handleSort(`SECTION_${section.id}_tests`)}
                                                     >
                                                         <div className="flex items-center justify-center gap-1">
@@ -575,14 +588,16 @@ const AssessmentReportsTab = ({ assessmentId, assessment }: AssessmentReportsTab
                                                             {sortConfig.key === `SECTION_${section.id}_tests` ? (sortConfig.direction === 'asc' ? <ChevronUp size={10} className="text-primary" /> : <ChevronDown size={10} className="text-primary" />) : <ChevronsUpDown size={10} className="text-muted-foreground/30 transition-opacity" />}
                                                         </div>
                                                     </th>
-                                                    <th className="py-3 px-4 text-center border-r border-border bg-muted/30">
-                                                        <div className="flex items-center justify-center gap-1">
-                                                            <span className="text-[9px] opacity-70">Lang</span>
-                                                        </div>
-                                                    </th>
+                                                    {section.type === 'coding' && (
+                                                        <th className="py-3 px-4 text-center border-r border-border bg-muted/30">
+                                                            <div className="flex items-center justify-center gap-1">
+                                                                <span className="text-[9px] opacity-70">Lang</span>
+                                                            </div>
+                                                        </th>
+                                                    )}
                                                 </>
                                             )}
-                                            {section.type !== 'coding' && (
+                                            {section.type !== 'coding' && (!section.sqlQuestions || section.sqlQuestions.length === 0) && (
                                                 <th
                                                     className="py-3 px-4 text-center border-r border-border bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors group"
                                                     onClick={() => handleSort(`SECTION_${section.id}_time`)}
@@ -705,23 +720,29 @@ const AssessmentReportsTab = ({ assessmentId, assessment }: AssessmentReportsTab
                                             {assessment?.sections?.map((section: any) => {
                                                 const sScore = p.scores?.sectionScores?.find((s: any) => s.sectionId === section.id || s.sectionTitle === section.title);
                                                 const isCoding = section.type === 'coding';
+                                                const isSql = section.sqlQuestions && section.sqlQuestions.length > 0;
                                                 let totalTests = 0;
                                                 let passedTests = 0;
 
-                                                if (isCoding) {
+                                                if (isCoding || isSql) {
                                                     if (sScore?.testCases && sScore.testCases.total > 0) {
                                                         totalTests = sScore.testCases.total;
                                                         passedTests = sScore.testCases.passed;
                                                     }
-                                                    else if (p.codingProblems && p.codingProblems.length > 0) {
-                                                        const sectionQuestions = section.questions?.filter((q: any) => q.type === 'coding') || [];
-                                                        const matchedProblems = p.codingProblems.filter((prob: any) =>
-                                                            sectionQuestions.some((q: any) =>
+                                                    else {
+                                                        const sectionCodingQuestions = section.questions?.filter((q: any) => q.type === 'coding') || [];
+                                                        const matchedCodingProblems = (p.codingProblems || []).filter((prob: any) =>
+                                                            sectionCodingQuestions.some((q: any) =>
                                                                 (q.problemId && q.problemId === (prob.problemId || prob.questionId)) ||
                                                                 (q.id && q.id === (prob.problemId || prob.questionId))
                                                             )
                                                         );
-                                                        matchedProblems.forEach((prob: any) => {
+
+                                                        const matchedSqlProblems = (p.sqlQuestions || []).filter((sq: any) =>
+                                                            (section.sqlQuestions || []).some((q: any) => q.id === sq.questionId)
+                                                        );
+
+                                                        [...matchedCodingProblems, ...matchedSqlProblems].forEach((prob: any) => {
                                                             totalTests += (prob.totalTests || 0);
                                                             passedTests += (prob.passedTests || 0);
                                                         });
@@ -732,14 +753,14 @@ const AssessmentReportsTab = ({ assessmentId, assessment }: AssessmentReportsTab
                                                     }
                                                 }
 
-                                                if (isCoding) {
+                                                if (isCoding || isSql) {
                                                     return (
                                                         <React.Fragment key={section.id}>
-                                                            <td className="py-3 px-4 text-center border-r border-border bg-purple-50/5">
+                                                            <td className={`py-3 px-4 text-center border-r border-border ${isCoding ? 'bg-purple-50/5' : 'bg-blue-50/5'}`}>
                                                                 {sScore ? (
                                                                     <div className="flex flex-col items-center gap-1">
                                                                         <div className="flex items-baseline gap-1">
-                                                                            <span className="font-bold text-purple-700">
+                                                                            <span className={`font-bold ${isCoding ? 'text-purple-700' : 'text-blue-700'}`}>
                                                                                 {sScore.obtainedMarks}
                                                                             </span>
                                                                             <span className="text-muted-foreground text-xs">/ {sScore.totalMarks}</span>
@@ -753,12 +774,12 @@ const AssessmentReportsTab = ({ assessmentId, assessment }: AssessmentReportsTab
                                                                     </div>
                                                                 ) : <span className="text-muted-foreground text-xs">-</span>}
                                                             </td>
-                                                            <td className="py-3 px-4 text-center border-r border-border bg-purple-50/10">
+                                                            <td className={`py-3 px-4 text-center border-r border-border ${isCoding ? 'bg-purple-50/10' : 'bg-blue-50/10'}`}>
                                                                 <span className="text-[11px] font-mono text-muted-foreground/80">
                                                                     {sScore?.timeTaken ? formatDuration(sScore.timeTaken) : '-'}
                                                                 </span>
                                                             </td>
-                                                            <td className="py-3 px-4 text-center border-r border-border bg-purple-50/10">
+                                                            <td className={`py-3 px-4 text-center border-r border-border ${isCoding ? 'bg-purple-50/10' : 'bg-blue-50/10'}`}>
                                                                 {totalTests > 0 ? (
                                                                     <div className="flex items-center justify-center gap-0.5 text-[13px] font-bold tracking-tight">
                                                                         <span className="text-emerald-600">{passedTests}</span>
@@ -767,23 +788,25 @@ const AssessmentReportsTab = ({ assessmentId, assessment }: AssessmentReportsTab
                                                                     </div>
                                                                 ) : <span className="text-muted-foreground/40 text-[10px] font-mono select-none">- / -</span>}
                                                             </td>
-                                                            <td className="py-3 px-4 text-center border-r border-border bg-purple-50/10">
-                                                                {(() => {
-                                                                    // Get all unique languages from ALL coding problems for this participant
-                                                                    const allLanguages = (p.codingProblems || []).map((prob: any) => prob.language).filter(Boolean) as string[];
-                                                                    const uniqueLanguages: string[] = [...new Set<string>(allLanguages)];
+                                                            {isCoding && (
+                                                                <td className="py-3 px-4 text-center border-r border-border bg-purple-50/10">
+                                                                    {(() => {
+                                                                        // Get all unique languages from ALL coding problems for this participant
+                                                                        const allLanguages = (p.codingProblems || []).map((prob: any) => prob.language).filter(Boolean) as string[];
+                                                                        const uniqueLanguages: string[] = [...new Set<string>(allLanguages)];
 
-                                                                    return uniqueLanguages.length > 0 ? (
-                                                                        <div className="flex flex-wrap gap-1 justify-center">
-                                                                            {uniqueLanguages.map((lang: string, idx: number) => (
-                                                                                <span key={idx} className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-blue-100 text-blue-700 uppercase">
-                                                                                    {lang}
-                                                                                </span>
-                                                                            ))}
-                                                                        </div>
-                                                                    ) : <span className="text-muted-foreground/40 text-[10px]">-</span>;
-                                                                })()}
-                                                            </td>
+                                                                        return uniqueLanguages.length > 0 ? (
+                                                                            <div className="flex flex-wrap gap-1 justify-center">
+                                                                                {uniqueLanguages.map((lang: string, idx: number) => (
+                                                                                    <span key={idx} className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-blue-100 text-blue-700 uppercase">
+                                                                                        {lang}
+                                                                                    </span>
+                                                                                ))}
+                                                                            </div>
+                                                                        ) : <span className="text-muted-foreground/40 text-[10px]">-</span>;
+                                                                    })()}
+                                                                </td>
+                                                            )}
                                                         </React.Fragment>
                                                     );
                                                 }
@@ -891,7 +914,7 @@ const AssessmentReportsTab = ({ assessmentId, assessment }: AssessmentReportsTab
                                                         e.stopPropagation();
                                                         viewReport(p.participantId);
                                                     }}
-                                                    className="px-3 py-1.5 bg-primary text-primary-foreground hover:opacity-90 rounded-lg text-xs font-bold transition-colors shadow-sm"
+                                                    className="px-3 py-1.5 bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground hover:opacity-90 rounded-lg text-xs font-bold transition-colors shadow-sm"
                                                 >
                                                     View Report
                                                 </button>
@@ -1016,7 +1039,7 @@ const AssessmentReportsTab = ({ assessmentId, assessment }: AssessmentReportsTab
                         <div className="p-4 border-t border-border bg-muted/10 flex justify-end">
                             <button
                                 onClick={() => setShowCodingModal(false)}
-                                className="px-6 py-2 bg-primary text-primary-foreground rounded-lg font-bold hover:opacity-90 transition-opacity"
+                                className="px-6 py-2 bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground rounded-lg font-bold hover:opacity-90 transition-opacity"
                             >
                                 Close
                             </button>

@@ -92,11 +92,11 @@ const ParticipantsTab = ({ assessmentId }: { assessmentId: string }) => {
                                         </td>
                                         <td className="px-6 py-4">
                                             {p.acceptedAt ? (
-                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase border bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
+                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-Inter uppercase border bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
                                                     <CheckCircle size={12} /> Joined
                                                 </span>
                                             ) : (
-                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase border bg-amber-500/10 text-amber-600 border-amber-500/20">
+                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-Inter uppercase border bg-amber-500/10 text-amber-600 border-amber-500/20">
                                                     <Clock size={12} /> Pending
                                                 </span>
                                             )}

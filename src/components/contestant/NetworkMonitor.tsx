@@ -89,7 +89,7 @@ export default function NetworkMonitor() {
                 </p>
                 <button
                     onClick={() => window.location.reload()}
-                    className="px-6 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
+                    className="px-6 py-2 bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground rounded-lg font-medium hover:bg-gradient-to-br from-indigo-600 to-violet-600/90 transition-colors"
                 >
                     Retry Connection
                 </button>

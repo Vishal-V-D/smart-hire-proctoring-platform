@@ -263,7 +263,7 @@ const MonitoringTab = ({ assessmentId }: MonitoringTabProps) => {
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+                        <div className="w-2 h-2 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-full animate-pulse" />
                         <span className="text-sm font-bold text-foreground">Live Monitoring</span>
                     </div>
                     <div className="h-4 w-px bg-border" />
@@ -354,7 +354,7 @@ const MonitoringTab = ({ assessmentId }: MonitoringTabProps) => {
                                                 </td>
                                                 <td className="px-4 py-3 text-center">
                                                     <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider">
-                                                        <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
+                                                        <span className="w-1.5 h-1.5 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-full animate-pulse" />
                                                         Live
                                                     </span>
                                                 </td>
@@ -495,7 +495,7 @@ const MonitoringTab = ({ assessmentId }: MonitoringTabProps) => {
                                             <div className="flex items-center gap-2">
                                                 <div className="w-20 h-2 bg-muted rounded-full overflow-hidden">
                                                     <div
-                                                        className="h-full bg-primary rounded-full transition-all"
+                                                        className="h-full bg-gradient-to-br from-indigo-600 to-violet-600 rounded-full transition-all"
                                                         style={{ width: `${(item.count / statsTotal) * 100}%` }}
                                                     />
                                                 </div>

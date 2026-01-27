@@ -3,9 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mail, Shield, ArrowRight, Loader2, ChevronLeft, UserCheck, Sparkles, Lock, CheckCircle } from 'lucide-react';
+import { Mail, Shield, ArrowRight, ChevronLeft, UserCheck, Sparkles, Lock, CheckCircle } from 'lucide-react';
 import OTPInput from '@/components/contestant/OTPInput';
 import { contestantService } from '@/api/contestantService';
+import Loader from '@/components/Loader';
 
 export default function VerifyPage() {
     const router = useRouter();
@@ -132,7 +133,7 @@ export default function VerifyPage() {
                                     transition={{ type: "spring", delay: 0.2 }}
                                     className="relative mb-6"
                                 >
-                                   
+
                                     <motion.div
                                         animate={{ scale: [1, 1.2, 1] }}
                                         transition={{ duration: 2, repeat: Infinity }}
@@ -186,7 +187,9 @@ export default function VerifyPage() {
                                         className="w-full py-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl font-semibold shadow-lg shadow-purple-200 hover:shadow-xl hover:shadow-purple-300 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed group"
                                     >
                                         {loading ? (
-                                            <Loader2 className="h-5 w-5 animate-spin" />
+                                            <div className="scale-50 h-5 w-12 flex items-center justify-center -ml-3">
+                                                <Loader />
+                                            </div>
                                         ) : (
                                             <>
                                                 <Sparkles className="w-5 h-5" />
@@ -218,7 +221,7 @@ export default function VerifyPage() {
                                 </button>
 
                                 {/* Logo Icon */}
-                               
+
                                 <h1 className="text-2xl font-bold text-gray-900 mb-2">
                                     Enter Verification Code
                                 </h1>
@@ -252,7 +255,9 @@ export default function VerifyPage() {
                                         className="w-full py-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl font-semibold shadow-lg shadow-purple-200 hover:shadow-xl hover:shadow-purple-300 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed group"
                                     >
                                         {loading ? (
-                                            <Loader2 className="h-5 w-5 animate-spin" />
+                                            <div className="scale-50 h-5 w-12 flex items-center justify-center -ml-3">
+                                                <Loader />
+                                            </div>
                                         ) : (
                                             <>
                                                 <Shield className="w-5 h-5" />

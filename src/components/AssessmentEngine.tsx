@@ -268,7 +268,7 @@ const SolarSystemHero = () => {
                                         {activeData.sub}
                                     </span>
                                 </div>
-                                <h2 className="text-3xl font-black tracking-tight mb-2 text-white">
+                                <h2 className="text-3xl font-Inter tracking-tight mb-2 text-white">
                                     {activeData.label}
                                 </h2>
                                 <p className="text-sm leading-relaxed text-slate-300">

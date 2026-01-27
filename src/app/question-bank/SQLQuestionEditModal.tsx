@@ -477,7 +477,7 @@ const SQLQuestionEditModal: React.FC<SQLQuestionEditModalProps> = ({ isOpen, onC
                     <button
                         onClick={handleSubmit}
                         disabled={isSaving}
-                        className="px-6 py-2.5 bg-primary text-primary-foreground rounded-xl font-bold shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+                        className="px-6 py-2.5 bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground rounded-xl font-bold shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
                     >
                         {isSaving ? (
                             <>

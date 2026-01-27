@@ -176,7 +176,7 @@ export default function NotificationsView() {
                                                         {formatTime(notif)}
                                                     </span>
                                                     {!notif.isRead && (
-                                                        <span className="ml-2 w-2.5 h-2.5 rounded-full bg-primary shadow-sm shadow-primary/50 animate-pulse" />
+                                                        <span className="ml-2 w-2.5 h-2.5 rounded-full bg-gradient-to-br from-indigo-600 to-violet-600 shadow-sm shadow-primary/50 animate-pulse" />
                                                     )}
                                                 </div>
                                             </div>

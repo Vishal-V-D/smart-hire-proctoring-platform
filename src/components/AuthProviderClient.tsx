@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import { contestService } from "@/api/contestService";
 import axiosContestClient from "@/api/axiosContestClient";
 import Cookies from "js-cookie";
+import Loader from "@/components/Loader";
 
 interface LoginData {
     email: string;
@@ -292,11 +293,7 @@ export const AuthProviderClient = ({ children }: { children: ReactNode }) => {
 
     // Show loading state
     if (loading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-background">
-                <div className="initial-loader"></div>
-            </div>
-        );
+        return <Loader fullscreen />;
     }
 
     return (

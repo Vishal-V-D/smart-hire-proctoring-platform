@@ -74,7 +74,7 @@ export default function MagicLogin() {
                     <p className="text-muted-foreground text-sm">The magic link may have expired or is invalid.</p>
                     <button
                         onClick={() => router.push("/login")}
-                        className="bg-primary text-primary-foreground hover:bg-primary/90 px-6 py-3 rounded-xl font-bold transition-all w-full"
+                        className="bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground hover:bg-gradient-to-br from-indigo-600 to-violet-600/90 px-6 py-3 rounded-xl font-bold transition-all w-full"
                     >
                         Go to Login
                     </button>

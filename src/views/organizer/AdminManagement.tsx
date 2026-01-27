@@ -105,7 +105,7 @@ export default function AdminManagement() {
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                    <div className="p-3 bg-primary rounded-2xl text-primary-foreground shadow-lg shadow-primary/20">
+                    <div className="p-3 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-2xl text-primary-foreground shadow-lg shadow-primary/20">
                         <FaUserShield size={24} />
                     </div>
                     <div>
@@ -115,7 +115,7 @@ export default function AdminManagement() {
                 </div>
                 <button
                     onClick={() => setIsCreateModalOpen(true)}
-                    className="bg-primary text-primary-foreground hover:bg-primary/90 px-6 py-3 rounded-xl font-bold transition-all shadow-md shadow-primary/20 group flex items-center justify-center gap-2"
+                    className="bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground hover:bg-gradient-to-br from-indigo-600 to-violet-600/90 px-6 py-3 rounded-xl font-bold transition-all shadow-md shadow-primary/20 group flex items-center justify-center gap-2"
                 >
                     <FaPlus className="group-hover:rotate-90 transition-transform duration-300" />
                     <span>Invite New Admin</span>

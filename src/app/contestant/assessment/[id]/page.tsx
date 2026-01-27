@@ -4,12 +4,13 @@ import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    FileText, Clock, Calendar, Users, CheckCircle2, Play, Loader2, AlertCircle,
+    FileText, Clock, Calendar, Users, CheckCircle2, Play, AlertCircle,
     Shield, Sparkles, ArrowRight, BookOpen, Timer, Award
 } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { contestantService, type ContestantAssessment } from '@/api/contestantService';
 import ProctoringSetupModal from '@/components/contestant/ProctoringSetupModal';
+import Loader from '@/components/Loader';
 
 export default function AssessmentDetailsPage() {
     const router = useRouter();
@@ -19,6 +20,8 @@ export default function AssessmentDetailsPage() {
     const [starting, setStarting] = useState(false);
     const [error, setError] = useState('');
     const [showSetupModal, setShowSetupModal] = useState(false);
+    const [isRegistered, setIsRegistered] = useState<boolean | null>(null);
+    const [checkingRegistration, setCheckingRegistration] = useState(true);
 
     const queryClient = useQueryClient();
 
@@ -84,7 +87,40 @@ export default function AssessmentDetailsPage() {
         }
     }, [assessmentId, queryClient]);
 
+    // 3. Check Registration Status
+    useEffect(() => {
+        const checkStatus = async () => {
+            const session = contestantService.getSession();
+            if (session.token && assessmentId) {
+                try {
+                    // Decode token to get email
+                    const payload = JSON.parse(atob(session.token.split('.')[1]));
+                    const email = payload.email;
+                    if (email) {
+                        const res = await contestantService.checkRegistrationStatus(assessmentId, email);
+                        setIsRegistered(res.data.isRegistered);
+                    }
+                } catch (err) {
+                    console.error('Failed to check registration status:', err);
+                    // If check fails, we assume registered or let the start call handle it
+                } finally {
+                    setCheckingRegistration(false);
+                }
+            } else {
+                setCheckingRegistration(false);
+            }
+        };
+        checkStatus();
+    }, [assessmentId]);
+
     const handleStartClick = () => {
+        if (isRegistered === false) {
+            const session = contestantService.getSession();
+            const payload = session.token ? JSON.parse(atob(session.token.split('.')[1])) : {};
+            const email = payload.email || '';
+            router.push(`/contestant/register?assessmentId=${assessmentId}&email=${encodeURIComponent(email)}`);
+            return;
+        }
         setShowSetupModal(true);
     };
 
@@ -109,20 +145,7 @@ export default function AssessmentDetailsPage() {
     };
 
     if (loading) {
-        return (
-            <div className="h-screen w-screen flex items-center justify-center bg-gradient-to-br from-[#f8f7ff] via-[#f0eeff] to-[#e8e5ff]">
-                <motion.div
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="flex flex-col items-center gap-4"
-                >
-                    <div className="w-16 h-16 rounded-2xl bg-white shadow-lg shadow-purple-200 flex items-center justify-center">
-                        <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
-                    </div>
-                    <p className="text-sm text-gray-500 font-medium">Loading assessment...</p>
-                </motion.div>
-            </div>
-        );
+        return <Loader fullscreen />;
     }
 
     if (!assessment) {
@@ -384,15 +407,14 @@ export default function AssessmentDetailsPage() {
                         disabled={starting}
                         className="w-full py-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl font-semibold text-lg shadow-lg shadow-purple-200 hover:shadow-xl hover:shadow-purple-300 transition-all flex items-center justify-center gap-3 disabled:opacity-70"
                     >
-                        {starting ? (
-                            <>
-                                <Loader2 className="h-6 w-6 animate-spin" />
-                                Starting Assessment...
-                            </>
+                        {starting || checkingRegistration ? (
+                            <div className="scale-50 h-6 w-12 flex items-center justify-center">
+                                <Loader />
+                            </div>
                         ) : (
                             <>
                                 <Sparkles className="w-6 h-6" />
-                                Start Assessment
+                                {isRegistered === false ? 'Register for Assessment' : 'Start Assessment'}
                                 <ArrowRight className="h-6 w-6" />
                             </>
                         )}

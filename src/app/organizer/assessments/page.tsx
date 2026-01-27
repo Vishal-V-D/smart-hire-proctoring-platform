@@ -219,7 +219,7 @@ const MyAssessmentsPage = () => {
                 {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                     <div>
-                        <h1 className="text-3xl font-black tracking-tight text-foreground flex items-center gap-3">
+                        <h1 className="text-3xl font-Inter tracking-tight text-foreground flex items-center gap-3">
                             Assessments
                         </h1>
                         <p className="text-sm text-muted-foreground mt-1">
@@ -228,7 +228,7 @@ const MyAssessmentsPage = () => {
                     </div>
                     <button
                         onClick={() => router.push('/assessments/create')}
-                        className="flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl font-bold hover:opacity-90 transition-all shadow-lg shadow-primary/25 active:scale-95"
+                        className="flex items-center gap-2 px-6 py-3 bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground rounded-xl font-bold hover:opacity-90 transition-all shadow-lg shadow-primary/25 active:scale-95"
                     >
                         <Plus size={20} />
                         Create Assessment
@@ -325,7 +325,7 @@ const MyAssessmentsPage = () => {
                         </p>
                         <button
                             onClick={() => router.push('/assessments/create')}
-                            className="px-6 py-2.5 bg-primary text-primary-foreground rounded-xl font-bold hover:opacity-90 transition-all shadow-lg active:scale-95"
+                            className="px-6 py-2.5 bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground rounded-xl font-bold hover:opacity-90 transition-all shadow-lg active:scale-95"
                         >
                             Create New Assessment
                         </button>
@@ -516,11 +516,11 @@ const MyAssessmentsPage = () => {
                                         <div className="grid grid-cols-2 gap-3 mb-6">
                                             <div className="bg-muted/30 rounded-lg p-2.5">
                                                 <p className="text-xs text-muted-foreground mb-1">Questions</p>
-                                                <p className="text-lg font-black text-foreground">{assessment.totalQuestions}</p>
+                                                <p className="text-lg font-Inter text-foreground">{assessment.totalQuestions}</p>
                                             </div>
                                             <div className="bg-muted/30 rounded-lg p-2.5">
                                                 <p className="text-xs text-muted-foreground mb-1">Time</p>
-                                                <p className="text-lg font-black text-foreground">{assessment.totalTime || 0}m</p>
+                                                <p className="text-lg font-Inter text-foreground">{assessment.totalTime || 0}m</p>
                                             </div>
                                         </div>
 

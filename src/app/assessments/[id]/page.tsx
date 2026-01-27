@@ -25,7 +25,10 @@ import {
     Calendar,
     Clock,
     LayoutDashboard,
-    LayoutGrid
+    LayoutGrid,
+    PanelLeftClose,
+    PanelLeftOpen,
+    HelpCircle
 } from 'lucide-react';
 import { assessmentService } from '@/api/assessmentService';
 import { invitationService, Invitation, InvitationStats } from '@/api/invitationService';
@@ -53,6 +56,7 @@ type Question = {
     problemId?: string;
     problemData?: any;
     problem?: any;
+    negativeMarks?: number;
 };
 
 type Section = {
@@ -112,12 +116,35 @@ const AssessmentDetailPage = () => {
     const [inviteEmail, setInviteEmail] = useState('');
     const [inviteName, setInviteName] = useState('');
     const [inviteLoading, setInviteLoading] = useState(false);
+    const [inviteError, setInviteError] = useState<string | null>(null);
     const [invitationFilter, setInvitationFilter] = useState<string>('');
     const [invitationSearch, setInvitationSearch] = useState('');
 
     // Delete modal state
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [deleteLoading, setDeleteLoading] = useState(false);
+
+    // Sidebar State
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+    const [hoveredText, setHoveredText] = useState<string | null>(null);
+    const [tooltipTop, setTooltipTop] = useState<number | null>(null);
+
+    const handleHover = (text: string | null, e: React.MouseEvent<HTMLElement> | null) => {
+        if (!isSidebarCollapsed) {
+            setHoveredText(null);
+            setTooltipTop(null);
+            return;
+        }
+
+        if (text && e) {
+            const rect = e.currentTarget.getBoundingClientRect();
+            setHoveredText(text);
+            setTooltipTop(rect.top);
+        } else {
+            setHoveredText(null);
+            setTooltipTop(null);
+        }
+    };
 
     // Scroll state for sticky nav animation
     const [isScrolled, setIsScrolled] = useState(false);
@@ -214,6 +241,7 @@ const AssessmentDetailPage = () => {
     const handleSendInvite = async () => {
         if (!inviteEmail) return;
         setInviteLoading(true);
+        setInviteError(null);
         const { showToast } = await import('@/utils/toast');
         try {
             await invitationService.createInvitation({
@@ -229,10 +257,23 @@ const AssessmentDetailPage = () => {
             fetchInvitationStats();
             showToast('Invitation sent successfully', 'success');
         } catch (error: any) {
-            const errorMessage = error.response?.data?.message
-                || error.response?.data?.error
-                || error.message
-                || 'Failed to send invitation';
+            console.error("Invite Error:", error);
+            let errorMessage = 'Failed to send invitation';
+
+            if (error.response?.data) {
+                const data = error.response.data;
+                if (data.message) {
+                    errorMessage = Array.isArray(data.message) ? data.message.join(', ') : data.message;
+                } else if (data.error) {
+                    errorMessage = typeof data.error === 'string' ? data.error : JSON.stringify(data.error);
+                } else if (typeof data === 'string') {
+                    errorMessage = data;
+                }
+            } else if (error.message) {
+                errorMessage = error.message;
+            }
+
+            setInviteError(errorMessage);
             showToast(errorMessage, 'error');
         } finally {
             setInviteLoading(false);
@@ -319,12 +360,12 @@ const AssessmentDetailPage = () => {
         }
     };
 
-    const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = [
-        { id: 'overview', label: 'Overview', icon: <LayoutDashboard size={18} /> },
-        { id: 'invitations', label: 'Invitations', icon: <Mail size={18} /> },
-        { id: 'participants', label: 'Participants', icon: <Users size={18} /> },
-        { id: 'monitoring', label: 'Monitoring', icon: <Eye size={18} /> },
-        { id: 'reports', label: 'Reports', icon: <BarChart3 size={18} /> },
+    const tabs: { id: TabType; label: string; icon: any }[] = [
+        { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+        { id: 'invitations', label: 'Invitations', icon: Mail },
+        { id: 'participants', label: 'Participants', icon: Users },
+        { id: 'monitoring', label: 'Monitoring', icon: Eye },
+        { id: 'reports', label: 'Reports', icon: BarChart3 },
     ];
 
     if (isLoading) {
@@ -350,7 +391,7 @@ const AssessmentDetailPage = () => {
                     <p className="text-muted-foreground">The assessment you're looking for might have been deleted or moved.</p>
                     <button
                         onClick={() => router.push(getBackLink())}
-                        className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary text-primary-foreground rounded-xl font-bold transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                        className="inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground rounded-xl font-bold transition-transform hover:scale-[1.02] active:scale-[0.98]"
                     >
                         <ArrowLeft size={18} />
                         Back to Assessments
@@ -402,7 +443,7 @@ const AssessmentDetailPage = () => {
                         )}
                         <button
                             onClick={() => setShowInviteModal(true)}
-                            className="flex items-center gap-2 px-6 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-bold hover:opacity-95 transition-all shadow-lg shadow-primary/25"
+                            className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground rounded-xl text-sm font-bold hover:opacity-95 transition-all shadow-lg shadow-primary/25"
                         >
                             <Send size={16} />
                             Invite
@@ -417,178 +458,274 @@ const AssessmentDetailPage = () => {
                 </div>
             </div>
 
-            <main className="max-w-[1500px] mx-auto p-6 md:p-10 space-y-8">
-                {/* Hero Header Section */}
-                <div className="relative overflow-hidden rounded-[1rem] bg-gradient-to-br from-primary via-primary/90 to-primary/70 shadow-xl group">
-                    {/* Modern Clean Background Pattern */}
-                    <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-100 contrast-150 mix-blend-overlay"></div>
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent"></div>
+            <main className="max-w-[1600px] mx-auto p-4 md:p-6 transition-all duration-300">
+                <div className="flex flex-col lg:flex-row gap-6 relative items-start">
 
-                    <div className="relative z-10 p-8 md:p-10 flex flex-col xl:flex-row gap-10 items-start justify-between">
-                        {/* Left Column: Info */}
-                        <div className="flex-1 space-y-6 min-w-0">
-                            <div className="flex flex-wrap items-center gap-3">
-                                <span className={`px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest border backdrop-blur-md shadow-sm border-primary-foreground/20 text-primary-foreground bg-primary-foreground/10`}>
-                                    {assessment.status}
-                                </span>
-                                <div className="h-4 w-px bg-primary-foreground/20" />
-                                <span className="text-primary-foreground/90 text-xs font-bold flex items-center gap-2">
-                                    <Calendar size={14} className="text-primary-foreground" />
-                                    Created on {new Date(assessment.createdAt).toLocaleDateString(undefined, { dateStyle: 'long' })}
-                                </span>
+                    {/* LEFT COLUMN: Navigation Sidebar */}
+                    <motion.div
+                        initial={false}
+                        animate={{
+                            width: isSidebarCollapsed ? 80 : 280,
+                            minWidth: isSidebarCollapsed ? 80 : 280
+                        }}
+                        className="hidden lg:block sticky top-24 z-30"
+                    >
+                        <div className="bg-card/50 backdrop-blur-xl border border-border/50 rounded-xl p-3 shadow-lg flex flex-col gap-2 overflow-hidden relative">
+                            {/* Toggle Handle */}
+                            <button
+                                onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                                className="absolute top-3 right-3 p-1.5 rounded-lg text-muted-foreground/50 hover:text-foreground hover:bg-muted/50 transition-colors z-20"
+                            >
+                                {isSidebarCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+                            </button>
+
+                            <div className={`px-4 py-2 mb-2 transition-opacity duration-200 ${isSidebarCollapsed ? 'opacity-0 h-4' : 'opacity-100'}`}>
+                                <h3 className="text-[10px] font-Inter text-muted-foreground uppercase tracking-widest">
+                                    Menu
+                                </h3>
                             </div>
 
-                            <div className="space-y-3">
-                                <h1 className="text-3xl md:text-5xl font-bold tracking-tight leading-tight text-primary-foreground">
-                                    {assessment.title}
-                                </h1>
-                                <p className="text-lg text-primary-foreground/90">
-                                    {assessment.description || "_No description available._"}
-                                </p>
-                            </div>
+                            {tabs.map((tab) => {
+                                const isActive = activeTab === tab.id;
+                                return (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => setActiveTab(tab.id)}
+                                        onMouseEnter={(e) => handleHover(tab.label, e)}
+                                        onMouseLeave={() => handleHover(null, null)}
+                                        className={`group relative flex items-center gap-3 px-3.5 py-3  font-Inter text-sm transition-all rounded-2xl text-left w-full outline-none ${isActive
+                                            ? 'text-primary-foreground shadow-lg shadow-indigo-500/25'
+                                            : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                                            } ${isSidebarCollapsed ? 'justify-center' : ''}`}
+                                    >
+                                        {isActive && (
+                                            <motion.div
+                                                layoutId="activeTabIndicator"
+                                                className="absolute inset-0 rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600"
+                                                initial={{ opacity: 0 }}
+                                                animate={{ opacity: 1 }}
+                                                exit={{ opacity: 0 }}
+                                            />
+                                        )}
+                                        <span className={`relative z-10 transition-colors ${isActive ? 'text-white' : 'text-muted-foreground group-hover:text-foreground'}`}>
+                                            <tab.icon size={20} />
+                                        </span>
 
-                            <div className="flex flex-wrap items-center gap-2 text-sm text-primary-foreground/80">
-                                <span className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary-foreground/10 border border-primary-foreground/10">
-                                    <Clock size={14} className="text-primary-foreground" />
-                                    <span className="font-semibold text-primary-foreground">{assessment.duration} min</span> duration
-                                </span>
-                                <span className="hidden sm:inline text-primary-foreground/20">•</span>
-                                <span className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary-foreground/10 border border-primary-foreground/10">
-                                    <LayoutGrid size={14} className="text-primary-foreground" />
-                                    <span className="font-semibold text-primary-foreground">{assessment.sections?.length || 0} sections</span>
-                                </span>
-                            </div>
+                                        {!isSidebarCollapsed && (
+                                            <motion.span
+                                                initial={{ opacity: 0, x: -10 }}
+                                                animate={{ opacity: 1, x: 0 }}
+                                                exit={{ opacity: 0, x: -10 }}
+                                                className="relative z-10 whitespace-nowrap overflow-hidden text-ellipsis"
+                                            >
+                                                {tab.label}
+                                            </motion.span>
+                                        )}
+
+                                        {tab.id === 'invitations' && invitationStats && (
+                                            <span className={`relative z-10 ml-auto px-2 py-0.5 rounded-full text-[10px] font-Inter transition-all ${isSidebarCollapsed ? 'absolute top-1 right-1 px-1.5 py-0 min-w-[1.2rem] h-4 flex items-center justify-center' : ''} ${isActive
+                                                ? 'bg-white/20 text-white'
+                                                : 'bg-muted-foreground/10 text-muted-foreground'
+                                                }`}>
+                                                {invitationStats.total}
+                                            </span>
+                                        )}
+                                    </button>
+                                );
+                            })}
                         </div>
 
-                        {/* Right Column: Stats & Actions */}
-                        <div className="flex flex-col gap-5 w-full xl:w-auto min-w-[320px]">
-                            {/* Updated Stats Strip - Cleaner */}
-                            <div className="grid grid-cols-3 gap-3">
-                                <div className="p-4 rounded-2xl bg-primary-foreground/10 backdrop-blur-md border border-primary-foreground/10 flex flex-col items-center justify-center gap-1 text-center hover:bg-primary-foreground/20 transition-colors">
-                                    <div className="text-2xl font-bold text-primary-foreground">{invitationStats?.total || 0}</div>
-                                    <div className="text-[10px] uppercase font-bold tracking-wider text-primary-foreground/80">Candidates</div>
-                                </div>
-                                <div className="p-4 rounded-2xl bg-primary-foreground/10 backdrop-blur-md border border-primary-foreground/10 flex flex-col items-center justify-center gap-1 text-center hover:bg-primary-foreground/20 transition-colors">
-                                    <div className="text-2xl font-bold text-primary-foreground">{assessment.totalQuestions}</div>
-                                    <div className="text-[10px] uppercase font-bold tracking-wider text-primary-foreground/80">Questions</div>
-                                </div>
-                                <div className="p-4 rounded-2xl bg-primary-foreground/10 backdrop-blur-md border border-primary-foreground/10 flex flex-col items-center justify-center gap-1 text-center hover:bg-primary-foreground/20 transition-colors">
-                                    <div className="text-2xl font-bold text-primary-foreground">{assessment.totalMarks}</div>
-                                    <div className="text-[10px] uppercase font-bold tracking-wider text-primary-foreground/80">Marks</div>
-                                </div>
-                            </div>
-
-                            {/* Active Window Banner */}
-                            <div className="p-5 rounded-3xl bg-primary-foreground/10 backdrop-blur-md border border-primary-foreground/10 flex items-center justify-between gap-4">
-                                <div className="flex items-center gap-4">
-                                    <div className="p-2.5 rounded-full bg-primary-foreground text-primary shadow-sm">
-                                        <Activity size={20} />
-                                    </div>
-                                    <div>
-                                        <div className="text-xs font-bold uppercase tracking-wider text-primary-foreground/80">Active Until</div>
-                                        <div className="text-sm font-bold text-primary-foreground">
-                                            {new Date(assessment.endDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                        {/* Status Card (Sidebar) */}
+                        <AnimatePresence>
+                            {!isSidebarCollapsed && (
+                                <motion.div
+                                    initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                    exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                                    transition={{ duration: 0.2 }}
+                                    className="mt-6 bg-gradient-to-br from-indigo-600/5 to-violet-600/5 border border-indigo-500/10 rounded-xl p-5 backdrop-blur-sm"
+                                >
+                                    <h4 className="text-[10px] font-Inter text-indigo-600/70 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                        <Activity size={12} />
+                                        Assessment Status
+                                    </h4>
+                                    <div className="space-y-4">
+                                        <div className="flex items-center justify-between group">
+                                            <span className="text-xs text-muted-foreground font-semibold group-hover:text-foreground transition-colors">Current State</span>
+                                            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-Inter uppercase tracking-widest border shadow-sm ${assessment.status === 'PUBLISHED' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' :
+                                                assessment.status === 'DRAFT' ? 'bg-amber-500/10 text-amber-600 border-amber-500/20' :
+                                                    'bg-slate-500/10 text-slate-600 border-slate-500/20'
+                                                }`}>
+                                                {assessment.status}
+                                            </span>
+                                        </div>
+                                        <div className="h-px bg-indigo-500/10" />
+                                        <div className="flex items-center justify-between group">
+                                            <span className="text-xs text-muted-foreground font-semibold group-hover:text-foreground transition-colors">Days Remaining</span>
+                                            <span className="text-xs font-bold text-foreground bg-background/50 px-2 py-1 rounded-md border border-border/50">
+                                                {Math.ceil((new Date(assessment.endDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))}
+                                            </span>
                                         </div>
                                     </div>
-                                </div>
-                                <div className="text-sm font-bold bg-primary-foreground text-primary px-3 py-1 rounded-full shadow-sm">
-                                    {Math.ceil((new Date(assessment.endDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days left
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </motion.div>
 
-                {/* Tabbed Navigation */}
-                <div className="space-y-8">
-                    <div
-                        className={`sticky top-16 z-40 -mx-6 px-6 md:-mx-10 md:px-10 transition-all duration-300 
-                            `}
-                    >
-                        <div className="max-w-[1500px] mx-auto flex items-center justify-between gap-4">
-                            <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide relative min-w-0">
-                                {tabs.map((tab) => {
-                                    const isActive = activeTab === tab.id;
-                                    return (
-                                        <button
-                                            key={tab.id}
-                                            onClick={() => setActiveTab(tab.id)}
-                                            className={`relative flex items-center gap-2.5 px-5 py-2.5 font-bold text-sm transition-all whitespace-nowrap rounded-xl ${isActive
-                                                ? 'text-primary-foreground bg-primary shadow-lg shadow-primary/30'
-                                                : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                                                }`}
-                                        >
-                                            {tab.icon}
-                                            <span>{tab.label}</span>
-                                            {tab.id === 'invitations' && invitationStats && (
-                                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${isActive
-                                                    ? 'bg-primary-foreground/20 text-primary-foreground'
-                                                    : 'bg-muted text-muted-foreground'
-                                                    }`}>
-                                                    {invitationStats.total}
-                                                </span>
-                                            )}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-
-                            {/* Action Bar */}
+                    {/* Tooltip Portal */}
+                    <AnimatePresence>
+                        {isSidebarCollapsed && hoveredText && tooltipTop !== null && (
                             <motion.div
-                                initial={{ opacity: 0, x: 20 }}
-                                animate={{ opacity: isScrolled ? 1 : 0, x: isScrolled ? 0 : 20 }}
-                                transition={{ duration: 0.3 }}
-                                className="hidden lg:flex items-center gap-3 shrink-0"
+                                initial={{ opacity: 0, x: -10, scale: 0.95 }}
+                                animate={{ opacity: 1, x: 0, scale: 1 }}
+                                exit={{ opacity: 0, x: -10, scale: 0.95 }}
+                                transition={{ duration: 0.15, ease: "easeOut" }}
+                                style={{
+                                    position: 'fixed',
+                                    top: tooltipTop,
+                                    left: 'calc((100vw - 1600px) / 2 + 100px)', // adjust based on container max-width + sidebar width offset
+                                    zIndex: 60
+                                }}
+                                className="pointer-events-none"
                             >
-                                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                                    {assessment.status}
-                                </span>
-                                {assessment.status === 'DRAFT' && (
-                                    <button
-                                        onClick={handlePublish}
-                                        className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 transition-opacity"
-                                    >
-                                        Publish
-                                    </button>
-                                )}
+                               
+                                <div className="bg-slate-900 text-white text-xs font-bold px-3 py-2 rounded-lg shadow-xl border border-slate-700/50 flex items-center gap-2">
+                                    {hoveredText}
+                                    <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 w-2 h-2 bg-slate-900 rotate-45 border-l border-b border-slate-700/50"></div>
+                                </div>
                             </motion.div>
+                        )}
+                    </AnimatePresence>
+
+                    {/* RIGHT COLUMN: Content Area */}
+                    <motion.div
+                        layout
+                        className="flex-1 min-w-0 min-h-[500px] space-y-6"
+                    >
+                        {/* Mobile Tabs */}
+                        <div className="lg:hidden flex overflow-x-auto pb-4 gap-2 scrollbar-hide">
+                            {tabs.map((tab) => (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveTab(tab.id)}
+                                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap ${activeTab === tab.id
+                                        ? 'bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-md'
+                                        : 'bg-card border border-border text-muted-foreground'
+                                        }`}
+                                >
+                                    <tab.icon size={18} />
+                                    {tab.label}
+                                </button>
+                            ))}
                         </div>
-                    </div>
 
-
-                    {/* Content Area */}
-                    <div className="min-h-[500px]">
                         <AnimatePresence mode="wait">
                             <motion.div
                                 key={activeTab}
-                                initial={{ opacity: 0, y: 15 }}
+                                initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -15 }}
-                                transition={{ duration: 0.2, ease: "easeOut" }}
+                                exit={{ opacity: 0, y: -10 }}
+                                transition={{ duration: 0.2 }}
                             >
-                                {activeTab === 'overview' && <OverviewTab assessment={assessment} />}
-                                {activeTab === 'invitations' && (
-                                    <InvitationsTab
-                                        invitations={invitations}
-                                        stats={invitationStats}
-                                        filter={invitationFilter}
-                                        setFilter={setInvitationFilter}
-                                        search={invitationSearch}
-                                        setSearch={setInvitationSearch}
-                                        onSearch={fetchInvitations}
-                                        onResend={handleResendInvitation}
-                                        onCancel={handleCancelInvitation}
-                                        onDelete={handleDeleteInvitation}
-                                        onInvite={() => setShowInviteModal(true)}
-                                        onCsvUpload={handleCsvUpload}
-                                    />
+                                {/* OVERVIEW HEADER (Only shown in Overview tab) */}
+                                {activeTab === 'overview' && (
+                                    <div className="mb-8 space-y-6">
+                                        <div className="relative overflow-hidden rounded-[1rem] bg-gradient-to-br from-indigo-600 to-violet-600 shadow-2xl shadow-indigo-900/20 p-8 md:p-12 text-white">
+                                            <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay"></div>
+                                            <div className="relative z-10 flex flex-col md:flex-row justify-between gap-8 items-start">
+                                                <div className="space-y-4 max-w-2xl">
+                                                    <div className="flex items-center gap-3 text-white text-[10px] font-Inter uppercase tracking-widest">
+                                                        <span className="flex items-center gap-1.5"><Calendar size={12} /> {new Date(assessment.createdAt).toLocaleDateString()}</span>
+                                                        <span>•</span>
+                                                        <span className="flex items-center gap-1.5"><Clock size={12} /> {assessment.duration} MIN</span>
+                                                    </div>
+                                                    <h1 className="text-3xl md:text-3xl font-Inter tracking-tight leading-none">
+                                                        {assessment.title}
+                                                    </h1>
+                                                    <p className="text-lg text-indigo-100/80 font-medium leading-relaxed max-w-xl">
+                                                        {assessment.description || "No description provided."}
+                                                    </p>
+                                                </div>
+
+                                                {/* Quick Stats Grid */}
+                                                <div className="grid grid-cols-3 gap-3 md:min-w-[320px]">
+                                                    <div className="bg-white/5 backdrop-blur-md rounded-2xl p-4 border border-white/10 text-center hover:bg-white/10 transition-colors">
+                                                        <div className="text-3xl font-Inter">{invitationStats?.total || 0}</div>
+                                                        <div className="text-[9px] uppercase font-Inter text-indigo-200 mt-1 tracking-widest">Candidates</div>
+                                                    </div>
+                                                    <div className="bg-white/5 backdrop-blur-md rounded-2xl p-4 border border-white/10 text-center hover:bg-white/10 transition-colors">
+                                                        <div className="text-3xl font-Inter">{assessment.totalQuestions}</div>
+                                                        <div className="text-[9px] uppercase font-Inter text-indigo-200 mt-1 tracking-widest">Questions</div>
+                                                    </div>
+                                                    <div className="bg-white/5 backdrop-blur-md rounded-2xl p-4 border border-white/10 text-center hover:bg-white/10 transition-colors">
+                                                        <div className="text-3xl font-Inter">{assessment.totalMarks}</div>
+                                                        <div className="text-[9px] uppercase font-Inter text-indigo-200 mt-1 tracking-widest">Marks</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 )}
-                                {activeTab === 'participants' && <ParticipantsTab assessmentId={assessmentId} />}
-                                {activeTab === 'monitoring' && <MonitoringTab assessmentId={assessmentId} />}
-                                {activeTab === 'reports' && <AssessmentReportsTab assessmentId={assessmentId} assessment={assessment} />}
+
+                                {/* Content wrapper to ensure clean separation */}
+                                <div className="bg-transparent">
+                                    {activeTab === 'overview' && <OverviewTab assessment={assessment} />}
+                                    {activeTab === 'invitations' && (
+                                        <div className="space-y-4">
+                                            <div className="flex items-center justify-between mb-4">
+                                                <div>
+                                                    <h2 className="text-2xl font-bold tracking-tight">Invitations</h2>
+                                                    <p className="text-muted-foreground">Manage candidate access and invites</p>
+                                                </div>
+                                            </div>
+                                            <InvitationsTab
+                                                invitations={invitations}
+                                                stats={invitationStats}
+                                                filter={invitationFilter}
+                                                setFilter={setInvitationFilter}
+                                                search={invitationSearch}
+                                                setSearch={setInvitationSearch}
+                                                onSearch={fetchInvitations}
+                                                onResend={handleResendInvitation}
+                                                onCancel={handleCancelInvitation}
+                                                onDelete={handleDeleteInvitation}
+                                                onInvite={() => setShowInviteModal(true)}
+                                                onCsvUpload={handleCsvUpload}
+                                                assessmentId={assessmentId}
+                                            />
+                                        </div>
+                                    )}
+                                    {activeTab === 'participants' && (
+                                        <div className="space-y-4">
+                                            <div className="mb-4">
+                                                <h2 className="text-2xl font-bold tracking-tight">Participants</h2>
+                                                <p className="text-muted-foreground">Monitor candidate progress and results</p>
+                                            </div>
+                                            <ParticipantsTab assessmentId={assessmentId} />
+                                        </div>
+                                    )}
+                                    {activeTab === 'monitoring' && (
+                                        <div className="space-y-4">
+                                            <div className="mb-4">
+                                                <h2 className="text-2xl font-bold tracking-tight">Live Monitoring</h2>
+                                                <p className="text-muted-foreground">Real-time proctoring and security alerts</p>
+                                            </div>
+                                            <MonitoringTab assessmentId={assessmentId} />
+                                        </div>
+                                    )}
+                                    {activeTab === 'reports' && (
+                                        <div className="space-y-4">
+                                            <div className="mb-4">
+                                                <h2 className="text-2xl font-bold tracking-tight">Analytics & Reports</h2>
+                                                <p className="text-muted-foreground">Detailed performance insights</p>
+                                            </div>
+                                            <AssessmentReportsTab assessmentId={assessmentId} assessment={assessment} />
+                                        </div>
+                                    )}
+                                </div>
                             </motion.div>
                         </AnimatePresence>
-                    </div>
+                    </motion.div>
                 </div>
             </main>
 
@@ -611,7 +748,7 @@ const AssessmentDetailPage = () => {
                         >
                             <div className="flex items-center justify-between mb-8">
                                 <div className="space-y-1">
-                                    <h3 className="text-2xl font-black text-foreground">Send Invite</h3>
+                                    <h3 className="text-2xl font-Inter text-foreground">Send Invite</h3>
                                     <p className="text-sm text-muted-foreground">Invite a participant via email</p>
                                 </div>
                                 <button onClick={() => setShowInviteModal(false)} className="p-2 hover:bg-muted rounded-xl transition-colors">
@@ -619,9 +756,16 @@ const AssessmentDetailPage = () => {
                                 </button>
                             </div>
 
+                            {inviteError && (
+                                <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-start gap-3">
+                                    <AlertTriangle size={18} className="text-red-500 mt-0.5 shrink-0" />
+                                    <p className="text-sm font-medium text-red-600">{inviteError}</p>
+                                </div>
+                            )}
+
                             <div className="space-y-5">
                                 <div className="space-y-2">
-                                    <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">Email Address</label>
+                                    <label className="text-xs font-Inter uppercase tracking-widest text-muted-foreground ml-1">Email Address</label>
                                     <input
                                         type="email"
                                         value={inviteEmail}
@@ -631,7 +775,7 @@ const AssessmentDetailPage = () => {
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">Full Name (Optional)</label>
+                                    <label className="text-xs font-Inter uppercase tracking-widest text-muted-foreground ml-1">Full Name (Optional)</label>
                                     <input
                                         type="text"
                                         value={inviteName}
@@ -652,7 +796,7 @@ const AssessmentDetailPage = () => {
                                 <button
                                     onClick={handleSendInvite}
                                     disabled={!inviteEmail || inviteLoading}
-                                    className="flex-[1.5] px-6 py-3.5 bg-primary text-primary-foreground rounded-2xl font-black text-sm hover:opacity-90 disabled:opacity-50 transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
+                                    className="flex-[1.5] px-6 py-3.5 bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground rounded-2xl font-Inter text-sm hover:opacity-90 disabled:opacity-50 transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
                                 >
                                     {inviteLoading ? (
                                         <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin" />
@@ -687,7 +831,7 @@ const AssessmentDetailPage = () => {
                                 <div className="w-16 h-16 bg-destructive/10 text-destructive rounded-full flex items-center justify-center mb-2">
                                     <AlertTriangle size={32} />
                                 </div>
-                                <h3 className="text-2xl font-black text-foreground">Delete Assessment?</h3>
+                                <h3 className="text-2xl font-Inter text-foreground">Delete Assessment?</h3>
                                 <p className="text-muted-foreground leading-relaxed">
                                     Are you sure you want to delete <span className="font-bold text-foreground">"{assessment.title}"</span>? All progress, questions, and reports will be permanently removed.
                                 </p>
@@ -703,7 +847,7 @@ const AssessmentDetailPage = () => {
                                 <button
                                     onClick={handleDeleteAssessment}
                                     disabled={deleteLoading}
-                                    className="flex-1 px-6 py-3.5 bg-destructive text-destructive-foreground rounded-2xl font-black text-sm hover:opacity-90 disabled:opacity-50 transition-all shadow-lg shadow-destructive/20"
+                                    className="flex-1 px-6 py-3.5 bg-destructive text-destructive-foreground rounded-2xl font-Inter text-sm hover:opacity-90 disabled:opacity-50 transition-all shadow-lg shadow-destructive/20"
                                 >
                                     {deleteLoading ? 'Deleting...' : 'Confirm Delete'}
                                 </button>

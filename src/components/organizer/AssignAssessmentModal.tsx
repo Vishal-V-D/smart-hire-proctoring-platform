@@ -79,7 +79,7 @@ export default function AssignAssessmentModal({ isOpen, onClose, assessmentId }:
                         <button
                             onClick={handleAssign}
                             disabled={assigning || !selectedCompanyId}
-                            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-bold text-sm disabled:opacity-50"
+                            className="px-4 py-2 bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground rounded-lg font-bold text-sm disabled:opacity-50"
                         >
                             {assigning ? 'Assigning...' : 'Assign'}
                         </button>

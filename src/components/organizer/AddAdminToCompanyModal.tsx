@@ -168,7 +168,7 @@ export default function AddAdminToCompanyModal({
                                     <button
                                         type="submit"
                                         disabled={isLoading}
-                                        className="flex-1 px-4 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl font-medium transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                                        className="flex-1 px-4 py-3 bg-gradient-to-br from-indigo-600 to-violet-600 hover:bg-gradient-to-br from-indigo-600 to-violet-600/90 text-primary-foreground rounded-xl font-medium transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                                     >
                                         {isLoading ? (
                                             <>

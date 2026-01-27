@@ -132,17 +132,9 @@ axiosContestClient.interceptors.response.use(
         const isContestantEndpoint = originalRequest.url?.includes('/contestant/') ||
             originalRequest.url?.includes('/invitations/');
 
-        // Handle 401 Unauthorized (Expired) or 403 Forbidden (Sometimes used for expired) -> Try Refresh
-        if ((status === 401 || status === 403) && !originalRequest._retry && !isAuthEndpoint && !isContestantEndpoint) {
-
-            // If it's a 403 on an admin route, it might just be permissions. But we'll try refresh once just in case.
-            const isForbidden = status === 403;
-            // Only retry 403 if it might be expiry (backend dependent). 
-            // For now, we assume 403 could mean "Invalid Token" which needs refresh.
-
-            if (isForbidden) {
-                console.log(`⚠️ [ContestService] Received 403 Forbidden on ${originalRequest.url}. Attempting to refresh token in case of expiry...`);
-            }
+        // Handle 401 Unauthorized (Expired) -> Try Refresh.
+        // We do NOT treat 403 as expiry anymore because it causes loops when user has valid token but no permission.
+        if (status === 401 && !originalRequest._retry && !isAuthEndpoint && !isContestantEndpoint) {
 
             if (isRefreshing) {
                 return new Promise((resolve, reject) => {

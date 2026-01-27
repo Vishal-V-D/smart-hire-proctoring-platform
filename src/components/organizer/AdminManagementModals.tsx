@@ -227,7 +227,7 @@ export const CreateAdminModal = ({ isOpen, onClose, onSuccess }: CreateAdminModa
                     <button
                         onClick={handleSubmit(onSubmit)}
                         disabled={loading}
-                        className="bg-primary text-primary-foreground hover:bg-primary/90 px-8 py-2.5 rounded-xl font-bold transition-all shadow-md shadow-primary/20 flex items-center gap-2"
+                        className="bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground hover:bg-gradient-to-br from-indigo-600 to-violet-600/90 px-8 py-2.5 rounded-xl font-bold transition-all shadow-md shadow-primary/20 flex items-center gap-2"
                     >
                         {loading ? <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div> : "Create Admin & Send Link"}
                     </button>
@@ -458,7 +458,7 @@ export const EditAdminModal = ({ isOpen, onClose, onSuccess, admin }: EditAdminM
                     <button
                         onClick={handleUpdate}
                         disabled={loading}
-                        className="bg-primary text-primary-foreground hover:bg-primary/90 px-8 py-2.5 rounded-xl font-bold transition-all shadow-md shadow-primary/20 flex items-center gap-2"
+                        className="bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground hover:bg-gradient-to-br from-indigo-600 to-violet-600/90 px-8 py-2.5 rounded-xl font-bold transition-all shadow-md shadow-primary/20 flex items-center gap-2"
                     >
                         {loading ? <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div> : "Save Changes"}
                     </button>

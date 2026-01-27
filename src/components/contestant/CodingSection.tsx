@@ -6,8 +6,9 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
     Play, Send, Sun, Moon, CheckCircle, XCircle,
-    Loader2, Terminal, Code2, FileText, Zap, AlertTriangle, Lock, Tag, BarChart2, Copy, ChevronLeft, ChevronDown
+    Terminal, Code2, FileText, Zap, AlertTriangle, Lock, Tag, BarChart2, Copy, ChevronLeft, ChevronDown
 } from 'lucide-react';
+import Loader from '@/components/Loader';
 import { contestantService, type AssessmentSection } from '@/api/contestantService';
 import { codeService, type TestCaseResult, type RunCodeSummary, type SubmitCodeResponse } from '@/api/codeService';
 
@@ -196,7 +197,7 @@ export default function CodingSection({ assessmentId, section, theme, onComplete
     if (loading && !problem) {
         return (
             <div className={`flex-1 flex items-center justify-center`}>
-                <div className="w-8 h-8 border-2 border-[#0f62fe] border-t-transparent rounded-full animate-spin" />
+                <Loader />
             </div>
         );
     }
@@ -343,10 +344,18 @@ export default function CodingSection({ assessmentId, section, theme, onComplete
                         </div>
                         <div className="flex items-center gap-3">
                             <button onClick={handleRun} disabled={isRunning || isSubmitting} className={`px-4 py-2 text-xs font-bold rounded-lg flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed border ${theme === 'dark' ? 'bg-[#262626] border-[#525252] hover:border-[#78a9ff] hover:bg-[#393939] text-[#f4f4f4]' : 'bg-white border-[#c6c6c6] hover:border-[#0f62fe] hover:bg-[#f4f4f4] text-[#161616]'}`}>
-                                {isRunning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />} Run Code
+                                {isRunning ? (
+                                    <div className="scale-75 h-4 w-10 flex items-center justify-center">
+                                        <Loader />
+                                    </div>
+                                ) : <Play className="w-4 h-4" />} Run Code
                             </button>
                             <button onClick={handleSubmit} disabled={isRunning || isSubmitting} className="px-5 py-2 bg-gradient-to-r from-[#42be65] to-[#24a148] hover:from-[#3dab5a] hover:to-[#1e8e3e] text-white text-xs font-bold rounded-lg flex items-center gap-2 transition-all shadow-md shadow-[#42be65]/25 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none">
-                                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Submit
+                                {isSubmitting ? (
+                                    <div className="scale-75 h-4 w-10 flex items-center justify-center">
+                                        <Loader />
+                                    </div>
+                                ) : <Send className="w-4 h-4" />} Submit
                             </button>
                         </div>
                     </div>
@@ -381,14 +390,8 @@ export default function CodingSection({ assessmentId, section, theme, onComplete
                                 {/* 1. RUN CODE SKELETON */}
                                 {isRunning && !isSubmitting && (
                                     <div className="space-y-6">
-                                        {[1, 2, 3].map(i => (
-                                            <div key={i} className="space-y-2">
-                                                <div className={`h-4 w-24 rounded-md animate-pulse ${theme === 'dark' ? 'bg-[#393939]' : 'bg-[#e0e0e0]'}`} />
-                                                <div className={`h-16 w-full rounded-2xl animate-pulse ${theme === 'dark' ? 'bg-[#262626]' : 'bg-[#f4f4f4]'}`} />
-                                            </div>
-                                        ))}
-                                        <div className="flex items-center justify-center gap-2 text-[#a8a8a8] pt-4">
-                                            <Loader2 className="w-5 h-5 animate-spin" />
+                                        <div className="flex flex-col items-center justify-center gap-2 text-[#a8a8a8] pt-4">
+                                            <Loader />
                                             <span className="text-sm font-medium">Running against sample cases...</span>
                                         </div>
                                     </div>
@@ -397,18 +400,8 @@ export default function CodingSection({ assessmentId, section, theme, onComplete
                                 {/* 2. SUBMIT SKELETON */}
                                 {isSubmitting && (
                                     <div className="space-y-6">
-                                        <div className="space-y-2">
-                                            <div className={`h-4 w-32 rounded-md animate-pulse ${theme === 'dark' ? 'bg-[#393939]' : 'bg-[#e0e0e0]'}`} />
-                                            <div className={`h-40 w-full rounded-3xl animate-pulse ${theme === 'dark' ? 'bg-gradient-to-br from-[#262626] to-[#393939]' : 'bg-gradient-to-br from-[#f4f4f4] to-[#e0e0e0]'}`} />
-                                        </div>
-                                        {[1, 2, 3].map(i => (
-                                            <div key={i} className="space-y-2">
-                                                <div className={`h-4 w-24 rounded-md animate-pulse ${theme === 'dark' ? 'bg-[#393939]' : 'bg-[#e0e0e0]'}`} />
-                                                <div className={`h-16 w-full rounded-2xl animate-pulse ${theme === 'dark' ? 'bg-[#262626]' : 'bg-[#f4f4f4]'}`} />
-                                            </div>
-                                        ))}
-                                        <div className="flex items-center justify-center gap-2 text-[#0f62fe] pt-2">
-                                            <Loader2 className="w-5 h-5 animate-spin" />
+                                        <div className="flex flex-col items-center justify-center gap-2 text-[#0f62fe] pt-2">
+                                            <Loader />
                                             <span className="text-sm font-medium">Evaluating full submission...</span>
                                         </div>
                                     </div>
@@ -419,7 +412,7 @@ export default function CodingSection({ assessmentId, section, theme, onComplete
                                         {/* Score Header */}
                                         <div className={`text-center p-6 rounded-3xl border border-dashed text-white shadow-xl relative overflow-hidden ${submitResults.score === 100 ? 'bg-gradient-to-br from-[#198038] to-[#42be65] border-[#42be65]' : submitResults.score > 0 ? 'bg-gradient-to-br from-[#b28600] to-[#f1c21b] border-[#f1c21b]' : 'bg-gradient-to-br from-[#da1e28] to-[#ff8389] border-[#fa4d56]'}`}>
                                             <div className="relative z-10">
-                                                <div className="text-6xl font-black mb-1">{submitResults.score}</div>
+                                                <div className="text-6xl font-Inter mb-1">{submitResults.score}</div>
                                                 <div className="text-sm font-medium opacity-90 uppercase tracking-widest">Score / 100</div>
                                             </div>
                                             <div className="absolute top-0 right-0 p-8 opacity-20">

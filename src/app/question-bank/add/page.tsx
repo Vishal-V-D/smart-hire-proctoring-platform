@@ -376,7 +376,7 @@ export default function AddQuestionPage() {
                                     <button
                                         onClick={() => bulkUploadRef.current?.click()}
                                         disabled={isUploading}
-                                        className="w-full py-4 px-6 bg-primary text-primary-foreground rounded-xl font-bold text-base hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                        className="w-full py-4 px-6 bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground rounded-xl font-bold text-base hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                     >
                                         {isUploading ? (
                                             <>
@@ -586,7 +586,7 @@ export default function AddQuestionPage() {
                                     <button
                                         onClick={handleSaveQuestion}
                                         disabled={!text.trim() || !division}
-                                        className="flex-1 py-3.5 px-6 bg-primary text-primary-foreground rounded-xl font-bold hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                        className="flex-1 py-3.5 px-6 bg-gradient-to-br from-indigo-600 to-violet-600 text-primary-foreground rounded-xl font-bold hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                     >
                                         <Save size={18} /> Save Question
                                     </button>

@@ -11,11 +11,10 @@ import {
     Shield,
     CheckCircle,
     Clock,
-    User,
     Monitor,
-    Loader2,
     Briefcase
 } from 'lucide-react';
+import Loader from '@/components/Loader';
 
 export default function CompanyInfo() {
     const auth = useContext(AuthContext);
@@ -40,8 +39,8 @@ export default function CompanyInfo() {
     if (loading) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[60vh]">
-                <Loader2 size={32} className="animate-spin text-primary mb-4" />
-                <p className="text-muted-foreground">Loading company details...</p>
+                <Loader />
+                <p className="text-muted-foreground mt-4">Loading company details...</p>
             </div>
         );
     }
@@ -71,9 +70,9 @@ export default function CompanyInfo() {
                     </div>
                     <div>
                         <div className="flex items-center gap-3 mb-2">
-                            <h1 className="text-3xl md:text-4xl font-black tracking-tight">{company.name}</h1>
+                            <h1 className="text-3xl md:text-4xl font-Inter tracking-tight">{company.name}</h1>
                             <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${company.status === 'APPROVED' ? 'bg-green-500/20 border-green-400/30 text-green-300' :
-                                    'bg-amber-500/20 border-amber-400/30 text-amber-300'
+                                'bg-amber-500/20 border-amber-400/30 text-amber-300'
                                 }`}>
                                 {company.status}
                             </span>

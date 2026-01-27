@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
-import { Upload, File, X, CheckCircle, Loader2 } from 'lucide-react';
+import { Upload, File, X, CheckCircle } from 'lucide-react';
+import Loader from '@/components/Loader';
 
 interface FileUploadProps {
     accept: string;
@@ -79,12 +80,12 @@ const FileUpload: React.FC<FileUploadProps> = ({
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={handleDrop}
                 className={`relative border-2 border-dashed rounded-xl p-6 transition-all ${dragActive
-                        ? 'border-primary bg-primary/5'
-                        : uploaded
-                            ? 'border-green-500 bg-green-500/5'
-                            : error
-                                ? 'border-destructive bg-destructive/5'
-                                : 'border-border hover:border-primary/50'
+                    ? 'border-primary bg-primary/5'
+                    : uploaded
+                        ? 'border-green-500 bg-green-500/5'
+                        : error
+                            ? 'border-destructive bg-destructive/5'
+                            : 'border-border hover:border-primary/50'
                     }`}
             >
                 {!file ? (
@@ -116,7 +117,11 @@ const FileUpload: React.FC<FileUploadProps> = ({
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
-                            {uploading && <Loader2 className="h-5 w-5 animate-spin text-primary" />}
+                            {uploading && (
+                                <div className="scale-50 h-5 w-12 flex items-center justify-center">
+                                    <Loader />
+                                </div>
+                            )}
                             {uploaded && <CheckCircle className="h-5 w-5 text-green-500" />}
                             {!uploading && (
                                 <button

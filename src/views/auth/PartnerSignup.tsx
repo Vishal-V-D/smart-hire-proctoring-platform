@@ -91,143 +91,153 @@ export default function PartnerSignup() {
     }
 
     const formSide = (
-        <div className="w-full max-w-md mx-auto animate-fade-in-slide-up">
-            <h1 className="text-2xl font-bold mb-1.5 text-theme-primary text-center">
-                Partner Registration
-            </h1>
-            <p className="text-theme-secondary text-center mb-5 text-sm">
-                Register your company. No password required yet.
-            </p>
+        <div className="w-full partner-signup-form mx-auto flex flex-col justify-center h-full text-xs">
+            <div className="text-center mb-4">
+                <h1 className="text-2xl font-bold text-foreground tracking-tight mb-1">
+                    Partner Registration
+                </h1>
+                <p className="text-muted-foreground text-xs">
+                    Join our network of 500+ enterprises. No credit card required.
+                </p>
+            </div>
 
-            <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-3.5">
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
 
-                {/* Company Details Section */}
-                <div className="space-y-2.5">
-                    <h3 className="text-xs font-bold text-theme-primary uppercase tracking-wider border-b border-theme pb-1.5">
-                        Company Details
+                {/* Section 1: Company Info */}
+                <div className="space-y-4">
+                    <h3 className="text-xs font-bold text-foreground/70 uppercase tracking-widest border-b border-border pb-2 mb-3 mt-2">
+                        Company Information
                     </h3>
 
-                    {/* Company Name & Website in a row */}
-                    <div className="grid grid-cols-2 gap-2.5">
-                        <div>
-                            <div className="relative">
-                                <FaBuilding className="absolute left-3.5 top-[14px] text-theme-secondary opacity-60" />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-3">
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-semibold text-foreground uppercase mb-2 block">Company Name</label>
+                            <div className="relative group">
+                                <FaBuilding className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" size={13} />
                                 <input
                                     type="text"
-                                    placeholder="Company Name"
+                                    placeholder="Acme Inc."
                                     {...register("companyName")}
-                                    className="w-full h-11 pl-10 pr-3 text-base border border-theme rounded-lg bg-theme-secondary text-theme-primary placeholder:text-theme-muted focus:outline-none focus:ring-2 focus:ring-[hsl(var(--color-accent))] focus:border-transparent transition-all"
+                                    className="w-full h-12 pl-12 pr-4 bg-background border border-border/60 hover:border-border rounded-lg text-foreground focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all font-medium text-xs shadow-sm"
                                 />
                             </div>
-                            {errors.companyName && <p className="text-[hsl(var(--color-error))] text-[10px] mt-0.5 leading-tight">{errors.companyName.message}</p>}
+                            {errors.companyName && <p className="text-destructive text-[10px] font-semibold mt-1">{errors.companyName.message}</p>}
                         </div>
 
-                        <div>
-                            <div className="relative">
-                                <FaGlobe className="absolute left-3.5 top-[14px] text-theme-secondary opacity-60" />
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-semibold text-foreground uppercase mb-2 block">
+                                Website URL <span className="text-muted-foreground ml-1 font-normal normal-case">(Optional)</span>
+                            </label>
+                            <div className="relative group">
+                                <FaGlobe className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" />
                                 <input
                                     type="url"
-                                    placeholder="Website URL (Optional)"
+                                    placeholder="https://acme.com"
                                     {...register("website")}
-                                    className="w-full h-11 pl-10 pr-3 text-base border border-theme rounded-lg bg-theme-secondary text-theme-primary placeholder:text-theme-muted focus:outline-none focus:ring-2 focus:ring-[hsl(var(--color-accent))] focus:border-transparent transition-all"
+                                    className="w-full h-12 pl-12 pr-4 bg-background border-2 border-border/60 hover:border-border rounded-xl text-foreground focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all font-medium text-sm shadow-sm"
                                 />
                             </div>
-                            {errors.website && <p className="text-[hsl(var(--color-error))] text-[10px] mt-0.5 leading-tight">{errors.website.message}</p>}
                         </div>
-                    </div>
 
-                    {/* Contact Email & Phone in a row */}
-                    <div className="grid grid-cols-2 gap-2.5">
-                        <div>
-                            <div className="relative">
-                                <FaEnvelope className="absolute left-3.5 top-[14px] text-theme-secondary opacity-60" />
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-semibold text-foreground uppercase mb-2 block">Contact Email</label>
+                            <div className="relative group">
+                                <FaEnvelope className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" />
                                 <input
                                     type="email"
-                                    placeholder="Contact Email"
+                                    placeholder="contact@acme.com"
                                     {...register("contactEmail")}
-                                    className="w-full h-11 pl-10 pr-3 text-base border border-theme rounded-lg bg-theme-secondary text-theme-primary placeholder:text-theme-muted focus:outline-none focus:ring-2 focus:ring-[hsl(var(--color-accent))] focus:border-transparent transition-all"
+                                    className="w-full h-12 pl-12 pr-4 bg-background border-2 border-border/60 hover:border-border rounded-xl text-foreground focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all font-medium text-sm shadow-sm"
                                 />
                             </div>
-                            {errors.contactEmail && <p className="text-[hsl(var(--color-error))] text-[10px] mt-0.5 leading-tight">{errors.contactEmail.message}</p>}
+                            {errors.contactEmail && <p className="text-destructive text-xs font-semibold mt-1">{errors.contactEmail.message}</p>}
                         </div>
 
-                        <div>
-                            <div className="relative">
-                                <FaPhone className="absolute left-3.5 top-[14px] text-theme-secondary opacity-60" />
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-semibold text-foreground uppercase mb-2 block">Phone Number</label>
+                            <div className="relative group">
+                                <FaPhone className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" />
                                 <input
                                     type="tel"
-                                    placeholder="Contact Phone"
+                                    placeholder="+1 (555) 000-0000"
                                     {...register("contactPhone")}
-                                    className="w-full h-11 pl-10 pr-3 text-base border border-theme rounded-lg bg-theme-secondary text-theme-primary placeholder:text-theme-muted focus:outline-none focus:ring-2 focus:ring-[hsl(var(--color-accent))] focus:border-transparent transition-all"
+                                    className="w-full h-12 pl-12 pr-4 bg-background border-2 border-border/60 hover:border-border rounded-xl text-foreground focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all font-medium text-sm shadow-sm"
                                 />
                             </div>
-                            {errors.contactPhone && <p className="text-[hsl(var(--color-error))] text-[10px] mt-0.5 leading-tight">{errors.contactPhone.message}</p>}
+                            {errors.contactPhone && <p className="text-destructive text-xs font-semibold mt-1">{errors.contactPhone.message}</p>}
                         </div>
-                    </div>
 
-                    {/* Details */}
-                    <div>
-                        <div className="relative">
-                            <FaInfoCircle className="absolute left-3.5 top-3.5 text-theme-secondary opacity-60" />
-                            <textarea
-                                placeholder="Tell us about your company... (Optional)"
-                                {...register("details")}
-                                className="w-full h-20 pl-10 pr-3 py-2.5 text-base border border-theme rounded-lg bg-theme-secondary text-theme-primary placeholder:text-theme-muted focus:outline-none focus:ring-2 focus:ring-[hsl(var(--color-accent))] focus:border-transparent transition-all resize-none"
-                            />
+                        {/* Details - Full Width */}
+                        <div className="col-span-1 md:col-span-2 space-y-1.5">
+                            <label className="text-xs font-semibold text-foreground uppercase mb-2 block">
+                                About the Company <span className="text-muted-foreground ml-1 font-normal normal-case">(Optional)</span>
+                            </label>
+                            <div className="relative group">
+                                <FaInfoCircle className="absolute left-4 top-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                                <textarea
+                                    placeholder="Tell us a bit about your company..."
+                                    {...register("details")}
+                                    className="w-full h-20 pl-12 pr-4 py-3 bg-background border-2 border-border/60 hover:border-border rounded-xl text-foreground focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all font-medium text-sm resize-none shadow-sm"
+                                />
+                            </div>
+                            {errors.details && <p className="text-destructive text-xs font-semibold mt-1">{errors.details.message}</p>}
                         </div>
-                        {errors.details && <p className="text-[hsl(var(--color-error))] text-[10px] mt-0.5 leading-tight">{errors.details.message}</p>}
                     </div>
                 </div>
 
-                {/* Admin Details Section */}
-                <div className="space-y-2.5">
-                    <h3 className="text-xs font-bold text-theme-primary uppercase tracking-wider border-b border-theme pb-1.5">
-                        Admin Account
+                {/* Separator Line */}
+                <hr className="border-t border-border/50" />
+
+                {/* Section 2: Admin Account */}
+                <div className="space-y-4">
+                    <h3 className="text-xs font-bold text-foreground/70 uppercase tracking-widest border-b border-border pb-2 mb-3">
+                        Administrator Account
                     </h3>
 
-                    {/* Admin Name & Email in a row */}
-                    <div className="grid grid-cols-2 gap-2.5">
-                        <div>
-                            <div className="relative">
-                                <FaUser className="absolute left-3.5 top-[14px] text-theme-secondary opacity-60" />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-semibold text-foreground uppercase mb-2 block">Admin Name</label>
+                            <div className="relative group">
+                                <FaUser className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" />
                                 <input
                                     type="text"
-                                    placeholder="Admin Name"
+                                    placeholder="John Doe"
                                     {...register("adminName")}
-                                    className="w-full h-11 pl-10 pr-3 text-base border border-theme rounded-lg bg-theme-secondary text-theme-primary placeholder:text-theme-muted focus:outline-none focus:ring-2 focus:ring-[hsl(var(--color-accent))] focus:border-transparent transition-all"
+                                    className="w-full h-12 pl-12 pr-4 bg-background border-2 border-border/60 hover:border-border rounded-xl text-foreground focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all font-medium text-sm shadow-sm"
                                 />
                             </div>
-                            {errors.adminName && <p className="text-[hsl(var(--color-error))] text-[10px] mt-0.5 leading-tight">{errors.adminName.message}</p>}
+                            {errors.adminName && <p className="text-destructive text-xs font-semibold mt-1">{errors.adminName.message}</p>}
                         </div>
 
-                        <div>
-                            <div className="relative">
-                                <FaEnvelope className="absolute left-3.5 top-[14px] text-theme-secondary opacity-60" />
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-semibold text-foreground uppercase mb-2 block">Admin Email</label>
+                            <div className="relative group">
+                                <FaEnvelope className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" />
                                 <input
                                     type="email"
-                                    placeholder="Admin Email"
+                                    placeholder="admin@acme.com"
                                     {...register("adminEmail")}
-                                    className="w-full h-11 pl-10 pr-3 text-base border border-theme rounded-lg bg-theme-secondary text-theme-primary placeholder:text-theme-muted focus:outline-none focus:ring-2 focus:ring-[hsl(var(--color-accent))] focus:border-transparent transition-all"
+                                    className="w-full h-12 pl-12 pr-4 bg-background border-2 border-border/60 hover:border-border rounded-xl text-foreground focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all font-medium text-sm shadow-sm"
                                 />
                             </div>
-                            {errors.adminEmail && <p className="text-[hsl(var(--color-error))] text-[10px] mt-0.5 leading-tight">{errors.adminEmail.message}</p>}
+                            {errors.adminEmail && <p className="text-destructive text-xs font-semibold mt-1">{errors.adminEmail.message}</p>}
                         </div>
                     </div>
                 </div>
 
-                <div className="pt-3">
+                <div className="pt-4">
                     <button
                         type="submit"
                         disabled={loading}
-                        className="button-theme w-full disabled:opacity-50 disabled:cursor-not-allowed py-3.5 text-base font-semibold tracking-wide uppercase transition-all duration-300 border-2 border-[hsl(var(--color-accent))] hover:shadow-lg hover:scale-[1.02] hover:border-[hsl(var(--color-accent))]/80 active:scale-[0.98]"
+                        className="w-full h-12 bg-gradient-to-br from-[#7F56D9] to-[#4F46E5] text-primary-foreground font-bold rounded-xl hover:opacity-90 transition-all shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm uppercase tracking-wide"
                     >
-                        {loading ? "Registering..." : "Submit Registration"}
+                        {loading ? "Registering..." : "Create Partner Account"}
                     </button>
-                    <p className="mt-3.5 text-center text-theme-secondary text-xs">
+                    <p className="mt-4 text-center text-muted-foreground text-md mb-2 font-medium">
                         Already a partner?{" "}
                         <Link
                             href="/login"
-                            className="text-[hsl(var(--color-accent))] font-medium hover:underline transition-colors"
+                            className="text-primary font-bold hover:underline transition-colors"
                         >
                             Sign in here
                         </Link>
@@ -238,54 +248,16 @@ export default function PartnerSignup() {
     );
 
     const partnershipContent = (
-        <div className="relative z-10 w-full h-full flex flex-col justify-center items-center text-center px-8">
-            <div className="w-16 h-16 bg-primary-foreground/10 rounded-2xl flex items-center justify-center mb-6 backdrop-blur-sm">
-                <FaBuilding className="text-4xl text-primary-foreground" />
+        <div className="relative z-10 w-full h-full flex flex-col justify-center items-center text-center px-4">
+            <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mb-6 backdrop-blur-md">
+                <FaGlobe className="text-3xl text-white" />
             </div>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-primary-foreground">
-                Partner With Us
+            <h2 className="text-2xl font-bold mb-3 text-white">
+                Global Impact
             </h2>
-            <p className="text-lg leading-relaxed max-w-md text-primary-foreground/90 mb-8">
-                Join our growing network of companies and unlock powerful hiring solutions.
+            <p className="text-sm leading-relaxed max-w-xs text-white/80">
+                Join our mission to democratize technical hiring worldwide.
             </p>
-
-            <div className="space-y-4 max-w-md w-full">
-                <div className="bg-primary-foreground/10 backdrop-blur-sm rounded-xl p-4 text-left border border-primary-foreground/20 hover:bg-primary-foreground/15 transition-all">
-                    <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 bg-primary-foreground/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <FaGlobe className="text-primary-foreground text-lg" />
-                        </div>
-                        <div>
-                            <h3 className="font-bold text-primary-foreground mb-1">Global Reach</h3>
-                            <p className="text-sm text-primary-foreground/80">Access top talent from around the world</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="bg-primary-foreground/10 backdrop-blur-sm rounded-xl p-4 text-left border border-primary-foreground/20 hover:bg-primary-foreground/15 transition-all">
-                    <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 bg-primary-foreground/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <FaCheckCircle className="text-primary-foreground text-lg" />
-                        </div>
-                        <div>
-                            <h3 className="font-bold text-primary-foreground mb-1">Dedicated Support</h3>
-                            <p className="text-sm text-primary-foreground/80">24/7 assistance for your hiring needs</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="bg-primary-foreground/10 backdrop-blur-sm rounded-xl p-4 text-left border border-primary-foreground/20 hover:bg-primary-foreground/15 transition-all">
-                    <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 bg-primary-foreground/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <FaInfoCircle className="text-primary-foreground text-lg" />
-                        </div>
-                        <div>
-                            <h3 className="font-bold text-primary-foreground mb-1">Advanced Tools</h3>
-                            <p className="text-sm text-primary-foreground/80">AI-powered proctoring and analytics</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div>
     );
 
@@ -294,6 +266,7 @@ export default function PartnerSignup() {
             isLogin={false}
             formSide={formSide}
             customMarketingContent={partnershipContent}
+            leftPanelWidth="md:w-[40%] lg:w-[40%]"
         />
     );
 }

@@ -42,6 +42,7 @@ export type CreateAssessmentData = {
         verifyFace: boolean;
     };
     sections: AssessmentSectionData[];
+    companyId?: string;
 };
 
 export type AssessmentSectionData = {
@@ -69,6 +70,7 @@ export type QuestionData = {
     codeStub?: string;
     problemId?: string; // For coding questions from problem bank
     marks: number;
+    negativeMarks?: number;
     orderIndex: number;
 };
 
